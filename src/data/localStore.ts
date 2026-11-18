@@ -8,6 +8,7 @@ import type {
   OrgSettings,
   Profile,
   ProjectAlias,
+  TaskTemplate,
   TimeSlot,
 } from '../domain/types'
 import type { DataStore } from './store'
@@ -24,6 +25,7 @@ interface DemoState {
   slots: TimeSlot[]
   leaves: LeaveRequest[]
   invitations: Invitation[]
+  templates: TaskTemplate[]
 }
 
 const uid = () => crypto.randomUUID()
@@ -69,6 +71,7 @@ function seed(): DemoState {
     slots: [],
     leaves: [],
     invitations: [],
+    templates: [],
   }
 }
 
@@ -78,7 +81,12 @@ export class LocalStore implements DataStore {
 
   constructor() {
     const raw = localStorage.getItem(KEY)
-    this.state = raw ? (JSON.parse(raw) as DemoState) : seed()
+    if (raw) {
+      const saved = JSON.parse(raw) as Partial<DemoState> & Omit<DemoState, 'templates'>
+      this.state = { ...saved, templates: saved.templates ?? [] } // demo data from older versions has no templates
+    } else {
+      this.state = seed()
+    }
     this.persist()
   }
 
@@ -207,9 +215,10 @@ export class LocalStore implements DataStore {
       }
     })
   }
-  async clearSlot(userId: string, date: string, slotIndex: number) {
+  async clearSlots(userId: string, date: string, slotIndexes: number[]) {
+    const drop = new Set(slotIndexes)
     this.mutate(
-      (s) => (s.slots = s.slots.filter((x) => !(x.user_id === userId && x.work_date === date && x.slot_index === slotIndex))),
+      (s) => (s.slots = s.slots.filter((x) => !(x.user_id === userId && x.work_date === date && drop.has(x.slot_index)))),
     )
   }
   async replaceDay(userId: string, date: string, slots: TimeSlot[]) {
@@ -217,6 +226,17 @@ export class LocalStore implements DataStore {
       s.slots = s.slots.filter((x) => !(x.user_id === userId && x.work_date === date))
       s.slots.push(...slots.map((x) => ({ ...x })))
     })
+  }
+
+  async listTemplates(userId: string) {
+    return this.state.templates.filter((t) => t.user_id === userId).map((t) => ({ ...t }))
+  }
+  async addTemplate(template: Omit<TaskTemplate, 'id'>) {
+    if (!template.label.trim() && !template.description.trim()) throw new Error('Template is empty')
+    this.mutate((s) => s.templates.push({ ...template, id: uid() }))
+  }
+  async deleteTemplate(id: string) {
+    this.mutate((s) => (s.templates = s.templates.filter((t) => t.id !== id)))
   }
 
   async listLeave(userId: string, from: string, to: string) {

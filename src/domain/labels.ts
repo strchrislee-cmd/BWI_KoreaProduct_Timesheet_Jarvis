@@ -1,4 +1,4 @@
-import { projectNameKey } from './projects.js'
+import { projectNameKey, shortProjectName } from './projects.js'
 import type { GroupProject, ProjectAlias, SlotKind } from './types.js'
 
 /** Labels from personal 30-min sheets that are not work (CONTEXT.md §4-C). */
@@ -15,7 +15,7 @@ export interface ResolvedLabel {
 
 /**
  * Resolve a free-text category label to a group project.
- * Order: non-work words → alias → exact project name/code → unmapped work.
+ * Order: non-work words → alias → project name / short name / code → unmapped work.
  */
 export function resolveLabel(
   label: string,
@@ -30,7 +30,12 @@ export function resolveLabel(
   const alias = aliases.find((a) => projectNameKey(a.alias) === key)
   if (alias) return { kind: 'work', group_project_id: alias.group_project_id }
 
-  const project = projects.find((p) => projectNameKey(p.name) === key || (p.code && p.code.toLowerCase() === key))
+  const project = projects.find(
+    (p) =>
+      projectNameKey(p.name) === key ||
+      projectNameKey(shortProjectName(p)) === key ||
+      (p.code !== null && p.code.toLowerCase() === key),
+  )
   if (project) return { kind: 'work', group_project_id: project.id }
 
   return { kind: 'work', group_project_id: null }

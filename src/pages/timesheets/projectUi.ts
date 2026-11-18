@@ -1,19 +1,21 @@
-import type { GroupProject, ProjectAlias, TimeSlot } from '../../domain/types'
+import { shortProjectName } from '../../domain/projects'
+import type { GroupProject, ProjectAlias, SlotKind, TimeSlot } from '../../domain/types'
 
 /** Shorter display for long group names ("00.Timelog--Leave(…)" → "Leave(…)"). */
-export function displayName(p: GroupProject): string {
-  return p.kind === 'timelog' ? p.name.replace(/^00\.?\s*Timelog\s*-+\s*/i, '') : p.name
-}
+export const displayName = (p: GroupProject): string => shortProjectName(p)
 
 /** Label stored on a slot when the user picks a project: first alias, else the display name. */
 export function labelFor(p: GroupProject, aliases: ProjectAlias[]): string {
-  return aliases.find((a) => a.group_project_id === p.id)?.alias ?? displayName(p).slice(0, 40)
+  return aliases.find((a) => a.group_project_id === p.id)?.alias ?? displayName(p)
 }
 
 /** Tailwind background class for a slot row / chip. */
 export function slotTone(slot: TimeSlot | undefined, project: GroupProject | undefined): string {
-  if (!slot) return ''
-  if (slot.kind === 'nonwork') return 'bg-cat-nonwork/60'
+  return slot ? categoryTone(slot.kind, project) : ''
+}
+
+export function categoryTone(kind: SlotKind, project: GroupProject | undefined): string {
+  if (kind === 'nonwork') return 'bg-cat-nonwork/60'
   if (!project) return 'bg-accent-soft'
   if (project.system_key === 'meeting') return 'bg-cat-meeting/50'
   if (project.system_key === 'general') return 'bg-cat-general/40'

@@ -102,6 +102,17 @@ export interface TimeSlot {
   focus: number | null // 0..3
 }
 
+/** A personal "repeated task" (Notion-style select option): category + task text. */
+export interface TaskTemplate {
+  id: string
+  user_id: string
+  kind: SlotKind
+  group_project_id: string | null
+  label: string
+  description: string
+  sort_order: number
+}
+
 export interface LeaveRequest {
   id: string
   user_id: string

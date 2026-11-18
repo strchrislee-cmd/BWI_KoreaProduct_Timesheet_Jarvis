@@ -8,6 +8,11 @@ export function parseProjectCode(name: string): string | null {
   return m ? m[1].toUpperCase() : null
 }
 
+/** Display name without the "00.Timelog--" prefix ("00.Timelog--Leave(…)" → "Leave(…)"). */
+export function shortProjectName(p: Pick<GroupProject, 'name' | 'kind'>): string {
+  return p.kind === 'timelog' ? p.name.replace(/^00\.?\s*Timelog\s*-+\s*/i, '') : p.name
+}
+
 export function classifyKind(name: string): 'project' | 'timelog' {
   return /^00\.?\s*timelog/i.test(name.trim()) ? 'timelog' : 'project'
 }

@@ -1,69 +1,17 @@
-import { CircleAlert, Sparkles, Upload } from 'lucide-react'
-import { useEffect, useMemo, useState, type ClipboardEvent } from 'react'
+import { CircleAlert, Plus, Upload, X } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useLocation } from 'react-router'
 import { Button, Card, ErrorNote, Loading, Pill, cx } from '../../components/ui'
 import { useStore, useUser } from '../../data/StoreContext'
-import { resolveLabel } from '../../domain/labels'
 import { isNewProject } from '../../domain/projects'
-import { SLOTS_PER_DAY, SLOT_HOURS, slotToTime, timeToSlot } from '../../domain/time'
-import type { GroupProject, TimeSlot } from '../../domain/types'
+import { SLOTS_PER_DAY, SLOT_HOURS, timeToSlot } from '../../domain/time'
+import type { TaskTemplate, TimeSlot } from '../../domain/types'
 import { useAsync } from '../../lib/hooks'
+import { DailyGrid, templateCategory, templateTone } from './grid/DailyGrid'
+import { applyTemplate, effectiveSlot, type CellChange, type GridContext } from './grid/gridModel'
 import { ImportWizard } from './ImportWizard'
-import { displayName, labelFor, slotTone } from './projectUi'
+import { displayName } from './projectUi'
 import { useTimesheets } from './TimesheetsLayout'
-
-const NONWORK_CHOICES = ['점심', '휴식', '퇴근']
-
-function slotValue(s: TimeSlot | undefined): string {
-  if (!s) return ''
-  if (s.kind === 'nonwork') return `nw:${s.label}`
-  return s.group_project_id ? `gp:${s.group_project_id}` : `um:${s.label}`
-}
-
-function CategorySelect({
-  slot,
-  projects,
-  disabled,
-  onChange,
-}: {
-  slot: TimeSlot | undefined
-  projects: GroupProject[]
-  disabled: boolean
-  onChange: (value: string) => void
-}) {
-  const usable = projects.filter((p) => p.status === 'active' || p.id === slot?.group_project_id)
-  const group = (kind: GroupProject['kind']) =>
-    usable
-      .filter((p) => p.kind === kind)
-      .map((p) => (
-        <option key={p.id} value={`gp:${p.id}`}>
-          {displayName(p)}
-        </option>
-      ))
-  const nonwork = slot?.kind === 'nonwork' && !NONWORK_CHOICES.includes(slot.label) ? [...NONWORK_CHOICES, slot.label] : NONWORK_CHOICES
-  return (
-    <select
-      aria-label="Category"
-      className="cell-input max-w-[260px] truncate"
-      value={slotValue(slot)}
-      disabled={disabled}
-      onChange={(e) => onChange(e.target.value)}
-    >
-      <option value="">—</option>
-      {slot && slot.kind === 'work' && !slot.group_project_id && <option value={`um:${slot.label}`}>⚠ {slot.label || '(no category)'}</option>}
-      <optgroup label="Projects">{group('project')}</optgroup>
-      <optgroup label="Timelog">{group('timelog')}</optgroup>
-      <optgroup label="General">{group('local_section')}</optgroup>
-      <optgroup label="Non-work">
-        {nonwork.map((l) => (
-          <option key={l} value={`nw:${l}`}>
-            {l}
-          </option>
-        ))}
-      </optgroup>
-    </select>
-  )
-}
 
 export function DailyLog() {
   const { store } = useStore()
@@ -73,19 +21,45 @@ export function DailyLog() {
   const canEdit = user.role !== 'viewer' && (engineer.id === user.id || user.role === 'admin')
 
   const q = useAsync(() => store.listSlots(engineer.id, date, date), [store, engineer.id, date])
+  const templatesQ = useAsync(() => store.listTemplates(user.id), [store, user.id])
+  const templates = templatesQ.data ?? []
   const [slots, setSlots] = useState<Map<number, TimeSlot>>(new Map())
   const [error, setError] = useState<Error | null>(null)
   const [showAll, setShowAll] = useState(false)
   const [importing, setImporting] = useState(false)
+  const [selection, setSelection] = useState<{ rows: number[]; active: number }>({ rows: [], active: 0 })
+  const undoStack = useRef<CellChange[][]>([])
 
   useEffect(() => {
     if (q.data) setSlots(new Map(q.data.map((s) => [s.slot_index, s])))
   }, [q.data])
+  useEffect(() => {
+    undoStack.current = []
+  }, [date, engineer.id])
 
   const byId = useMemo(() => new Map(projects.map((p) => [p.id, p])), [projects])
   const newProjects = projects.filter((p) => isNewProject(p, latestImport))
 
-  const indexes = useMemo(() => {
+  // Lunch (Settings → Work hours, default 12:00–13:00) shows as 점심 unless something else is saved.
+  const lunch = useMemo(() => {
+    const set = new Set<number>()
+    for (let i = timeToSlot(engineer.lunch_start); i < timeToSlot(engineer.lunch_end); i++) set.add(i)
+    return set
+  }, [engineer.lunch_start, engineer.lunch_end])
+
+  const ctx = useMemo<GridContext>(
+    () => ({
+      projects,
+      aliases,
+      byId,
+      saved: slots,
+      lunch,
+      blank: (index) => ({ user_id: engineer.id, work_date: date, slot_index: index, kind: 'work', group_project_id: null, label: '', description: '', focus: null }),
+    }),
+    [projects, aliases, byId, slots, lunch, engineer.id, date],
+  )
+
+  const rows = useMemo(() => {
     if (showAll) return Array.from({ length: SLOTS_PER_DAY }, (_, i) => i)
     const first = timeToSlot(engineer.work_start)
     const [eh, em] = engineer.work_end.split(':').map(Number)
@@ -95,27 +69,19 @@ export function DailyLog() {
     return [...set].sort((a, b) => a - b)
   }, [showAll, engineer.work_start, engineer.work_end, slots])
 
-  const blank = (index: number): TimeSlot => ({
-    user_id: engineer.id,
-    work_date: date,
-    slot_index: index,
-    kind: 'work',
-    group_project_id: null,
-    label: '',
-    description: '',
-    focus: null,
-  })
-
-  async function persist(changes: { index: number; slot: TimeSlot | null }[]) {
-    if (!changes.length) return
+  /** Save changes optimistically; `record` keeps the previous state for Ctrl+Z. */
+  async function persist(changes: CellChange[], record = true) {
+    const real = changes.filter((c) => c.slot || slots.has(c.index)) // deleting nothing is a no-op
+    if (!real.length) return
+    if (record) undoStack.current.push(real.map((c) => ({ index: c.index, slot: slots.get(c.index) ?? null })))
     setSlots((prev) => {
       const m = new Map(prev)
-      for (const c of changes) (c.slot ? m.set(c.index, c.slot) : m.delete(c.index))
+      for (const c of real) (c.slot ? m.set(c.index, c.slot) : m.delete(c.index))
       return m
     })
     try {
-      await store.saveSlots(changes.flatMap((c) => (c.slot ? [c.slot] : [])))
-      for (const c of changes) if (!c.slot) await store.clearSlot(engineer.id, date, c.index)
+      await store.saveSlots(real.flatMap((c) => (c.slot ? [c.slot] : [])))
+      await store.clearSlots(engineer.id, date, real.filter((c) => !c.slot).map((c) => c.index))
       setError(null)
     } catch (e) {
       setError(e as Error)
@@ -123,45 +89,42 @@ export function DailyLog() {
     }
   }
 
-  function setCategory(index: number, value: string) {
-    const cur = slots.get(index) ?? blank(index)
-    if (!value) return persist([{ index, slot: null }])
-    if (value.startsWith('gp:')) {
-      const p = byId.get(value.slice(3))!
-      return persist([{ index, slot: { ...cur, kind: 'work', group_project_id: p.id, label: labelFor(p, aliases) } }])
+  function undo() {
+    const last = undoStack.current.pop()
+    if (last) void persist(last, false)
+  }
+
+  const onSelectionChange = useCallback((rowsSel: number[], active: number) => setSelection({ rows: rowsSel, active }), [])
+
+  async function createTemplate(t: Pick<TaskTemplate, 'kind' | 'group_project_id' | 'label' | 'description'>) {
+    const exists = templates.some(
+      (x) => x.kind === t.kind && x.group_project_id === t.group_project_id && x.label === t.label && x.description === t.description,
+    )
+    if (exists) return
+    try {
+      await store.addTemplate({ ...t, user_id: user.id, sort_order: templates.length + 1 })
+      templatesQ.reload()
+    } catch (e) {
+      setError(e as Error)
     }
-    if (value.startsWith('nw:')) return persist([{ index, slot: { ...cur, kind: 'nonwork', group_project_id: null, label: value.slice(3) } }])
   }
 
-  function setDescription(index: number, text: string) {
-    const cur = slots.get(index)
-    if ((!cur && !text.trim()) || cur?.description === text) return
-    void persist([{ index, slot: { ...(cur ?? blank(index)), description: text } }])
+  function saveSelectedRowAsTemplate() {
+    const s = effectiveSlot(ctx, selection.active)
+    if (!s || (!s.description.trim() && !s.label.trim() && !s.group_project_id)) {
+      setError(new Error('선택한 행에 카테고리나 업무 내용이 없습니다.'))
+      return
+    }
+    void createTemplate({ kind: s.kind, group_project_id: s.group_project_id, label: s.label, description: s.description })
   }
 
-  function setFocus(index: number, value: string) {
-    const cur = slots.get(index)
-    if (cur) void persist([{ index, slot: { ...cur, focus: value === '' ? null : Number(value) } }])
-  }
-
-  /** Paste rows from Excel/Sheets: "description" or "category<TAB>description" per line. */
-  function handlePaste(index: number, e: ClipboardEvent<HTMLInputElement>) {
-    const text = e.clipboardData.getData('text/plain')
-    if (!text.includes('\n') && !text.includes('\t')) return
-    e.preventDefault()
-    const lines = text.replace(/\r/g, '').replace(/\n$/, '').split('\n')
-    const changes = lines.flatMap((line, i) => {
-      const idx = index + i
-      if (idx >= SLOTS_PER_DAY) return []
-      const cols = line.split('\t')
-      const label = cols.length >= 2 ? cols[0].trim() : null
-      const description = (cols.length >= 2 ? cols.slice(1).join(' ') : cols[0]).trim()
-      let next: TimeSlot = { ...(slots.get(idx) ?? blank(idx)), description }
-      const resolved = label ? resolveLabel(label, aliases, projects) : null
-      if (label !== null && resolved) next = { ...next, ...resolved, label }
-      return [{ index: idx, slot: next }]
-    })
-    void persist(changes)
+  async function deleteTemplate(id: string) {
+    try {
+      await store.deleteTemplate(id)
+      templatesQ.reload()
+    } catch (e) {
+      setError(e as Error)
+    }
   }
 
   async function mapLabel(label: string, groupProjectId: string) {
@@ -209,62 +172,19 @@ export function DailyLog() {
           <Loading />
         ) : (
           <div className="max-h-[70vh] overflow-auto">
-            <table className="sheet">
-              <thead>
-                <tr>
-                  <th className="w-16">Time</th>
-                  <th className="w-[260px]">Category</th>
-                  <th>Task</th>
-                  <th className="w-28">Focus</th>
-                </tr>
-              </thead>
-              <tbody>
-                {indexes.map((i) => {
-                  const s = slots.get(i)
-                  const p = s?.group_project_id ? byId.get(s.group_project_id) : undefined
-                  return (
-                    <tr key={`${date}-${i}`} className={slotTone(s, p)} data-slot={i}>
-                      <td className="font-semibold tabular-nums">{slotToTime(i)}</td>
-                      <td>
-                        <CategorySelect slot={s} projects={projects} disabled={!canEdit} onChange={(v) => void setCategory(i, v)} />
-                      </td>
-                      <td>
-                        <input
-                          aria-label={`Task ${slotToTime(i)}`}
-                          className="cell-input"
-                          defaultValue={s?.description ?? ''}
-                          key={`${s?.description ?? ''}`}
-                          disabled={!canEdit}
-                          placeholder={canEdit ? 'e.g. 개발 | 하우징 설계' : ''}
-                          onBlur={(e) => setDescription(i, e.target.value)}
-                          onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
-                          onPaste={(e) => handlePaste(i, e)}
-                        />
-                      </td>
-                      <td>
-                        <select
-                          aria-label="Focus"
-                          className="cell-input"
-                          value={s?.focus ?? ''}
-                          disabled={!canEdit || !s}
-                          onChange={(e) => setFocus(i, e.target.value)}
-                        >
-                          <option value="">–</option>
-                          {[0, 1, 2, 3].map((f) => (
-                            <option key={f} value={f}>
-                              {'●'.repeat(f) || '0'}
-                            </option>
-                          ))}
-                        </select>
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
+            <DailyGrid
+              key={`${engineer.id}-${date}`}
+              rows={rows}
+              ctx={ctx}
+              templates={templates}
+              readOnly={!canEdit}
+              onChange={(changes) => void persist(changes)}
+              onUndo={undo}
+              onCreateTemplate={(t) => void createTemplate(t)}
+              onSelectionChange={onSelectionChange}
+            />
           </div>
         )}
-        <p className="mt-2 text-xs text-muted">Tip: paste rows copied from Excel/Sheets into a Task cell — one line per 30 min, optionally "category⇥task".</p>
       </Card>
 
       <div className="flex flex-col gap-4">
@@ -283,6 +203,42 @@ export function DailyLog() {
                 </li>
               ))}
           </ul>
+        </Card>
+
+        <Card
+          title="반복 업무"
+          action={
+            canEdit && (
+              <Button variant="ghost" className="!px-2 !py-1 text-xs" onClick={saveSelectedRowAsTemplate}>
+                <Plus size={14} /> 선택한 행 저장
+              </Button>
+            )
+          }
+        >
+          {templates.length === 0 ? (
+            <p className="text-sm text-muted">
+              자주 하는 업무를 등록해 두세요. 행을 고르고 <strong>선택한 행 저장</strong>을 누르거나, Task 칸에 입력한 뒤 <strong>+ 반복 업무로 등록</strong>을 고르면 됩니다.
+            </p>
+          ) : (
+            <ul className="flex flex-wrap gap-2" data-testid="templates">
+              {templates.map((t) => (
+                <li key={t.id} className={cx('flex items-center rounded-full text-sm font-semibold', templateTone(t, ctx))}>
+                  <button
+                    className="max-w-[240px] truncate py-1 pl-3 pr-1 text-left"
+                    title={`${templateCategory(t, ctx)} · ${t.description}`}
+                    disabled={!canEdit}
+                    onClick={() => void persist(selection.rows.map((i) => ({ index: i, slot: applyTemplate(effectiveSlot(ctx, i), i, t, ctx) })))}
+                  >
+                    {t.description || t.label}
+                  </button>
+                  <button aria-label={`Delete template ${t.description || t.label}`} className="rounded-full p-1 pr-2 opacity-60 hover:opacity-100" onClick={() => void deleteTemplate(t.id)}>
+                    <X size={12} />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+          {templates.length > 0 && <p className="mt-2 text-xs text-muted">칩을 누르면 선택한 {selection.rows.length}개 행에 적용 · Task 칸 드롭다운에서도 선택</p>}
         </Card>
 
         {newProjects.length > 0 && (
@@ -328,10 +284,6 @@ export function DailyLog() {
             </ul>
           </Card>
         )}
-
-        <Card tone="sage" title={<span className={cx('flex items-center gap-2')}><Sparkles size={18} /> AI Assist</span>}>
-          <p className="text-sm text-muted">Mapping suggestions arrive in phase 2 (Settings → AI provider).</p>
-        </Card>
       </div>
 
       {importing && (

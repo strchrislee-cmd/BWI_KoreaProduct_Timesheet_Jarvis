@@ -9,6 +9,7 @@ import type {
   Profile,
   ProjectAlias,
   Role,
+  TaskTemplate,
   TimeSlot,
 } from '../domain/types'
 
@@ -39,8 +40,13 @@ export interface DataStore {
 
   listSlots(userId: string, from: string, to: string): Promise<TimeSlot[]>
   saveSlots(slots: TimeSlot[]): Promise<void>
-  clearSlot(userId: string, date: string, slotIndex: number): Promise<void>
+  clearSlots(userId: string, date: string, slotIndexes: number[]): Promise<void>
   replaceDay(userId: string, date: string, slots: TimeSlot[]): Promise<void>
+
+  /** The signed-in user's repeated tasks. */
+  listTemplates(userId: string): Promise<TaskTemplate[]>
+  addTemplate(template: Omit<TaskTemplate, 'id'>): Promise<void>
+  deleteTemplate(id: string): Promise<void>
 
   listLeave(userId: string, from: string, to: string): Promise<LeaveRequest[]>
   addLeave(leave: Omit<LeaveRequest, 'id'>): Promise<void>

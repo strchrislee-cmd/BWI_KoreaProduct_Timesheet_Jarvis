@@ -10,6 +10,7 @@ import type {
   Profile,
   ProjectAlias,
   Role,
+  TaskTemplate,
   TimeSlot,
 } from '../domain/types'
 import type { DataStore } from './store'
@@ -110,12 +111,30 @@ export class SupabaseStore implements DataStore {
     if (!slots.length) return
     must(await this.sb.from('time_slots').upsert(slots, { onConflict: 'user_id,work_date,slot_index' }))
   }
-  async clearSlot(userId: string, date: string, slotIndex: number) {
-    must(await this.sb.from('time_slots').delete().match({ user_id: userId, work_date: date, slot_index: slotIndex }))
+  async clearSlots(userId: string, date: string, slotIndexes: number[]) {
+    if (!slotIndexes.length) return
+    must(await this.sb.from('time_slots').delete().match({ user_id: userId, work_date: date }).in('slot_index', slotIndexes))
   }
   async replaceDay(userId: string, date: string, slots: TimeSlot[]) {
     must(await this.sb.from('time_slots').delete().match({ user_id: userId, work_date: date }))
     if (slots.length) must(await this.sb.from('time_slots').insert(slots))
+  }
+
+  async listTemplates(userId: string) {
+    return must<TaskTemplate[]>(
+      await this.sb
+        .from('task_templates')
+        .select('id, user_id, kind, group_project_id, label, description, sort_order')
+        .eq('user_id', userId)
+        .order('sort_order')
+        .order('created_at'),
+    )
+  }
+  async addTemplate(template: Omit<TaskTemplate, 'id'>) {
+    must(await this.sb.from('task_templates').insert(template))
+  }
+  async deleteTemplate(id: string) {
+    must(await this.sb.from('task_templates').delete().eq('id', id))
   }
 
   async listLeave(userId: string, from: string, to: string) {

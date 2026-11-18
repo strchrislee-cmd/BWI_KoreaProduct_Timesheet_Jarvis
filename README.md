@@ -9,7 +9,7 @@
 
 | 화면 | 기능 |
 |---|---|
-| **Daily Log** | 30분 그리드(카테고리, 업무, 몰입도) 자동 저장. Excel/Sheets에서 여러 행 붙여넣기(`업무` 또는 `카테고리⇥업무`). 신규 프로젝트 알림. 미매핑 카테고리를 그 자리에서 매핑 |
+| **Daily Log** | 엑셀/노션식 30분 그리드(카테고리, 업무, 몰입도), 자동 저장. 여러 칸 선택 후 한 번에 입력, 엑셀과 Ctrl+C/V 호환, 되돌리기. 카테고리·업무는 검색되는 드롭다운. **반복 업무** 등록 후 칩/드롭다운으로 적용. 점심시간은 기본 '점심'(변경 가능). 신규 프로젝트 알림, 미매핑 카테고리 즉시 매핑 |
 | **Import 마법사** | 개인 30분 로그 .xlsx(시트 1개 = 하루, `날짜` 행이나 시트명에서 날짜 인식) → 담당자 지정 → 로컬 카테고리 매핑 → 일괄 저장 |
 | **Weekly Plan** | 연속된 같은 업무를 1행으로 병합. 기존 주간계획 9개 열 + Group Project 열로 .xlsx 내보내기 |
 | **Group Timesheet** | 그룹 시트와 같은 행 구성(프로젝트 → 00.Timelog → 일반업무·회의… → Individual Sum). 일별 검증(목표시간, 미입력, 미매핑). .xlsx 내보내기 |
@@ -44,7 +44,7 @@ npm run dev
 
 ### 1. Supabase
 1. [supabase.com](https://supabase.com)에서 프로젝트를 만듭니다(리전: Seoul `ap-northeast-2` 권장).
-2. **SQL Editor**에서 `supabase/migrations/0001_init.sql`, `0002_seed.sql`을 **순서대로** 실행합니다. Supabase CLI를 쓴다면 `supabase db push`도 됩니다.
+2. **SQL Editor**에서 `supabase/migrations/`의 SQL 파일(`0001_init.sql` → `0002_seed.sql` → `0003_task_templates.sql`)을 **번호 순서대로** 실행합니다. Supabase CLI를 쓴다면 `supabase db push`도 됩니다. 이미 앞 파일을 실행했다면 새로 추가된 파일만 실행하면 됩니다.
 3. **Authentication → URL Configuration**: Site URL과 Redirect URL에 Vercel 주소를 넣습니다.
 4. **Authentication → SMTP Settings**: **외부 SMTP를 반드시 연결**하세요. 기본 발송기는 시간당 2통, 그것도 Supabase 팀 멤버에게만 보냅니다. 회사 SMTP나 Resend·Brevo 등을 쓰면 됩니다.
 5. (권장) Authentication → Providers → Email에서 공개 가입(Allow new users to sign up)을 끕니다. 이걸 켜 두더라도 DB 트리거가 **초대받지 않은 가입을 거부**합니다.
@@ -76,6 +76,21 @@ npm run dev
 4. 응답 예: `{"status":"imported","added":1,"added_names":["…"],"missing":0,"rows":28}`. 같은 파일이 다시 오면 `"duplicate"`가 반환되고 아무것도 바뀌지 않습니다.
 
 > Premium 라이선스가 없으면 Projects 화면에서 수동으로 올리면 됩니다. 신규 감지 로직은 똑같습니다. 회사 데이터를 Microsoft 365 밖으로 보내는 것은 사내 보안 정책을 먼저 확인하세요.
+
+## Daily Log 사용법
+
+| 동작 | 방법 |
+|---|---|
+| 여러 칸 선택 | 클릭 후 드래그, Shift+클릭, Shift+방향키. 시간 칸을 누르면 행 전체, Ctrl+A는 전체 |
+| 입력 | 칸을 고르고 바로 타이핑(한글 가능) → Enter. **여러 칸을 선택했으면 전부에 적용** |
+| 드롭다운 | Enter / F2 / 더블클릭 / ▾. 입력하면 걸러지고, ↑↓로 고른 뒤 Enter. 카테고리는 별칭으로도 검색 |
+| 복사·붙여넣기 | Ctrl+C / Ctrl+X / Ctrl+V. 엑셀·구글시트와 서로 주고받을 수 있음. 값 하나를 범위에 붙여넣으면 전체가 채워짐 |
+| 지우기 / 채우기 / 되돌리기 | Delete(또는 Backspace) / Ctrl+D(맨 윗행을 아래로) / Ctrl+Z |
+| 이동 | 방향키, Tab / Shift+Tab, Esc는 편집 취소 |
+| 반복 업무 | 행을 고르고 오른쪽 **반복 업무 → 선택한 행 저장**, 또는 Task 칸 드롭다운의 **+ 반복 업무로 등록**. 칩을 누르면 선택한 행에 카테고리+업무가 함께 들어감. 개인별로 저장 |
+| 점심 | Settings의 점심시간(기본 12:00–13:00)은 '점심 (기본)'으로 표시됨. 다른 값을 넣으면 그 값이 우선하고, 지우면 다시 점심 |
+
+Mac에서는 Ctrl 대신 ⌘를 씁니다.
 
 ## 권한
 

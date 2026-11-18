@@ -109,3 +109,23 @@ select pg_temp.login('');
 select pg_temp.check(
   (select apply_master_import('m3.xlsx', 'ingest', 'hash3', '[{"name":"2041--Utility Work Lamp Series","code":"2041","kind":"project"}]'::jsonb) ->> 'status') = 'imported',
   'service role can import');
+
+-- ── Repeated-task templates (0003) ───────────────────────────────────────────
+set role authenticated;
+select pg_temp.login('00000000-0000-0000-0000-00000000000c');
+insert into task_templates (user_id, group_project_id, label, description)
+  select '00000000-0000-0000-0000-00000000000c', id, '회의', 'INT | Daily_Scrum' from group_projects where system_key = 'meeting';
+select pg_temp.check((select count(*) from task_templates) = 1, 'member creates own template');
+select pg_temp.expect_error($$insert into task_templates (user_id, description) values ('00000000-0000-0000-0000-00000000000a', 'x')$$, 'member cannot create templates for others');
+select pg_temp.expect_error($$insert into task_templates (user_id) values ('00000000-0000-0000-0000-00000000000c')$$, 'empty template rejected');
+
+select pg_temp.login('00000000-0000-0000-0000-00000000000a');
+select pg_temp.check((select count(*) from task_templates) = 0, 'templates are private (even from admins)');
+select pg_temp.check(pg_temp.affected($$delete from task_templates$$) = 0, 'others cannot delete your templates');
+
+select pg_temp.login('00000000-0000-0000-0000-00000000000d');
+select pg_temp.expect_error($$insert into task_templates (user_id, description) values ('00000000-0000-0000-0000-00000000000d', 'x')$$, 'viewer cannot create templates');
+
+select pg_temp.login('00000000-0000-0000-0000-00000000000c');
+select pg_temp.check(pg_temp.affected($$delete from task_templates$$) = 1, 'member deletes own template');
+reset role;
