@@ -1,0 +1,80 @@
+{
+  "tool": "Higgsfield MCP (generate_image / generate_image_batch)",
+  "generated_at": "2026-11-17",
+  "model": "gpt_image_2_6",
+  "params": {
+    "quality": "medium",
+    "resolution": "1k",
+    "aspect_ratio": "16:9",
+    "output": "1344x752 PNG"
+  },
+  "cost_credits": {
+    "per_image": 0.5,
+    "total": 5.0,
+    "images": 10
+  },
+  "repo_copy": "PNG -> JPEG q82 (screens/*.jpg), same 1344x752",
+  "method": "00 is the style master (text-only prompt). 01-09 pass job 00 as medias[].role=image_references so the design system stays consistent. No user screenshot was uploaded; all names/projects are fictional placeholders.",
+  "screens": [
+    {
+      "file": "00_timesheets_daily_log.jpg",
+      "job_id": "7c29e3a2-c4a0-45f7-a661-14b079b4079e",
+      "image_reference_job_id": null,
+      "prompt": "Flat UI design screenshot of a desktop web app called \"JARVIS\" (an internal groupware assistant), bento grid style, no device frame, no perspective, straight-on 16:9.\n\nVISUAL STYLE: warm off-white canvas (#F4F1EA), rounded 24px cards in white and soft sage (#DCE5DA) with subtle shadows, deep forest green primary (#1F4D3A), vivid orange accent (#F26B2A) used only for alerts, charcoal text, clean geometric sans-serif, big bold numerals, pill-shaped tabs and buttons, generous spacing, calm premium SaaS look.\n\nLAYOUT:\n- Far-left slim vertical navigation rail (white, rounded): small dark-green logo square with letter \"J\" at top, then icon+label items \"Home\", \"Timesheets\" (active, dark green pill), spacer, then \"Admin\" (shield icon) and \"Settings\" (gear icon) near the bottom, round user avatar at the very bottom.\n- Top header: page title \"Timesheets\", date chip \"Mon 16 Nov 2026 · W47\", pill tab bar: \"Daily Log\" (active), \"Weekly Plan\", \"Group Timesheet\", \"Projects\", \"Leave\". Right side buttons: \"Import .xlsx\" (outline) and \"Export .xlsx\" (dark green).\n- Big left card (60% width) titled \"30-min Log\": spreadsheet-like grid with rows 07:30, 08:00, 08:30, 09:00, 09:30, 10:00, 10:30, 11:00, 11:30, 12:00, 12:30, 13:00. Columns: Time | Category | Task | Focus. Category cells are small colored pills: \"General\" (blue), \"Meeting\" (yellow), \"Work Lamp\" (light blue), \"Lunch\" (grey). Task text like \"Email & admin\", \"Daily scrum\", \"Dev | Work lamp housing\". Focus column shows 3 small dots.\n- Right column of stacked bento cards:\n  1) \"Today\" card: huge numeral \"8h 30m\" with a small donut chart (green, blue, yellow, light blue segments) and legend.\n  2) Orange alert card: \"2 new group projects detected\" with two rows \"P-2071 Marine Flood Light\" and \"P-2078 Trail Beacon Kit\" and a white pill button \"Map now\".\n  3) Sage card \"AI Assist\": sparkle icon, text \"Map local alias 'Work Lamp' → P-2041 Utility Work Lamp?\" with buttons \"Accept\" and \"Edit\".\n\nCrisp legible English text, realistic product UI, low clutter."
+    },
+    {
+      "file": "01_login.jpg",
+      "job_id": "9f261194-4ee1-4e82-b652-aa501f738ad9",
+      "image_reference_job_id": "7c29e3a2-c4a0-45f7-a661-14b079b4079e",
+      "prompt": "Use the reference image strictly as the visual design system (same warm off-white canvas, forest green #1F4D3A, sage cards, orange accent, rounded 24px cards, same typography and pill buttons). Do NOT copy its content. Create a NEW flat UI screen, no device frame, 16:9: the LOGIN page of the web app \"JARVIS – Internal Groupware Assistant\".\nLeft 55%: decorative bento collage of soft rounded tiles (a dark green tile with big white \"J\" logo and tagline \"Your timesheet, on autopilot.\", a sage tile with a small donut chart, a white tile with a mini 30-minute grid, an orange tile reading \"New project detected\").\nRight 45%: white rounded card with heading \"Sign in\", subtext \"Invite-only workspace. Use your work email.\", an email input with placeholder \"name@company.com\", a large dark green pill button \"Send magic link\", divider \"or\", two outline pill buttons \"Continue with Microsoft\" and \"Continue with Google\", small footer text \"Got an invite? Open the link in your email to activate your account.\" Crisp legible English text."
+    },
+    {
+      "file": "02_home_empty.jpg",
+      "job_id": "baf537c4-9159-4cd7-bd99-b4309be946c3",
+      "image_reference_job_id": "7c29e3a2-c4a0-45f7-a661-14b079b4079e",
+      "prompt": "Use the reference image strictly as the visual design system (same left navigation rail with JARVIS logo, Home, Timesheets, Admin, Settings, avatar \"Jane Park\"; same colors, rounded cards, typography). Create a NEW flat UI screen, no device frame, 16:9: the HOME page, in an intentionally EMPTY wireframe state because dashboard widgets are not decided yet.\nNav rail: \"Home\" is active (dark green pill).\nHeader: small text \"Welcome back,\" and big title \"Home\", pill tabs \"This week\", \"This month\" (disabled look).\nBody: an asymmetric bento grid of 6 empty placeholder cards with dashed light-grey borders and pale fill: one large 2x2 card, one wide 2x1 card, three 1x1 cards and one tall 1x2 card. Each placeholder shows only a faint plus icon and small grey label \"Widget slot – TBD\". The largest card has centered text \"Dashboard widgets will be defined in a later phase\". No charts, no numbers, no real data. Calm, minimal, crisp legible English text."
+    },
+    {
+      "file": "03_timesheets_weekly_plan.jpg",
+      "job_id": "ec6918da-6cd8-4936-bc0c-91ad014f15cb",
+      "image_reference_job_id": "7c29e3a2-c4a0-45f7-a661-14b079b4079e",
+      "prompt": "Use the reference image strictly as the visual design system and keep the SAME layout chrome (left nav rail with Timesheets active, page title \"Timesheets\", date chip, pill tab bar, Import/Export buttons). Create a NEW flat UI screen, no device frame, 16:9, where the tab \"Weekly Plan\" is active.\nTop-left small sage badge: \"Auto-generated from 30-min log\". Filter chips: \"W47\", \"Engineer: Jane Park\", \"All projects\".\nMain wide card titled \"Weekly Task Plan\": spreadsheet table with columns Week | Local Project | Group Project | Work | Item | Hours | Received | Due | Est. Rows: \"47 | General | General work | Other | Dev | Email & admin | 1.5 | 11-16 | 11-16 | 1.5\", \"47 | General | Meeting | Meeting | INT | Daily scrum | 0.5\", \"47 | Work Lamp | P-2041 Utility Work Lamp | Other | Dev | Housing design | 4.5\", \"47 | LED Bar 2nd | P-2033 LED Bar Redesign | Other | Dev | Lens review | 2.0\", \"47 | General | Meeting | Meeting | INT | Weekly quality review | 1.0\". Group Project cells shown as small green pills; one row has an orange pill \"Unmapped\".\nRight narrow column: card \"This week 38.5h\" with a small 5-bar chart Mon-Fri; card \"Top projects\" with 3 horizontal bars. Crisp legible English text."
+    },
+    {
+      "file": "04_timesheets_group_timesheet.jpg",
+      "job_id": "d15b530b-a348-43ce-8d27-b34997930396",
+      "image_reference_job_id": "7c29e3a2-c4a0-45f7-a661-14b079b4079e",
+      "prompt": "Use the reference image strictly as the visual design system and keep the SAME layout chrome (left nav rail with Timesheets active, page title \"Timesheets\", date chip, pill tab bar, Import/Export buttons). Create a NEW flat UI screen, no device frame, 16:9, where the tab \"Group Timesheet\" is active.\nToggle pill: \"By day\" (active) / \"By engineer\". \nMain wide card titled \"Group format preview · Jane Park\": a dense spreadsheet matrix. First column \"No.\", second column \"Group Project\" with rows: \"P-2001 Line Andon System\", \"P-2033 LED Bar Redesign\", \"P-2041 Utility Work Lamp\", \"P-2058 Off-road Light Kit\", \"P-2071 Marine Flood Light\" (this row has a small orange \"NEW\" tag), then rows with yellow and amber background bands: \"00.Timelog – Change Requests\", \"00.Timelog – Leave\", \"00.Timelog – Quality issue & testing\", \"00.Timelog – Training & Self Development\", then light green rows \"General work\", \"Meetings\", \"Support\". Columns Mon 16, Tue 17, Wed 18, Thu 19, Fri 20, Total with numbers like 2.00, 1.50, 4.50. Bottom row \"Daily sum\" 8.00 8.00 8.00 8.00 8.00 40.00.\nRight narrow column: card \"Validation\" with checklist \"Daily total = 8.0h\" (green check), \"All hours mapped\" (orange warning: \"1.5h unmapped\"), and a dark green pill button \"Export group .xlsx\". Crisp legible English text."
+    },
+    {
+      "file": "05_timesheets_projects_mapping.jpg",
+      "job_id": "bc11960a-9ba4-4d1f-af38-905156b0e73e",
+      "image_reference_job_id": "7c29e3a2-c4a0-45f7-a661-14b079b4079e",
+      "prompt": "Use the reference image strictly as the visual design system and keep the SAME layout chrome (left nav rail with Timesheets active, page title \"Timesheets\", date chip, pill tab bar). Create a NEW flat UI screen, no device frame, 16:9, where the tab \"Projects\" is active: the project master list and alias mapping.\nTop row of bento cards: (1) white card with dashed drop zone \"Drop group master sheet (.xlsx exported from SharePoint)\" and small text \"Last import: 14 Nov 2026 by Admin\"; (2) orange card big numeral \"3\" with label \"New since last import\" and button \"Review\"; (3) sage card \"Sync source\" showing \"Manual upload\" active and \"Microsoft 365 (needs IT approval)\" greyed out.\nMain card titled \"Project mapping\": table columns Group Project | Local aliases | Status | Last logged. Rows: \"P-2033 LED Bar Redesign | LED Bar 2nd, Bar redesign | Active | Today\", \"P-2041 Utility Work Lamp | Work Lamp | Active | Today\", \"P-2058 Off-road Light Kit | – | Active | 3 days ago\", \"P-2071 Marine Flood Light | + Add alias | NEW (orange pill) | Never\", \"P-2078 Trail Beacon Kit | + Add alias | NEW (orange pill) | Never\". \nRight side card \"AI mapping suggestions\" with sparkle icon: \"'Flood lamp' → P-2071 Marine Flood Light  92%\" with Accept button, \"'Beacon' → P-2078 Trail Beacon Kit  88%\" with Accept button. Crisp legible English text."
+    },
+    {
+      "file": "06_timesheets_leave_calendar.jpg",
+      "job_id": "2cc422dc-c64a-4d2a-aae3-0342e87f379b",
+      "image_reference_job_id": "7c29e3a2-c4a0-45f7-a661-14b079b4079e",
+      "prompt": "Use the reference image strictly as the visual design system and keep the SAME layout chrome (left nav rail with Timesheets active, page title \"Timesheets\", pill tab bar, buttons). Create a NEW flat UI screen, no device frame, 16:9, where the tab \"Leave\" is active: a leave calendar.\nMain large card: month calendar \"November 2026\" (Mon-Sun grid) with rounded event bars: \"Annual leave\" (forest green) on Nov 9, \"Half-day AM\" (sage) on Nov 19, \"Company leave\" (grey) on Nov 26, \"Business trip\" (blue) on Nov 23-24. Today Nov 17 highlighted with a dark green circle. Small \"<\" \">\" month arrows.\nRight column: (1) white card \"Request leave\" form: Type dropdown \"Annual leave\", Date range \"27 Nov – 27 Nov\", Hours \"8.0\", Note field, dark green pill button \"Submit\"; small helper text \"Auto-fills 00.Timelog – Leave in your group timesheet\". (2) sage card \"Annual leave balance\" with big numeral \"11.5 / 15 days\" and a thin progress bar. Crisp legible English text."
+    },
+    {
+      "file": "07_settings.jpg",
+      "job_id": "900d9db4-4866-4276-a5b9-02b91ab8509e",
+      "image_reference_job_id": "7c29e3a2-c4a0-45f7-a661-14b079b4079e",
+      "prompt": "Use the reference image strictly as the visual design system (same left nav rail, colors, rounded cards, typography). Create a NEW flat UI screen, no device frame, 16:9: the SETTINGS page. Nav rail: \"Settings\" is active (dark green pill). Big title \"Settings\".\nBento grid of cards:\n(1) \"Profile\": avatar, name \"Jane Park\", email \"jane.park@company.com\", Engineer code \"JP\", Time zone \"Asia/Seoul\".\n(2) \"Work hours\": Start 07:30, End 16:30, Lunch 12:00–13:00, Slot size \"30 min\".\n(3) \"AI provider\" (sage card): Provider \"Claude API\", API key field masked \"sk-ant-••••••••\", Model dropdown, toggle \"Enable AI mapping suggestions\" ON, small meter \"Tokens this month 182k / 1M\".\n(4) \"Integrations\": rows \"Excel / Google Sheets (.xlsx)\" status \"Active\" green, \"Microsoft 365 SharePoint\" status \"Needs IT approval\" orange, \"Power Automate webhook\" status \"Not set\" grey.\n(5) \"Excel template style\": three small spreadsheet thumbnails labeled \"Compact\", \"Detailed\", \"Project-first\" with \"Detailed\" selected, and an outline pill button \"Download template .xlsx\". Crisp legible English text."
+    },
+    {
+      "file": "08_admin_users.jpg",
+      "job_id": "3e78ede9-0d16-49bf-a19e-b9b08c5d3bd5",
+      "image_reference_job_id": "7c29e3a2-c4a0-45f7-a661-14b079b4079e",
+      "prompt": "Use the reference image strictly as the visual design system (same left nav rail, colors, rounded cards, typography). Create a NEW flat UI screen, no device frame, 16:9: the ADMIN page for user management. Nav rail: \"Admin\" is active (dark green pill). Title \"Admin\", pill tabs \"Users\" (active), \"Project master\", \"Audit log\". Right button: dark green pill \"+ Invite user\".\nTop row of small bento stat cards: \"Members 11\", \"Pending invites 2\" (orange accent), \"Admins 2\".\nMain card \"Users\": table columns Name | Email | Role | Status | Last active. Rows with initial avatars: \"Jane Park | jane.park@company.com | Admin | Active | Today\", \"Min Seo | min.seo@company.com | Member | Active | Today\", \"Alex Kim | alex.kim@company.com | Member | Active | Yesterday\", \"Sam Lee | sam.lee@company.com | Viewer | Invited (orange pill) | –\", \"Dana Choi | dana.choi@company.com | Member | Invited (orange pill) | –\". Role cells are dropdown pills.\nOverlapping on the right: a floating white modal card \"Invite user\" with Email input \"new.member@company.com\", Role select \"Member\", checkbox \"Can export group timesheet\", dark green pill button \"Send invite\". Crisp legible English text."
+    },
+    {
+      "file": "09_import_convert_wizard.jpg",
+      "job_id": "fb206481-9639-4971-a829-3d9496f4b2a9",
+      "image_reference_job_id": "7c29e3a2-c4a0-45f7-a661-14b079b4079e",
+      "prompt": "Use the reference image strictly as the visual design system. Create a NEW flat UI screen, no device frame, 16:9: the Timesheets Daily Log page dimmed in the background with a large centered white rounded modal \"Import & convert spreadsheet\".\nModal top: 4-step progress pills \"1 Upload\" (done, green check), \"2 Detect format\" (done), \"3 Assign engineer\" (active, dark green), \"4 Preview & export\".\nModal body two columns: Left: file chip \"daily_log_nov.xlsx · Sheet 'Dec16'\", detected info list \"Format: 30-min slot log\", \"Rows: 48 slots / day\", \"Categories found: 9\", \"Unknown categories: 2\" (orange). Right: \"Assign to engineer\" dropdown showing \"Jane Park (JP)\", then a small mapping table \"Local category → Group project\": \"Work Lamp → P-2041 Utility Work Lamp\", \"LED Bar → P-2033 LED Bar Redesign\", \"Flood → ? (orange, AI suggestion: P-2071 Marine Flood Light)\".\nModal footer: outline button \"Back\", dark green pill button \"Generate timesheet & weekly plan\". Crisp legible English text."
+    }
+  ]
+}
