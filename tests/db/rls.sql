@@ -129,3 +129,23 @@ select pg_temp.expect_error($$insert into task_templates (user_id, description) 
 select pg_temp.login('00000000-0000-0000-0000-00000000000c');
 select pg_temp.check(pg_temp.affected($$delete from task_templates$$) = 1, 'member deletes own template');
 reset role;
+
+-- ── Work days & colors (0004) ────────────────────────────────────────────────
+set role authenticated;
+select pg_temp.login('00000000-0000-0000-0000-00000000000c');
+insert into work_days (user_id, work_date, start_time, end_time) values ('00000000-0000-0000-0000-00000000000c', '2026-11-16', '08:00', '17:00');
+select pg_temp.check(pg_temp.affected($$update work_days set end_time = '18:30' where work_date = '2026-11-16'$$) = 1, 'member extends own end time');
+select pg_temp.expect_error($$insert into work_days (user_id, work_date, start_time, end_time) values ('00000000-0000-0000-0000-00000000000c', '2026-11-17', '09:00', '08:00')$$, 'end before start rejected');
+select pg_temp.expect_error($$insert into work_days (user_id, work_date, start_time, end_time) values ('00000000-0000-0000-0000-00000000000c', '2026-11-17', '9:00', '18:00')$$, 'time must be HH:MM');
+select pg_temp.expect_error($$insert into work_days (user_id, work_date, start_time, end_time) values ('00000000-0000-0000-0000-00000000000a', '2026-11-16', '08:00', '17:00')$$, 'member cannot set others'' work hours');
+insert into task_templates (user_id, description, color) values ('00000000-0000-0000-0000-00000000000c', '색상 테스트', '#1f4d3a');
+select pg_temp.expect_error($$insert into task_templates (user_id, description, color) values ('00000000-0000-0000-0000-00000000000c', 'x', 'red')$$, 'template color must be #RRGGBB');
+select pg_temp.check(pg_temp.affected($$update profiles set preferences = '{"palette":["#123456"],"categoryColors":{"nonwork":"#cccccc"}}' where id = '00000000-0000-0000-0000-00000000000c'$$) = 1, 'member saves own color preferences');
+
+select pg_temp.login('00000000-0000-0000-0000-00000000000d');
+select pg_temp.check((select count(*) from work_days) = 1, 'viewer reads work hours');
+select pg_temp.expect_error($$insert into work_days (user_id, work_date, start_time, end_time) values ('00000000-0000-0000-0000-00000000000d', '2026-11-16', '08:00', '17:00')$$, 'viewer cannot set work hours');
+
+select pg_temp.login('00000000-0000-0000-0000-00000000000a');
+select pg_temp.check(pg_temp.affected($$update work_days set start_time = '07:30' where user_id = '00000000-0000-0000-0000-00000000000c'$$) = 1, 'admin can fix others'' work hours');
+reset role;

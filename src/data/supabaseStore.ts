@@ -12,6 +12,7 @@ import type {
   Role,
   TaskTemplate,
   TimeSlot,
+  WorkDay,
 } from '../domain/types'
 import type { DataStore } from './store'
 
@@ -120,11 +121,20 @@ export class SupabaseStore implements DataStore {
     if (slots.length) must(await this.sb.from('time_slots').insert(slots))
   }
 
+  async getWorkDay(userId: string, date: string) {
+    return must<WorkDay | null>(
+      await this.sb.from('work_days').select('user_id, work_date, start_time, end_time').match({ user_id: userId, work_date: date }).maybeSingle(),
+    )
+  }
+  async saveWorkDay(day: WorkDay) {
+    must(await this.sb.from('work_days').upsert(day, { onConflict: 'user_id,work_date' }))
+  }
+
   async listTemplates(userId: string) {
     return must<TaskTemplate[]>(
       await this.sb
         .from('task_templates')
-        .select('id, user_id, kind, group_project_id, label, description, sort_order')
+        .select('id, user_id, kind, group_project_id, label, description, sort_order, color')
         .eq('user_id', userId)
         .order('sort_order')
         .order('created_at'),
@@ -132,6 +142,9 @@ export class SupabaseStore implements DataStore {
   }
   async addTemplate(template: Omit<TaskTemplate, 'id'>) {
     must(await this.sb.from('task_templates').insert(template))
+  }
+  async updateTemplate(id: string, patch: Pick<TaskTemplate, 'color'>) {
+    must(await this.sb.from('task_templates').update(patch).eq('id', id))
   }
   async deleteTemplate(id: string) {
     must(await this.sb.from('task_templates').delete().eq('id', id))

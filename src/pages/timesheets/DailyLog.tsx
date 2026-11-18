@@ -1,17 +1,21 @@
 import { CircleAlert, Plus, Upload, X } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useLocation } from 'react-router'
-import { Button, Card, ErrorNote, Loading, Pill, cx } from '../../components/ui'
+import { ColorPicker, Swatch } from '../../components/ColorPicker'
+import { TimeRangePicker } from '../../components/TimeRangePicker'
+import { Button, Card, ErrorNote, Loading, Pill } from '../../components/ui'
 import { useStore, useUser } from '../../data/StoreContext'
 import { isNewProject } from '../../domain/projects'
 import { SLOTS_PER_DAY, SLOT_HOURS, timeToSlot } from '../../domain/time'
 import type { TaskTemplate, TimeSlot } from '../../domain/types'
 import { useAsync } from '../../lib/hooks'
-import { DailyGrid, templateCategory, templateTone } from './grid/DailyGrid'
+import { categoryColor, chipBg, templateColor } from './colors'
+import { DailyGrid, templateCategory, type GridColors } from './grid/DailyGrid'
 import { applyTemplate, effectiveSlot, type CellChange, type GridContext } from './grid/gridModel'
 import { ImportWizard } from './ImportWizard'
 import { displayName } from './projectUi'
 import { useTimesheets } from './TimesheetsLayout'
+import { useColorPrefs } from './useColorPrefs'
 
 export function DailyLog() {
   const { store } = useStore()
@@ -28,7 +32,31 @@ export function DailyLog() {
   const [showAll, setShowAll] = useState(false)
   const [importing, setImporting] = useState(false)
   const [selection, setSelection] = useState<{ rows: number[]; active: number }>({ rows: [], active: 0 })
+  const [templateColorFor, setTemplateColorFor] = useState<string | null>(null)
   const undoStack = useRef<CellChange[][]>([])
+  const colorPrefs = useColorPrefs()
+  const { prefs } = colorPrefs
+
+  // Working hours of this day: saved per day, else the profile default (Settings → Work hours).
+  const workDayQ = useAsync(() => store.getWorkDay(engineer.id, date), [store, engineer.id, date])
+  const [hoursEdit, setHoursEdit] = useState<{ key: string; start: string; end: string } | null>(null)
+  const dayKey = `${engineer.id}-${date}`
+  const hours =
+    hoursEdit?.key === dayKey
+      ? hoursEdit
+      : workDayQ.data
+        ? { start: workDayQ.data.start_time, end: workDayQ.data.end_time }
+        : { start: engineer.work_start, end: engineer.work_end }
+
+  async function changeHours(range: { start: string; end: string }) {
+    setHoursEdit({ key: dayKey, ...range })
+    try {
+      await store.saveWorkDay({ user_id: engineer.id, work_date: date, start_time: range.start, end_time: range.end })
+      setError(null)
+    } catch (e) {
+      setError(e as Error)
+    }
+  }
 
   useEffect(() => {
     if (q.data) setSlots(new Map(q.data.map((s) => [s.slot_index, s])))
@@ -55,19 +83,29 @@ export function DailyLog() {
       saved: slots,
       lunch,
       blank: (index) => ({ user_id: engineer.id, work_date: date, slot_index: index, kind: 'work', group_project_id: null, label: '', description: '', focus: null }),
+      color: (kind, projectId) => categoryColor(kind, projectId ? byId.get(projectId) : undefined, prefs),
     }),
-    [projects, aliases, byId, slots, lunch, engineer.id, date],
+    [projects, aliases, byId, slots, lunch, engineer.id, date, prefs],
   )
+
+  const colorOfTemplate = (t: TaskTemplate) => templateColor(t, t.group_project_id ? byId.get(t.group_project_id) : undefined, prefs)
+  const gridColors: GridColors = {
+    saved: prefs.palette,
+    isCustom: colorPrefs.isCustom,
+    setCategory: (key, hex) => void colorPrefs.setCategoryColor(key, hex),
+    save: (hex) => void colorPrefs.savePreset(hex),
+    removeSaved: (hex) => void colorPrefs.removePreset(hex),
+    template: colorOfTemplate,
+  }
 
   const rows = useMemo(() => {
     if (showAll) return Array.from({ length: SLOTS_PER_DAY }, (_, i) => i)
-    const first = timeToSlot(engineer.work_start)
-    const [eh, em] = engineer.work_end.split(':').map(Number)
-    const last = Math.max(first, Math.ceil((eh * 60 + em) / 30) - 1)
+    const first = timeToSlot(hours.start)
+    const last = Math.max(first, timeToSlot(hours.end) - 1)
     const set = new Set<number>(slots.keys())
     for (let i = first; i <= last; i++) set.add(i)
     return [...set].sort((a, b) => a - b)
-  }, [showAll, engineer.work_start, engineer.work_end, slots])
+  }, [showAll, hours.start, hours.end, slots])
 
   /** Save changes optimistically; `record` keeps the previous state for Ctrl+Z. */
   async function persist(changes: CellChange[], record = true) {
@@ -102,7 +140,7 @@ export function DailyLog() {
     )
     if (exists) return
     try {
-      await store.addTemplate({ ...t, user_id: user.id, sort_order: templates.length + 1 })
+      await store.addTemplate({ ...t, user_id: user.id, sort_order: templates.length + 1, color: null })
       templatesQ.reload()
     } catch (e) {
       setError(e as Error)
@@ -116,6 +154,15 @@ export function DailyLog() {
       return
     }
     void createTemplate({ kind: s.kind, group_project_id: s.group_project_id, label: s.label, description: s.description })
+  }
+
+  async function setTemplateColor(id: string, color: string | null) {
+    try {
+      await store.updateTemplate(id, { color })
+      templatesQ.reload()
+    } catch (e) {
+      setError(e as Error)
+    }
   }
 
   async function deleteTemplate(id: string) {
@@ -143,10 +190,11 @@ export function DailyLog() {
 
   const work = [...slots.values()].filter((s) => s.kind === 'work')
   const total = work.length * SLOT_HOURS
-  const breakdown = new Map<string, number>()
+  const breakdown = new Map<string, { hours: number; color: string }>()
   for (const s of work) {
     const key = s.group_project_id ? displayName(byId.get(s.group_project_id)!) : `⚠ ${s.label || 'Unmapped'}`
-    breakdown.set(key, (breakdown.get(key) ?? 0) + SLOT_HOURS)
+    const cur = breakdown.get(key) ?? { hours: 0, color: ctx.color(s.kind, s.group_project_id) }
+    breakdown.set(key, { ...cur, hours: cur.hours + SLOT_HOURS })
   }
   const unmappedLabels = [...new Set(work.filter((s) => !s.group_project_id && s.label).map((s) => s.label))]
 
@@ -155,7 +203,16 @@ export function DailyLog() {
       <Card
         title="30-min Log"
         action={
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <TimeRangePicker
+              start={hours.start}
+              end={hours.end}
+              targetHours={engineer.daily_target_hours}
+              lunchStart={engineer.lunch_start}
+              lunchEnd={engineer.lunch_end}
+              disabled={!canEdit}
+              onChange={(r) => void changeHours(r)}
+            />
             <label className="flex items-center gap-1 text-sm text-muted">
               <input type="checkbox" checked={showAll} onChange={(e) => setShowAll(e.target.checked)} /> 24h
             </label>
@@ -167,7 +224,7 @@ export function DailyLog() {
           </div>
         }
       >
-        <ErrorNote error={error ?? q.error} />
+        <ErrorNote error={error ?? q.error ?? colorPrefs.error} />
         {q.loading && !q.data ? (
           <Loading />
         ) : (
@@ -177,6 +234,7 @@ export function DailyLog() {
               rows={rows}
               ctx={ctx}
               templates={templates}
+              colors={gridColors}
               readOnly={!canEdit}
               onChange={(changes) => void persist(changes)}
               onUndo={undo}
@@ -195,11 +253,12 @@ export function DailyLog() {
           <p className="mb-3 text-sm text-muted">target {engineer.daily_target_hours}h</p>
           <ul className="space-y-1.5 text-sm">
             {[...breakdown.entries()]
-              .sort((a, b) => b[1] - a[1])
-              .map(([name, h]) => (
+              .sort((a, b) => b[1].hours - a[1].hours)
+              .map(([name, v]) => (
                 <li key={name} className="flex items-center gap-2">
+                  <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: v.color }} />
                   <span className="min-w-0 flex-1 truncate">{name}</span>
-                  <span className="font-semibold tabular-nums">{h.toFixed(1)}h</span>
+                  <span className="font-semibold tabular-nums">{v.hours.toFixed(1)}h</span>
                 </li>
               ))}
           </ul>
@@ -222,9 +281,21 @@ export function DailyLog() {
           ) : (
             <ul className="flex flex-wrap gap-2" data-testid="templates">
               {templates.map((t) => (
-                <li key={t.id} className={cx('flex items-center rounded-full text-sm font-semibold', templateTone(t, ctx))}>
+                <li key={t.id} className="relative flex items-center rounded-full pl-2 text-sm font-semibold" style={{ backgroundColor: chipBg(colorOfTemplate(t)) }}>
+                  <Swatch color={colorOfTemplate(t)} label={`Color of ${t.description || t.label}`} size={14} onClick={() => setTemplateColorFor(t.id)} />
+                  {templateColorFor === t.id && (
+                    <ColorPicker
+                      value={colorOfTemplate(t)}
+                      isCustom={t.color !== null}
+                      saved={prefs.palette}
+                      onPick={(hex) => void setTemplateColor(t.id, hex)}
+                      onSave={(hex) => void colorPrefs.savePreset(hex)}
+                      onRemoveSaved={(hex) => void colorPrefs.removePreset(hex)}
+                      onClose={() => setTemplateColorFor(null)}
+                    />
+                  )}
                   <button
-                    className="max-w-[240px] truncate py-1 pl-3 pr-1 text-left"
+                    className="max-w-[220px] truncate py-1 pl-1.5 pr-1 text-left"
                     title={`${templateCategory(t, ctx)} · ${t.description}`}
                     disabled={!canEdit}
                     onClick={() => void persist(selection.rows.map((i) => ({ index: i, slot: applyTemplate(effectiveSlot(ctx, i), i, t, ctx) })))}

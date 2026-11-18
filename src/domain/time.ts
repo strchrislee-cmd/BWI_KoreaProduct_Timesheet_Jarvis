@@ -12,6 +12,36 @@ export function slotToTime(index: number): string {
   return `${pad(Math.floor(minutes / 60))}:${pad(minutes % 60)}`
 }
 
+export function timeToMinutes(time: string): number {
+  const [h, m] = time.split(':').map(Number)
+  return h * 60 + m
+}
+
+export function minutesToTime(minutes: number): string {
+  const m = Math.max(0, Math.min(24 * 60, minutes))
+  return `${pad(Math.floor(m / 60))}:${pad(m % 60)}`
+}
+
+/** "00:00" … "24:00" in 30-minute steps. */
+export function timeOptions(fromMinutes = 0, toMinutes = 24 * 60): string[] {
+  const out: string[] = []
+  for (let m = fromMinutes; m <= toMinutes; m += SLOT_MINUTES) out.push(minutesToTime(m))
+  return out
+}
+
+/**
+ * Default end of the working day: start + target work hours, plus the lunch break
+ * when it falls inside that span (07:30 + 8h + 1h lunch → 16:30). Capped at 24:00.
+ */
+export function defaultEndTime(start: string, targetHours: number, lunchStart: string, lunchEnd: string): string {
+  const s = timeToMinutes(start)
+  let end = s + Math.round(targetHours * 60)
+  const ls = timeToMinutes(lunchStart)
+  const le = timeToMinutes(lunchEnd)
+  if (le > ls && ls >= s && ls < end) end += le - ls
+  return minutesToTime(end)
+}
+
 /** 'HH:MM' → slot index (rounded down to the 30-min slot). */
 export function timeToSlot(time: string): number {
   const [h, m] = time.split(':').map(Number)

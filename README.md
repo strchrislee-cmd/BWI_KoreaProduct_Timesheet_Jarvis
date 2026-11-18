@@ -9,7 +9,7 @@
 
 | 화면 | 기능 |
 |---|---|
-| **Daily Log** | 엑셀/노션식 30분 그리드(카테고리, 업무, 몰입도), 자동 저장. 여러 칸 선택 후 한 번에 입력, 엑셀과 Ctrl+C/V 호환, 되돌리기. 카테고리·업무는 검색되는 드롭다운. **반복 업무** 등록 후 칩/드롭다운으로 적용. 점심시간은 기본 '점심'(변경 가능). 신규 프로젝트 알림, 미매핑 카테고리 즉시 매핑 |
+| **Daily Log** | 엑셀/노션식 30분 그리드(카테고리, 업무, 몰입도), 자동 저장. 날짜별 시작·종료 시간, 카테고리·반복 업무 색상 지정. 여러 칸 선택 후 한 번에 입력, 엑셀과 Ctrl+C/V 호환, 되돌리기. 카테고리·업무는 검색되는 드롭다운. **반복 업무** 등록 후 칩/드롭다운으로 적용. 점심시간은 기본 '점심'(변경 가능). 신규 프로젝트 알림, 미매핑 카테고리 즉시 매핑 |
 | **Import 마법사** | 개인 30분 로그 .xlsx(시트 1개 = 하루, `날짜` 행이나 시트명에서 날짜 인식) → 담당자 지정 → 로컬 카테고리 매핑 → 일괄 저장 |
 | **Weekly Plan** | 연속된 같은 업무를 1행으로 병합. 기존 주간계획 9개 열 + Group Project 열로 .xlsx 내보내기 |
 | **Group Timesheet** | 그룹 시트와 같은 행 구성(프로젝트 → 00.Timelog → 일반업무·회의… → Individual Sum). 일별 검증(목표시간, 미입력, 미매핑). .xlsx 내보내기 |
@@ -44,7 +44,7 @@ npm run dev
 
 ### 1. Supabase
 1. [supabase.com](https://supabase.com)에서 프로젝트를 만듭니다(리전: Seoul `ap-northeast-2` 권장).
-2. **SQL Editor**에서 `supabase/migrations/`의 SQL 파일(`0001_init.sql` → `0002_seed.sql` → `0003_task_templates.sql`)을 **번호 순서대로** 실행합니다. Supabase CLI를 쓴다면 `supabase db push`도 됩니다. 이미 앞 파일을 실행했다면 새로 추가된 파일만 실행하면 됩니다.
+2. **SQL Editor**에서 `supabase/migrations/`의 SQL 파일(`0001_init.sql` → `0002_seed.sql` → `0003_task_templates.sql` → `0004_work_days_colors.sql`)을 **번호 순서대로** 실행합니다. Supabase CLI를 쓴다면 `supabase db push`도 됩니다. 이미 앞 파일을 실행했다면 새로 추가된 파일만 실행하면 됩니다.
 3. **Authentication → URL Configuration**: Site URL과 Redirect URL에 Vercel 주소를 넣습니다.
 4. **Authentication → SMTP Settings**: **외부 SMTP를 반드시 연결**하세요. 기본 발송기는 시간당 2통, 그것도 Supabase 팀 멤버에게만 보냅니다. 회사 SMTP나 Resend·Brevo 등을 쓰면 됩니다.
 5. (권장) Authentication → Providers → Email에서 공개 가입(Allow new users to sign up)을 끕니다. 이걸 켜 두더라도 DB 트리거가 **초대받지 않은 가입을 거부**합니다.
@@ -89,6 +89,8 @@ npm run dev
 | 이동 | 방향키, Tab / Shift+Tab, Esc는 편집 취소 |
 | 반복 업무 | 행을 고르고 오른쪽 **반복 업무 → 선택한 행 저장**, 또는 Task 칸 드롭다운의 **+ 반복 업무로 등록**. 칩을 누르면 선택한 행에 카테고리+업무가 함께 들어감. 개인별로 저장 |
 | 점심 | Settings의 점심시간(기본 12:00–13:00)은 '점심 (기본)'으로 표시됨. 다른 값을 넣으면 그 값이 우선하고, 지우면 다시 점심 |
+| 근무 시간 | 30-min Log 위의 **시작 → 종료**를 날짜별로 고름. 시작을 바꾸면 종료는 **시작 + 근무 8h + 점심 1h**(점심이 그 사이에 있을 때)로 맞춰지고, 그 뒤로 늘릴 수 있음(“+1h 연장” 표시). 새 날짜의 기본값은 Settings → Work hours |
+| 색상 | 카테고리 칸을 고르고 ●, 반복 업무 칩의 ●, 또는 Settings → **카테고리 색상**. 기본 색상 12개 + RGB/Hex/색상환으로 직접 지정. **프리셋에 저장**한 색은 “내 색상”에 보관. **기본값**으로 되돌리기. 개인별 설정 |
 
 Mac에서는 Ctrl 대신 ⌘를 씁니다.
 

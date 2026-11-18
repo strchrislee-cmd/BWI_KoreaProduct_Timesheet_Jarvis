@@ -27,6 +27,7 @@ function ctx(saved: TimeSlot[] = []): GridContext {
     saved: new Map(saved.map((s) => [s.slot_index, s])),
     lunch: new Set([24, 25]),
     blank: (i) => slot(D, i),
+    color: () => '#000000',
   }
 }
 
@@ -136,7 +137,7 @@ describe('paste planning', () => {
 })
 
 it('templates set category and task together', () => {
-  const t: TaskTemplate = { id: 't', user_id: 'u1', kind: 'work', group_project_id: 'meeting', label: '회의', description: 'INT | Daily_Scrum', sort_order: 1 }
+  const t: TaskTemplate = { id: 't', user_id: 'u1', kind: 'work', group_project_id: 'meeting', label: '회의', description: 'INT | Daily_Scrum', sort_order: 1, color: null }
   expect(applyTemplate(slot(D, 15, { focus: 2 }), 15, t, ctx())).toMatchObject({
     group_project_id: 'meeting',
     label: '회의',

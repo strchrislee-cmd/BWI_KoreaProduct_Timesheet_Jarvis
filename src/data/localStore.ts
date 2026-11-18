@@ -10,6 +10,7 @@ import type {
   ProjectAlias,
   TaskTemplate,
   TimeSlot,
+  WorkDay,
 } from '../domain/types'
 import type { DataStore } from './store'
 
@@ -26,6 +27,7 @@ interface DemoState {
   leaves: LeaveRequest[]
   invitations: Invitation[]
   templates: TaskTemplate[]
+  workDays: WorkDay[]
 }
 
 const uid = () => crypto.randomUUID()
@@ -72,6 +74,7 @@ function seed(): DemoState {
     leaves: [],
     invitations: [],
     templates: [],
+    workDays: [],
   }
 }
 
@@ -82,8 +85,13 @@ export class LocalStore implements DataStore {
   constructor() {
     const raw = localStorage.getItem(KEY)
     if (raw) {
-      const saved = JSON.parse(raw) as Partial<DemoState> & Omit<DemoState, 'templates'>
-      this.state = { ...saved, templates: saved.templates ?? [] } // demo data from older versions has no templates
+      const saved = JSON.parse(raw) as Partial<DemoState> & Omit<DemoState, 'templates' | 'workDays'>
+      // demo data saved by older versions lacks these collections / fields
+      this.state = {
+        ...saved,
+        templates: (saved.templates ?? []).map((t) => ({ ...t, color: t.color ?? null })),
+        workDays: saved.workDays ?? [],
+      }
     } else {
       this.state = seed()
     }
@@ -228,12 +236,30 @@ export class LocalStore implements DataStore {
     })
   }
 
+  async getWorkDay(userId: string, date: string) {
+    const d = this.state.workDays.find((w) => w.user_id === userId && w.work_date === date)
+    return d ? { ...d } : null
+  }
+  async saveWorkDay(day: WorkDay) {
+    if (day.end_time <= day.start_time) throw new Error('End time must be after start time')
+    this.mutate((s) => {
+      s.workDays = s.workDays.filter((w) => !(w.user_id === day.user_id && w.work_date === day.work_date))
+      s.workDays.push({ ...day })
+    })
+  }
+
   async listTemplates(userId: string) {
     return this.state.templates.filter((t) => t.user_id === userId).map((t) => ({ ...t }))
   }
   async addTemplate(template: Omit<TaskTemplate, 'id'>) {
     if (!template.label.trim() && !template.description.trim()) throw new Error('Template is empty')
     this.mutate((s) => s.templates.push({ ...template, id: uid() }))
+  }
+  async updateTemplate(id: string, patch: Pick<TaskTemplate, 'color'>) {
+    this.mutate((s) => {
+      const t = s.templates.find((x) => x.id === id)
+      if (t) Object.assign(t, patch)
+    })
   }
   async deleteTemplate(id: string) {
     this.mutate((s) => (s.templates = s.templates.filter((t) => t.id !== id)))

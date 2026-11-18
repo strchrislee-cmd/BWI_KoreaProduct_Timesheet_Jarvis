@@ -37,6 +37,7 @@ psql -h "$WORK" -p "$PORT" -U postgres -d postgres -X -q -v ON_ERROR_STOP=1 \
   -f supabase/migrations/0001_init.sql \
   -f supabase/migrations/0002_seed.sql \
   -f supabase/migrations/0003_task_templates.sql \
+  -f supabase/migrations/0004_work_days_colors.sql \
   -f tests/db/helpers.sql \
   -f "$WORK/name_keys.sql" \
   -f tests/db/rls.sql -o /dev/null 2>&1 | sed -e 's/^psql:[^ ]* NOTICE:  /  /'

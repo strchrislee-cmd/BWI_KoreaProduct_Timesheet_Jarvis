@@ -1,9 +1,11 @@
 import { ChevronDown } from 'lucide-react'
 import { useEffect, useRef, useState, type ClipboardEvent, type KeyboardEvent, type MouseEvent } from 'react'
+import { ColorPicker, Swatch } from '../../../components/ColorPicker'
 import { cx } from '../../../components/ui'
 import { slotToTime } from '../../../domain/time'
 import type { TaskTemplate, TimeSlot } from '../../../domain/types'
-import { KIND_LABEL, categoryTone, displayName, slotTone } from '../projectUi'
+import { categoryKey, chipBg, rowBg } from '../colors'
+import { KIND_LABEL, displayName } from '../projectUi'
 import {
   COLS,
   applyTemplate,
@@ -38,7 +40,7 @@ interface Option {
   group: string
   label: string
   hint?: string
-  tone: string
+  color?: string
   value?: string // category text to apply
   template?: TaskTemplate // task column: apply the template
   create?: boolean // task column: save typed text as a template
@@ -49,10 +51,21 @@ interface Editing {
   dirty: boolean
 }
 
+/** Color settings the grid can change (personal preferences). */
+export interface GridColors {
+  saved: string[]
+  isCustom: (key: string) => boolean
+  setCategory: (key: string, hex: string | null) => void
+  save: (hex: string) => void
+  removeSaved: (hex: string) => void
+  template: (t: TaskTemplate) => string
+}
+
 export interface DailyGridProps {
   rows: number[]
   ctx: GridContext
   templates: TaskTemplate[]
+  colors: GridColors
   readOnly: boolean
   onChange: (changes: CellChange[]) => void
   onUndo: () => void
@@ -68,19 +81,17 @@ export function templateCategory(t: TaskTemplate, ctx: GridContext): string {
   return p ? displayName(p) : t.label
 }
 
-export function templateTone(t: TaskTemplate, ctx: GridContext): string {
-  return categoryTone(t.kind, t.group_project_id ? ctx.byId.get(t.group_project_id) : undefined)
-}
-
-export function DailyGrid({ rows, ctx, templates, readOnly, onChange, onUndo, onCreateTemplate, onSelectionChange }: DailyGridProps) {
+export function DailyGrid({ rows, ctx, templates, colors, readOnly, onChange, onUndo, onCreateTemplate, onSelectionChange }: DailyGridProps) {
   const [anchor, setAnchor] = useState<Sel>({ i: rows[0], c: 0 })
   const [focus, setFocus] = useState<Sel>({ i: rows[0], c: 0 })
   const [editing, setEditing] = useState<Editing | null>(null)
   const [hi, setHi] = useState(-1)
   const [status, setStatus] = useState('')
+  const [colorKey, setColorKey] = useState<string | null>(null) // category whose color picker is open
   const drag = useRef<'cell' | 'row' | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const listRef = useRef<HTMLDivElement>(null)
+  const wrapRef = useRef<HTMLDivElement>(null)
   const cellRefs = useRef(new Map<string, HTMLDivElement>())
 
   // Selection is stored by slot index so it survives rows being added (e.g. pasting past 16:30).
@@ -125,18 +136,18 @@ export function DailyGrid({ rows, ctx, templates, readOnly, onChange, onUndo, on
         if (p.status !== 'active') continue
         const aliases = ctx.aliases.filter((x) => x.group_project_id === p.id).map((x) => x.alias)
         if (match(displayName(p), p.name, ...aliases))
-          list.push({ key: p.id, group: KIND_LABEL[p.kind], label: displayName(p), hint: aliases.join(', '), tone: categoryTone('work', p), value: displayName(p) })
+          list.push({ key: p.id, group: KIND_LABEL[p.kind], label: displayName(p), hint: aliases.join(', '), color: ctx.color('work', p.id), value: displayName(p) })
       }
-      for (const l of NONWORK_CHOICES) if (match(l)) list.push({ key: `nw:${l}`, group: 'Non-work', label: l, tone: categoryTone('nonwork', undefined), value: l })
+      for (const l of NONWORK_CHOICES) if (match(l)) list.push({ key: `nw:${l}`, group: 'Non-work', label: l, color: ctx.color('nonwork', null), value: l })
       return list
     }
     if (activeCol === 'task') {
       const list: Option[] = templates
         .filter((t) => match(t.description, t.label, templateCategory(t, ctx)))
-        .map((t) => ({ key: t.id, group: '반복 업무', label: t.description || t.label, hint: templateCategory(t, ctx), tone: templateTone(t, ctx), template: t }))
+        .map((t) => ({ key: t.id, group: '반복 업무', label: t.description || t.label, hint: templateCategory(t, ctx), color: colors.template(t), template: t }))
       const text = state.text.trim()
       if (state.dirty && text && !templates.some((t) => t.description === text))
-        list.push({ key: 'create', group: '새 반복 업무', label: `+ 반복 업무로 등록: “${text}”`, tone: '', create: true })
+        list.push({ key: 'create', group: '새 반복 업무', label: `+ 반복 업무로 등록: “${text}”`, create: true })
       return list
     }
     return []
@@ -349,7 +360,7 @@ export function DailyGrid({ rows, ctx, templates, readOnly, onChange, onUndo, on
 
   return (
     <div>
-      <div className={cx('relative select-none text-[13px]', readOnly ? 'cursor-default' : 'cursor-cell')} role="grid" aria-label="30-min log">
+      <div ref={wrapRef} className={cx('relative select-none text-[13px]', readOnly ? 'cursor-default' : 'cursor-cell')} role="grid" aria-label="30-min log">
         <div className={cx('sticky top-0 z-10 grid bg-sage-light font-semibold', GRID_COLS)}>
           <div className="px-2.5 py-2">Time</div>
           <div className="px-2.5 py-2">Category</div>
@@ -359,10 +370,15 @@ export function DailyGrid({ rows, ctx, templates, readOnly, onChange, onUndo, on
 
         {rows.map((i, r) => {
           const s = effectiveSlot(ctx, i)
-          const p = s?.group_project_id ? ctx.byId.get(s.group_project_id) : undefined
           const lunchDefault = isLunchDefault(ctx, i)
           return (
-            <div key={i} data-slot={i} role="row" className={cx('grid border-t border-line', GRID_COLS, slotTone(s, p), lunchDefault && 'text-muted')}>
+            <div
+              key={i}
+              data-slot={i}
+              role="row"
+              className={cx('grid border-t border-line', GRID_COLS, lunchDefault && 'text-muted')}
+              style={s ? { backgroundColor: rowBg(ctx.color(s.kind, s.group_project_id)) } : undefined}
+            >
               <div className="cursor-pointer px-2.5 py-2 font-semibold tabular-nums" onMouseDown={(e) => onRowDown(e, i)} onMouseEnter={() => onCellEnter(i, COLS.length - 1)}>
                 {slotToTime(i)}
               </div>
@@ -389,18 +405,24 @@ export function DailyGrid({ rows, ctx, templates, readOnly, onChange, onUndo, on
                     onDoubleClick={openEditor}
                   >
                     {renderCell(col, s, lunchDefault)}
-                    {active && !readOnly && !editing && col !== 'focus' && (
-                      <button
-                        aria-label="Open options"
-                        className="absolute right-1 top-1/2 -translate-y-1/2 rounded p-0.5 text-muted hover:bg-white"
-                        onMouseDown={(e) => {
-                          e.preventDefault()
-                          e.stopPropagation()
-                          openEditor()
-                        }}
-                      >
-                        <ChevronDown size={14} />
-                      </button>
+                    {active && !editing && col !== 'focus' && (
+                      <span className="absolute right-1 top-1/2 flex -translate-y-1/2 items-center gap-1" onMouseDown={(e) => e.stopPropagation()}>
+                        {col === 'category' && s && categoryKey(s.kind, s.group_project_id) && (
+                          <Swatch color={ctx.color(s.kind, s.group_project_id)} label="Category color" onClick={() => setColorKey(categoryKey(s.kind, s.group_project_id))} />
+                        )}
+                        {!readOnly && (
+                          <button
+                            aria-label="Open options"
+                            className="rounded p-0.5 text-muted hover:bg-white"
+                            onMouseDown={(e) => {
+                              e.preventDefault()
+                              openEditor()
+                            }}
+                          >
+                            <ChevronDown size={14} />
+                          </button>
+                        )}
+                      </span>
                     )}
                   </div>
                 )
@@ -437,6 +459,26 @@ export function DailyGrid({ rows, ctx, templates, readOnly, onChange, onUndo, on
           style={{ top: box.top, left: box.left, width: Math.max(box.width, 200), height: box.height }}
         />
 
+        {colorKey && (
+          // laid over the active cell (cells clip overflow); opens upward near the bottom
+          <div className="pointer-events-none absolute z-40" style={{ top: box.top, left: box.left, width: box.width, height: box.height }}>
+            <ColorPicker
+              value={colorKey === 'nonwork' ? ctx.color('nonwork', null) : ctx.color('work', colorKey)}
+              isCustom={colors.isCustom(colorKey)}
+              saved={colors.saved}
+              align="right"
+              side={box.top > (wrapRef.current?.offsetHeight ?? 0) - 380 && box.top > 380 ? 'top' : 'bottom'}
+              onPick={(hex) => colors.setCategory(colorKey, hex)}
+              onSave={colors.save}
+              onRemoveSaved={colors.removeSaved}
+              onClose={() => {
+                setColorKey(null)
+                inputRef.current?.focus({ preventScroll: true })
+              }}
+            />
+          </div>
+        )}
+
         {editing && options.length > 0 && (
           <div
             ref={listRef}
@@ -458,7 +500,9 @@ export function DailyGrid({ rows, ctx, templates, readOnly, onChange, onUndo, on
                   }}
                   onMouseEnter={() => setHi(k)}
                 >
-                  <span className={cx('truncate rounded-full px-2 py-0.5 text-[13px] font-medium', o.tone)}>{o.label}</span>
+                  <span className="truncate rounded-full px-2 py-0.5 text-[13px] font-medium" style={o.color ? { backgroundColor: chipBg(o.color) } : undefined}>
+                    {o.label}
+                  </span>
                   {o.hint && <span className="ml-auto shrink-0 truncate text-xs text-muted">{o.hint}</span>}
                 </div>
               </div>

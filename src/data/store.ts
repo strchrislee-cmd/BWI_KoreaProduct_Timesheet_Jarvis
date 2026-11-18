@@ -11,6 +11,7 @@ import type {
   Role,
   TaskTemplate,
   TimeSlot,
+  WorkDay,
 } from '../domain/types'
 
 /**
@@ -42,10 +43,14 @@ export interface DataStore {
   saveSlots(slots: TimeSlot[]): Promise<void>
   clearSlots(userId: string, date: string, slotIndexes: number[]): Promise<void>
   replaceDay(userId: string, date: string, slots: TimeSlot[]): Promise<void>
+  /** Per-day start/end; null when the profile defaults apply. */
+  getWorkDay(userId: string, date: string): Promise<WorkDay | null>
+  saveWorkDay(day: WorkDay): Promise<void>
 
   /** The signed-in user's repeated tasks. */
   listTemplates(userId: string): Promise<TaskTemplate[]>
   addTemplate(template: Omit<TaskTemplate, 'id'>): Promise<void>
+  updateTemplate(id: string, patch: Pick<TaskTemplate, 'color'>): Promise<void>
   deleteTemplate(id: string): Promise<void>
 
   listLeave(userId: string, from: string, to: string): Promise<LeaveRequest[]>

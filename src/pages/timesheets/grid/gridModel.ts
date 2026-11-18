@@ -2,7 +2,7 @@
 // Kept free of React so it can be unit-tested (tests/grid.test.ts).
 import { resolveLabel } from '../../../domain/labels'
 import { SLOTS_PER_DAY } from '../../../domain/time'
-import type { GroupProject, ProjectAlias, TaskTemplate, TimeSlot } from '../../../domain/types'
+import type { GroupProject, ProjectAlias, SlotKind, TaskTemplate, TimeSlot } from '../../../domain/types'
 import { displayName, labelFor } from '../projectUi'
 
 export const COLS = ['category', 'task', 'focus'] as const
@@ -42,6 +42,8 @@ export interface GridContext {
   /** Slot indexes that default to lunch when nothing is saved. */
   lunch: Set<number>
   blank: (index: number) => TimeSlot
+  /** Display color (#RRGGBB) of a category for the signed-in user. */
+  color: (kind: SlotKind, projectId: string | null) => string
 }
 
 export const LUNCH_LABEL = '점심'

@@ -111,6 +111,15 @@ export interface TaskTemplate {
   label: string
   description: string
   sort_order: number
+  color: string | null // #RRGGBB; null = category color
+}
+
+/** Working hours of one day ("HH:MM", end may be "24:00"). */
+export interface WorkDay {
+  user_id: string
+  work_date: string
+  start_time: string
+  end_time: string
 }
 
 export interface LeaveRequest {

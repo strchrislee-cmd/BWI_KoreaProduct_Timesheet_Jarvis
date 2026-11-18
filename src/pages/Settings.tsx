@@ -1,11 +1,17 @@
-import { Sparkles } from 'lucide-react'
+import { Sparkles, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
+import { ColorPicker, Swatch } from '../components/ColorPicker'
 import { PageTitle } from '../components/Shell'
+import { TimeRangePicker } from '../components/TimeRangePicker'
 import { Button, Card, ErrorNote, Field } from '../components/ui'
 import { LocalStore } from '../data/localStore'
 import { useStore, useUser } from '../data/StoreContext'
+import { sortProjects } from '../domain/projects'
 import type { OrgSettings, Profile } from '../domain/types'
 import { useAsync } from '../lib/hooks'
+import { NONWORK_KEY, categoryColor } from './timesheets/colors'
+import { KIND_LABEL, displayName } from './timesheets/projectUi'
+import { useColorPrefs } from './timesheets/useColorPrefs'
 
 type ProfileForm = Pick<
   Profile,
@@ -78,13 +84,17 @@ export function Settings() {
 
         <Card title="Work hours">
           <div className="space-y-3">
+            <Field label="Default start → end" hint="New days start with these hours; each day can be changed in the Daily Log.">
+              <TimeRangePicker
+                start={form.work_start}
+                end={form.work_end}
+                targetHours={form.daily_target_hours}
+                lunchStart={form.lunch_start}
+                lunchEnd={form.lunch_end}
+                onChange={(r) => setForm({ ...form, work_start: r.start, work_end: r.end })}
+              />
+            </Field>
             <div className="grid grid-cols-2 gap-2">
-              <Field label="Start">
-                <input type="time" step="1800" className="field" value={form.work_start} onChange={(e) => set('work_start', e.target.value)} />
-              </Field>
-              <Field label="End">
-                <input type="time" step="1800" className="field" value={form.work_end} onChange={(e) => set('work_end', e.target.value)} />
-              </Field>
               <Field label="Lunch start">
                 <input type="time" step="1800" className="field" value={form.lunch_start} onChange={(e) => set('lunch_start', e.target.value)} />
               </Field>
@@ -148,7 +158,76 @@ export function Settings() {
             )}
           </Card>
         </div>
+        <CategoryColorsCard />
       </div>
     </div>
+  )
+}
+
+/** Personal colors for every category (Daily Log rows, dropdowns, Today) and the saved palette. */
+function CategoryColorsCard() {
+  const { store } = useStore()
+  const projectsQ = useAsync(() => store.listProjects(), [store])
+  const colors = useColorPrefs()
+  const [open, setOpen] = useState<string | null>(null)
+  const active = sortProjects((projectsQ.data ?? []).filter((p) => p.status === 'active'))
+  const groups = [
+    ...(['project', 'timelog', 'local_section'] as const).map((kind) => ({
+      title: KIND_LABEL[kind],
+      items: active.filter((p) => p.kind === kind).map((p) => ({ key: p.id, name: displayName(p), color: categoryColor('work', p, colors.prefs) })),
+    })),
+    { title: 'Non-work', items: [{ key: NONWORK_KEY, name: 'Non-work (점심·휴식·퇴근)', color: categoryColor('nonwork', undefined, colors.prefs) }] },
+  ].filter((g) => g.items.length)
+
+  return (
+    <Card title="카테고리 색상" className="lg:col-span-3">
+      <p className="mb-3 text-sm text-muted">Daily Log의 행·드롭다운·Today에 쓰이는 색입니다. 나에게만 적용됩니다. 그리드에서 카테고리 칸을 고른 뒤 ● 를 눌러도 바꿀 수 있습니다.</p>
+      <ErrorNote error={colors.error ?? projectsQ.error} />
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        {groups.map((g) => (
+          <div key={g.title}>
+            <h3 className="mb-1 text-xs font-semibold uppercase text-muted">{g.title}</h3>
+            <ul>
+              {g.items.map((it) => (
+                <li key={it.key} className="relative flex items-center gap-2 py-1 text-sm">
+                  <Swatch color={it.color} label={`Color of ${it.name}`} onClick={() => setOpen(it.key)} />
+                  <span className="min-w-0 flex-1 truncate" title={it.name}>
+                    {it.name}
+                  </span>
+                  {colors.isCustom(it.key) && <span className="shrink-0 text-[11px] text-muted">사용자 지정</span>}
+                  {open === it.key && (
+                    <ColorPicker
+                      value={it.color}
+                      isCustom={colors.isCustom(it.key)}
+                      saved={colors.prefs.palette}
+                      onPick={(hex) => void colors.setCategoryColor(it.key, hex)}
+                      onSave={(hex) => void colors.savePreset(hex)}
+                      onRemoveSaved={(hex) => void colors.removePreset(hex)}
+                      onClose={() => setOpen(null)}
+                    />
+                  )}
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))}
+      </div>
+      <h3 className="mb-1 mt-4 text-xs font-semibold uppercase text-muted">내 색상 프리셋</h3>
+      {colors.prefs.palette.length === 0 ? (
+        <p className="text-sm text-muted">색상 선택 창에서 “프리셋에 저장”을 누르면 여기에 보관됩니다.</p>
+      ) : (
+        <ul className="flex flex-wrap gap-2" data-testid="saved-palette">
+          {colors.prefs.palette.map((c) => (
+            <li key={c} className="flex items-center gap-1 rounded-full border border-line py-0.5 pl-1 pr-2 font-mono text-xs">
+              <span className="h-4 w-4 rounded-full border border-black/15" style={{ backgroundColor: c }} />
+              {c}
+              <button aria-label={`Remove saved color ${c}`} className="text-muted hover:text-ink" onClick={() => void colors.removePreset(c)}>
+                <X size={12} />
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </Card>
   )
 }
