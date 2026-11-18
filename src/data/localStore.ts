@@ -1,0 +1,250 @@
+import { diffMaster } from '../domain/projects'
+import { SEED_ALIASES, SEED_PROJECTS } from '../domain/seed'
+import type {
+  GroupProject,
+  Invitation,
+  LeaveRequest,
+  MasterImport,
+  OrgSettings,
+  Profile,
+  ProjectAlias,
+  TimeSlot,
+} from '../domain/types'
+import type { DataStore } from './store'
+
+// Demo mode: same behaviour as the Supabase schema, persisted in localStorage.
+const KEY = 'jarvis-demo-v1'
+
+interface DemoState {
+  profiles: Profile[]
+  org: OrgSettings
+  projects: GroupProject[]
+  aliases: ProjectAlias[]
+  imports: MasterImport[]
+  slots: TimeSlot[]
+  leaves: LeaveRequest[]
+  invitations: Invitation[]
+}
+
+const uid = () => crypto.randomUUID()
+const DEMO_USER_ID = 'demo-admin'
+
+function seed(): DemoState {
+  const projects: GroupProject[] = SEED_PROJECTS.map((p) => ({
+    ...p,
+    id: uid(),
+    code: null,
+    status: 'active',
+    first_seen_import_id: null,
+    last_seen_import_id: null,
+  }))
+  return {
+    profiles: [
+      {
+        id: DEMO_USER_ID,
+        email: 'demo@jarvis.local',
+        name: 'Demo User',
+        engineer_code: 'DU',
+        role: 'admin',
+        can_export: true,
+        timezone: 'Asia/Seoul',
+        work_start: '07:30',
+        work_end: '16:30',
+        lunch_start: '12:00',
+        lunch_end: '13:00',
+        daily_target_hours: 8,
+        template_style: 'detailed',
+        preferences: {},
+      },
+    ],
+    org: { ai_enabled: false, ai_model: 'claude-opus-5-5' },
+    projects,
+    aliases: SEED_ALIASES.map((a) => ({
+      id: uid(),
+      alias: a.alias,
+      group_project_id: projects.find((p) => p.system_key === a.system_key)!.id,
+      created_by: null,
+    })),
+    imports: [],
+    slots: [],
+    leaves: [],
+    invitations: [],
+  }
+}
+
+export class LocalStore implements DataStore {
+  readonly mode = 'demo' as const
+  private state: DemoState
+
+  constructor() {
+    const raw = localStorage.getItem(KEY)
+    this.state = raw ? (JSON.parse(raw) as DemoState) : seed()
+    this.persist()
+  }
+
+  private persist() {
+    localStorage.setItem(KEY, JSON.stringify(this.state))
+  }
+
+  private mutate(fn: (s: DemoState) => void) {
+    fn(this.state)
+    this.persist()
+  }
+
+  static reset() {
+    localStorage.removeItem(KEY)
+  }
+
+  async currentUser() {
+    const p = this.state.profiles.find((x) => x.id === DEMO_USER_ID)
+    return p ? { ...p } : null // copies, so React sees changes
+  }
+  async sendMagicLink() {}
+  async signOut() {}
+  onAuthChange() {
+    return () => {}
+  }
+
+  async listProfiles() {
+    return this.state.profiles.map((p) => ({ ...p })).sort((a, b) => a.name.localeCompare(b.name))
+  }
+  async updateProfile(id: string, patch: Partial<Profile>) {
+    this.mutate((s) => {
+      const p = s.profiles.find((x) => x.id === id)
+      if (!p) throw new Error('Profile not found')
+      if (p.role === 'admin' && patch.role && patch.role !== 'admin' && !s.profiles.some((x) => x.id !== id && x.role === 'admin'))
+        throw new Error('cannot remove the last admin')
+      Object.assign(p, patch)
+    })
+  }
+  async getOrgSettings() {
+    return { ...this.state.org }
+  }
+  async updateOrgSettings(patch: Partial<OrgSettings>) {
+    this.mutate((s) => Object.assign(s.org, patch))
+  }
+
+  async listProjects() {
+    return this.state.projects.map((p) => ({ ...p }))
+  }
+  async listAliases() {
+    return this.state.aliases.map((a) => ({ ...a }))
+  }
+  async addAlias(groupProjectId: string, alias: string) {
+    const text = alias.trim()
+    if (!text) throw new Error('Alias is empty')
+    if (this.state.aliases.some((a) => a.alias.trim().toLowerCase() === text.toLowerCase()))
+      throw new Error(`Alias "${text}" already exists`)
+    this.mutate((s) => s.aliases.push({ id: uid(), group_project_id: groupProjectId, alias: text, created_by: DEMO_USER_ID }))
+  }
+  async deleteAlias(id: string) {
+    this.mutate((s) => (s.aliases = s.aliases.filter((a) => a.id !== id)))
+  }
+  async latestImport() {
+    const last = this.state.imports.at(-1)
+    return last ? { ...last } : null
+  }
+
+  async applyMasterImport(input: { fileName: string; contentHash: string; rows: import('../domain/types').MasterRow[] }) {
+    const existing = this.state.imports.find((i) => i.content_hash === input.contentHash)
+    if (existing) return { status: 'duplicate' as const, import_id: existing.id }
+
+    const diff = diffMaster(this.state.projects, input.rows)
+    const imp: MasterImport = {
+      id: uid(),
+      file_name: input.fileName,
+      source: 'manual',
+      content_hash: input.contentHash,
+      is_baseline: this.state.imports.length === 0,
+      total_count: input.rows.length,
+      added_count: diff.added.length,
+      missing_count: diff.missing.length,
+      created_at: new Date().toISOString(),
+    }
+    this.mutate((s) => {
+      s.imports.push(imp)
+      for (const m of diff.matched) {
+        const p = s.projects.find((x) => x.id === m.project.id)!
+        Object.assign(p, { name: m.row.name, code: m.row.code ?? p.code, sort_order: m.order, status: 'active', last_seen_import_id: imp.id })
+      }
+      for (const a of diff.added) {
+        s.projects.push({
+          id: uid(),
+          code: a.row.code,
+          name: a.row.name,
+          kind: a.row.kind,
+          system_key: null,
+          counts_toward_total: true,
+          sort_order: a.order,
+          status: 'active',
+          first_seen_import_id: imp.id,
+          last_seen_import_id: imp.id,
+        })
+      }
+      for (const m of diff.missing) s.projects.find((x) => x.id === m.id)!.status = 'missing'
+    })
+    return {
+      status: 'imported' as const,
+      import_id: imp.id,
+      is_baseline: imp.is_baseline,
+      total: imp.total_count,
+      added: imp.added_count,
+      added_names: diff.added.map((a) => a.row.name),
+      missing: imp.missing_count,
+    }
+  }
+
+  async listSlots(userId: string, from: string, to: string) {
+    return this.state.slots.filter((s) => s.user_id === userId && s.work_date >= from && s.work_date <= to).map((s) => ({ ...s }))
+  }
+  async saveSlots(slots: TimeSlot[]) {
+    this.mutate((s) => {
+      for (const slot of slots) {
+        s.slots = s.slots.filter(
+          (x) => !(x.user_id === slot.user_id && x.work_date === slot.work_date && x.slot_index === slot.slot_index),
+        )
+        s.slots.push({ ...slot })
+      }
+    })
+  }
+  async clearSlot(userId: string, date: string, slotIndex: number) {
+    this.mutate(
+      (s) => (s.slots = s.slots.filter((x) => !(x.user_id === userId && x.work_date === date && x.slot_index === slotIndex))),
+    )
+  }
+  async replaceDay(userId: string, date: string, slots: TimeSlot[]) {
+    this.mutate((s) => {
+      s.slots = s.slots.filter((x) => !(x.user_id === userId && x.work_date === date))
+      s.slots.push(...slots.map((x) => ({ ...x })))
+    })
+  }
+
+  async listLeave(userId: string, from: string, to: string) {
+    return this.state.leaves.filter((l) => l.user_id === userId && l.start_date <= to && l.end_date >= from).map((l) => ({ ...l }))
+  }
+  async addLeave(leave: Omit<LeaveRequest, 'id'>) {
+    if (leave.end_date < leave.start_date) throw new Error('End date is before start date')
+    this.mutate((s) => s.leaves.push({ ...leave, id: uid() }))
+  }
+  async deleteLeave(id: string) {
+    this.mutate((s) => (s.leaves = s.leaves.filter((l) => l.id !== id)))
+  }
+
+  async listInvitations() {
+    return this.state.invitations.map((i) => ({ ...i })).reverse()
+  }
+  async invite(input: { email: string; role: Profile['role']; can_export: boolean }) {
+    const email = input.email.trim().toLowerCase()
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) throw new Error('Invalid e-mail address')
+    if (this.state.invitations.some((i) => i.email === email)) throw new Error('Already invited')
+    this.mutate((s) =>
+      s.invitations.push({ id: uid(), email, role: input.role, can_export: input.can_export, status: 'pending', created_at: new Date().toISOString() }),
+    )
+  }
+  async revokeInvitation(id: string) {
+    this.mutate((s) => {
+      const inv = s.invitations.find((i) => i.id === id)
+      if (inv) inv.status = 'revoked'
+    })
+  }
+}
