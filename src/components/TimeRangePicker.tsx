@@ -1,4 +1,4 @@
-import { defaultEndTime, timeOptions, timeToMinutes } from '../domain/time'
+import { defaultEndTime, startTimeOptions, timeOptions, timeToMinutes } from '../domain/time'
 
 const fmt = (minutes: number) => (minutes % 60 ? `${Math.floor(minutes / 60)}h ${minutes % 60}m` : `${minutes / 60}h`)
 
@@ -38,7 +38,7 @@ export function TimeRangePicker({
         disabled={disabled}
         onChange={(e) => onChange({ start: e.target.value, end: defaultEndTime(e.target.value, targetHours, lunchStart, lunchEnd) })}
       >
-        {timeOptions(0, 23 * 60 + 30).map((t) => (
+        {startTimeOptions(start).map((t) => (
           <option key={t}>{t}</option>
         ))}
       </select>

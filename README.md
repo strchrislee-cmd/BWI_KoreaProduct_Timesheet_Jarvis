@@ -3,13 +3,16 @@
 사내 그룹웨어 헬퍼 웹앱 **JARVIS**의 첫 모듈 **Timesheets**입니다. 30분 단위 업무 기록을 그룹 지정 프로젝트명으로 매핑해 **그룹 timesheet 포맷**과 **업무진행세부계획(주간계획)**을 만들고, 새 그룹 프로젝트가 생기면 알려 줍니다.
 
 - UI 컨셉과 요구사항: [`concept-design/`](./concept-design/README.md), 압축 컨텍스트: [`concept-design/CONTEXT.md`](./concept-design/CONTEXT.md)
+- 날짜별 작업 기록(작업 내용·결과): [`docs/worklog/`](./docs/worklog/README.md)
 - 스택: React 19 + Vite + TypeScript · Tailwind v4 · Supabase(Postgres, Auth, RLS) · ExcelJS · Vercel(정적 호스팅 + `/api` 함수)
 
 ## 1단계에 들어간 기능
 
 | 화면 | 기능 |
 |---|---|
-| **Daily Log** | 엑셀/노션식 30분 그리드(카테고리, 업무, 몰입도), 자동 저장. 날짜별 시작·종료 시간, 카테고리·반복 업무 색상 지정. 여러 칸 선택 후 한 번에 입력, 엑셀과 Ctrl+C/V 호환, 되돌리기. 카테고리·업무는 검색되는 드롭다운. **반복 업무** 등록 후 칩/드롭다운으로 적용. 점심시간은 기본 '점심'(변경 가능). 신규 프로젝트 알림, 미매핑 카테고리 즉시 매핑 |
+| **Daily Log** | 엑셀/노션식 30분 그리드(카테고리, 업무, 몰입도), 자동 저장. 날짜별 시작(07:00–10:00)·종료 시간, 카테고리·반복 업무 색상 지정. 여러 칸 선택 후 한 번에 입력, 엑셀과 Ctrl+C/V 호환, 되돌리기. 카테고리·업무는 노션식 드롭다운(옵션 선택 또는 생성, 옵션별 `…` 메뉴, 이름·생성일 정렬, 드래그 이동). **반복 업무** 등록 후 칩/드롭다운으로 적용. 열 너비·행 높이 조절. 점심시간은 기본 '점심'(변경 가능). 신규 프로젝트 알림, 미매핑 카테고리 즉시 매핑 |
+| **알림** | 근무시간 중 30분마다 브라우저 알림(비어 있는 칸만, 점심·주말 제외). Settings에서 켜기 |
+| **배경** | 글래스모피즘 UI. 배경은 무작위 그라데이션 패턴(기본), 내 사진 업로드, Unsplash 오늘의 사진(키 설정 시) 중 선택 |
 | **Import 마법사** | 개인 30분 로그 .xlsx(시트 1개 = 하루, `날짜` 행이나 시트명에서 날짜 인식) → 담당자 지정 → 로컬 카테고리 매핑 → 일괄 저장 |
 | **Weekly Plan** | 연속된 같은 업무를 1행으로 병합. 기존 주간계획 9개 열 + Group Project 열로 .xlsx 내보내기 |
 | **Group Timesheet** | 그룹 시트와 같은 행 구성(프로젝트 → 00.Timelog → 일반업무·회의… → Individual Sum). 일별 검증(목표시간, 미입력, 미매핑). .xlsx 내보내기 |
@@ -44,7 +47,7 @@ npm run dev
 
 ### 1. Supabase
 1. [supabase.com](https://supabase.com)에서 프로젝트를 만듭니다(리전: Seoul `ap-northeast-2` 권장).
-2. **SQL Editor**에서 `supabase/migrations/`의 SQL 파일(`0001_init.sql` → `0002_seed.sql` → `0003_task_templates.sql` → `0004_work_days_colors.sql`)을 **번호 순서대로** 실행합니다. Supabase CLI를 쓴다면 `supabase db push`도 됩니다. 이미 앞 파일을 실행했다면 새로 추가된 파일만 실행하면 됩니다.
+2. **SQL Editor**에서 `supabase/migrations/`의 SQL 파일(`0001_init.sql` → `0002_seed.sql` → `0003_task_templates.sql` → `0004_work_days_colors.sql` → `0005_user_backgrounds.sql`)을 **번호 순서대로** 실행합니다. Supabase CLI를 쓴다면 `supabase db push`도 됩니다. 이미 앞 파일을 실행했다면 새로 추가된 파일만 실행하면 됩니다.
 3. **Authentication → URL Configuration**: Site URL과 Redirect URL에 Vercel 주소를 넣습니다.
 4. **Authentication → SMTP Settings**: **외부 SMTP를 반드시 연결**하세요. 기본 발송기는 시간당 2통, 그것도 Supabase 팀 멤버에게만 보냅니다. 회사 SMTP나 Resend·Brevo 등을 쓰면 됩니다.
 5. (권장) Authentication → Providers → Email에서 공개 가입(Allow new users to sign up)을 끕니다. 이걸 켜 두더라도 DB 트리거가 **초대받지 않은 가입을 거부**합니다.
@@ -62,6 +65,8 @@ npm run dev
 | `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` | 같은 화면(service_role 키) | 서버 전용 |
 | `INGEST_TOKEN` | 임의의 긴 비밀값 | 서버 전용 |
 | `APP_URL` | 배포 주소(초대 메일이 돌아올 곳) | 서버 전용 |
+| `UNSPLASH_ACCESS_KEY` (선택) | [unsplash.com/developers](https://unsplash.com/developers)에서 앱을 만들면 무료 발급. 없으면 Unsplash 배경만 꺼지고 그라데이션·내 사진은 그대로 동작 | 서버 전용 |
+| `UNSPLASH_QUERY` (선택) | 오늘의 사진 검색어(기본 `nature landscape`). 결과는 한국 자정까지 캐시되어 하루 1회 정도만 호출 | 서버 전용 |
 
 > Vercel Hobby(무료) 플랜은 약관상 개인·비상업 용도 전용입니다. 사내 업무용은 **Pro 플랜**이 필요합니다.
 
@@ -83,14 +88,19 @@ npm run dev
 |---|---|
 | 여러 칸 선택 | 클릭 후 드래그, Shift+클릭, Shift+방향키. 시간 칸을 누르면 행 전체, Ctrl+A는 전체 |
 | 입력 | 칸을 고르고 바로 타이핑(한글 가능) → Enter. **여러 칸을 선택했으면 전부에 적용** |
-| 드롭다운 | Enter / F2 / 더블클릭 / ▾. 입력하면 걸러지고, ↑↓로 고른 뒤 Enter. 카테고리는 별칭으로도 검색 |
+| 드롭다운 | Enter / F2 / 더블클릭 / ▾. 입력하면 걸러지고, ↑↓로 고른 뒤 Enter. 카테고리는 별칭으로도 검색. 목록에 없으면 맨 아래 **+ “입력값” 생성** |
+| 옵션 메뉴 | 옵션 오른쪽 `…`: 반복 업무는 이름 변경·삭제·색, 카테고리는 색(이름은 그룹 마스터에서 관리) |
+| 정렬·순서 | 드롭다운 위 입력칸 오른쪽 `…` → 수동 / 이름순 / 이름 역순 / 생성일순 / 최신순. 옵션 왼쪽 ⋮⋮ 손잡이나 반복 업무 칩을 끌면 순서가 바뀌고 정렬은 ‘수동’이 됨 |
+| 열 너비·행 높이 | 헤더의 Time·Category 경계선을 끌어 조절(더블클릭하면 기본값). 표 위의 좁게/보통/넓게로 행 높이 선택 |
 | 복사·붙여넣기 | Ctrl+C / Ctrl+X / Ctrl+V. 엑셀·구글시트와 서로 주고받을 수 있음. 값 하나를 범위에 붙여넣으면 전체가 채워짐 |
 | 지우기 / 채우기 / 되돌리기 | Delete(또는 Backspace) / Ctrl+D(맨 윗행을 아래로) / Ctrl+Z |
 | 이동 | 방향키, Tab / Shift+Tab, Esc는 편집 취소 |
 | 반복 업무 | 행을 고르고 오른쪽 **반복 업무 → 선택한 행 저장**, 또는 Task 칸 드롭다운의 **+ 반복 업무로 등록**. 칩을 누르면 선택한 행에 카테고리+업무가 함께 들어감. 개인별로 저장 |
 | 점심 | Settings의 점심시간(기본 12:00–13:00)은 '점심 (기본)'으로 표시됨. 다른 값을 넣으면 그 값이 우선하고, 지우면 다시 점심 |
-| 근무 시간 | 30-min Log 위의 **시작 → 종료**를 날짜별로 고름. 시작을 바꾸면 종료는 **시작 + 근무 8h + 점심 1h**(점심이 그 사이에 있을 때)로 맞춰지고, 그 뒤로 늘릴 수 있음(“+1h 연장” 표시). 새 날짜의 기본값은 Settings → Work hours |
-| 색상 | 카테고리 칸을 고르고 ●, 반복 업무 칩의 ●, 또는 Settings → **카테고리 색상**. 기본 색상 12개 + RGB/Hex/색상환으로 직접 지정. **프리셋에 저장**한 색은 “내 색상”에 보관. **기본값**으로 되돌리기. 개인별 설정 |
+| 근무 시간 | 30-min Log 위의 **시작 → 종료**를 날짜별로 고름. 시작은 07:00–10:00(30분 단위). 시작을 바꾸면 종료는 **시작 + 근무 8h + 점심 1h**(점심이 그 사이에 있을 때)로 맞춰지고, 그 뒤로 늘릴 수 있음(“+1h 연장” 표시). 새 날짜의 기본값은 Settings → Work hours |
+| 색상 | 카테고리 칸을 고르고 ●, 옵션·칩의 `…`, 또는 Settings → **카테고리 색상**. **랜덤 / 랜덤 (파스텔)**, 노션 9색, RGB/Hex/색상환으로 직접 지정. **프리셋에 저장**한 색은 “내 색상”에 보관. **기본**으로 되돌리기. 개인별 설정 |
+| 알림 | Settings → **알림**에서 켜고 브라우저 권한 허용. 근무시간 중 :00·:30마다 직전 칸이 비어 있으면 알림(점심·주말 제외). JARVIS 탭이 열려 있어야 함 |
+| 배경 | Settings → **배경**: 무작위 그라데이션 패턴(매일 자동 또는 고정), 내 사진 업로드, Unsplash 오늘의 사진(키 설정 시) |
 
 Mac에서는 Ctrl 대신 ⌘를 씁니다.
 

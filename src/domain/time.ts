@@ -29,6 +29,14 @@ export function timeOptions(fromMinutes = 0, toMinutes = 24 * 60): string[] {
   return out
 }
 
+/** Allowed start times: 07:00 … 10:00 in 30-min steps (a saved value outside is kept). */
+export const START_EARLIEST = '07:00'
+export const START_LATEST = '10:00'
+export function startTimeOptions(current?: string): string[] {
+  const opts = timeOptions(timeToMinutes(START_EARLIEST), timeToMinutes(START_LATEST))
+  return current && !opts.includes(current) ? [current, ...opts].sort() : opts
+}
+
 /**
  * Default end of the working day: start + target work hours, plus the lunch break
  * when it falls inside that span (07:30 + 8h + 1h lunch → 16:30). Capped at 24:00.

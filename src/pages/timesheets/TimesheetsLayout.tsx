@@ -72,7 +72,7 @@ export function TimesheetsLayout() {
     <div>
       <PageTitle>Timesheets</PageTitle>
       <div className="mb-4 flex flex-wrap items-center gap-2">
-        <div className="flex items-center gap-1 rounded-full bg-sage px-2 py-1 text-sm font-semibold">
+        <div className="glass glass-sage flex items-center gap-1 rounded-full px-2 py-1 text-sm font-semibold">
           <button aria-label="Previous day" className="rounded-full p-1 hover:bg-white" onClick={() => value?.setDate(addDays(date, -1))}>
             <ChevronLeft size={16} />
           </button>
@@ -95,7 +95,7 @@ export function TimesheetsLayout() {
               to={{ pathname: t.to, search }}
               end={t.end}
               className={({ isActive }) =>
-                cx('rounded-full px-4 py-2 text-sm font-semibold', isActive ? 'bg-primary text-white' : 'bg-white hover:bg-sage-light')
+                cx('rounded-full px-4 py-2 text-sm font-semibold', isActive ? 'bg-primary text-white shadow-md' : 'glass hover:bg-white/80')
               }
             >
               {t.label}

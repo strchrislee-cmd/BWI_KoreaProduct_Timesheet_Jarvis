@@ -137,7 +137,7 @@ describe('paste planning', () => {
 })
 
 it('templates set category and task together', () => {
-  const t: TaskTemplate = { id: 't', user_id: 'u1', kind: 'work', group_project_id: 'meeting', label: '회의', description: 'INT | Daily_Scrum', sort_order: 1, color: null }
+  const t: TaskTemplate = { id: 't', user_id: 'u1', kind: 'work', group_project_id: 'meeting', label: '회의', description: 'INT | Daily_Scrum', sort_order: 1, color: null, created_at: '2026-01-01T00:00:00Z' }
   expect(applyTemplate(slot(D, 15, { focus: 2 }), 15, t, ctx())).toMatchObject({
     group_project_id: 'meeting',
     label: '회의',

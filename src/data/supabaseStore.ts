@@ -24,7 +24,7 @@ function must<T>(res: Result<T>): T {
 }
 
 const PROJECT_COLUMNS =
-  'id, code, name, kind, system_key, counts_toward_total, sort_order, status, first_seen_import_id, last_seen_import_id'
+  'id, code, name, kind, system_key, counts_toward_total, sort_order, status, first_seen_import_id, last_seen_import_id, created_at'
 const SLOT_COLUMNS = 'user_id, work_date, slot_index, kind, group_project_id, label, description, focus'
 
 export class SupabaseStore implements DataStore {
@@ -134,7 +134,7 @@ export class SupabaseStore implements DataStore {
     return must<TaskTemplate[]>(
       await this.sb
         .from('task_templates')
-        .select('id, user_id, kind, group_project_id, label, description, sort_order, color')
+        .select('id, user_id, kind, group_project_id, label, description, sort_order, color, created_at')
         .eq('user_id', userId)
         .order('sort_order')
         .order('created_at'),
@@ -143,11 +143,22 @@ export class SupabaseStore implements DataStore {
   async addTemplate(template: Omit<TaskTemplate, 'id'>) {
     must(await this.sb.from('task_templates').insert(template))
   }
-  async updateTemplate(id: string, patch: Pick<TaskTemplate, 'color'>) {
+  async updateTemplate(id: string, patch: Partial<Pick<TaskTemplate, 'color' | 'description' | 'sort_order'>>) {
     must(await this.sb.from('task_templates').update(patch).eq('id', id))
   }
   async deleteTemplate(id: string) {
     must(await this.sb.from('task_templates').delete().eq('id', id))
+  }
+
+  async getBackground(userId: string) {
+    const row = must<{ image_data: string } | null>(
+      await this.sb.from('user_backgrounds').select('image_data').eq('user_id', userId).maybeSingle(),
+    )
+    return row?.image_data ?? null
+  }
+  async saveBackground(userId: string, imageData: string | null) {
+    if (imageData) must(await this.sb.from('user_backgrounds').upsert({ user_id: userId, image_data: imageData }))
+    else must(await this.sb.from('user_backgrounds').delete().eq('user_id', userId))
   }
 
   async listLeave(userId: string, from: string, to: string) {

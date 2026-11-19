@@ -1,16 +1,18 @@
-import { CircleAlert, Plus, Upload, X } from 'lucide-react'
+import { CircleAlert, MoreHorizontal, Plus, Upload } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useLocation } from 'react-router'
-import { ColorPicker, Swatch } from '../../components/ColorPicker'
+import { ColorMenu } from '../../components/ColorMenu'
 import { TimeRangePicker } from '../../components/TimeRangePicker'
-import { Button, Card, ErrorNote, Loading, Pill } from '../../components/ui'
+import { Button, Card, ErrorNote, Loading, Pill, cx } from '../../components/ui'
 import { useStore, useUser } from '../../data/StoreContext'
 import { isNewProject } from '../../domain/projects'
 import { SLOTS_PER_DAY, SLOT_HOURS, timeToSlot } from '../../domain/time'
 import type { TaskTemplate, TimeSlot } from '../../domain/types'
 import { useAsync } from '../../lib/hooks'
+import { moveItem, sortItems } from '../../lib/ordering'
+import { useDragReorder } from '../../lib/useDragReorder'
 import { categoryColor, chipBg, templateColor } from './colors'
-import { DailyGrid, templateCategory, type GridColors } from './grid/DailyGrid'
+import { DailyGrid, templateCategory, type GridColors, type GridOptionsApi } from './grid/DailyGrid'
 import { applyTemplate, effectiveSlot, type CellChange, type GridContext } from './grid/gridModel'
 import { ImportWizard } from './ImportWizard'
 import { displayName } from './projectUi'
@@ -26,13 +28,21 @@ export function DailyLog() {
 
   const q = useAsync(() => store.listSlots(engineer.id, date, date), [store, engineer.id, date])
   const templatesQ = useAsync(() => store.listTemplates(user.id), [store, user.id])
-  const templates = templatesQ.data ?? []
+  const [localOrder, setLocalOrder] = useState<string[] | null>(null) // optimistic drag order
+  useEffect(() => setLocalOrder(null), [templatesQ.data])
+  const templates = useMemo(() => {
+    const list = [...(templatesQ.data ?? [])].sort((a, b) => a.sort_order - b.sort_order || a.created_at.localeCompare(b.created_at))
+    if (!localOrder) return list
+    const rank = new Map(localOrder.map((id, i) => [id, i]))
+    return list.sort((a, b) => (rank.get(a.id) ?? 1e9) - (rank.get(b.id) ?? 1e9))
+  }, [templatesQ.data, localOrder])
   const [slots, setSlots] = useState<Map<number, TimeSlot>>(new Map())
   const [error, setError] = useState<Error | null>(null)
   const [showAll, setShowAll] = useState(false)
   const [importing, setImporting] = useState(false)
   const [selection, setSelection] = useState<{ rows: number[]; active: number }>({ rows: [], active: 0 })
-  const [templateColorFor, setTemplateColorFor] = useState<string | null>(null)
+  const [chipMenu, setChipMenu] = useState<{ id: string; anchor: DOMRect } | null>(null)
+  const chipBox = useRef<HTMLUListElement>(null)
   const undoStack = useRef<CellChange[][]>([])
   const colorPrefs = useColorPrefs()
   const { prefs } = colorPrefs
@@ -156,14 +166,50 @@ export function DailyLog() {
     void createTemplate({ kind: s.kind, group_project_id: s.group_project_id, label: s.label, description: s.description })
   }
 
-  async function setTemplateColor(id: string, color: string | null) {
+  async function updateTemplate(id: string, patch: Parameters<typeof store.updateTemplate>[1]) {
     try {
-      await store.updateTemplate(id, { color })
+      await store.updateTemplate(id, patch)
       templatesQ.reload()
     } catch (e) {
       setError(e as Error)
     }
   }
+
+  /** New manual order of repeated tasks (drag in the dropdown or the chips). */
+  async function reorderTemplates(ids: string[]) {
+    setLocalOrder(ids)
+    if (prefs.sort.template !== 'manual') void colorPrefs.update((p) => ({ ...p, sort: { ...p.sort, template: 'manual' } }))
+    try {
+      for (const [i, id] of ids.entries()) {
+        const t = templates.find((x) => x.id === id)
+        if (t && t.sort_order !== i + 1) await store.updateTemplate(id, { sort_order: i + 1 })
+      }
+      templatesQ.reload()
+    } catch (e) {
+      setError(e as Error)
+    }
+  }
+
+  const optionsApi: GridOptionsApi = {
+    sort: prefs.sort,
+    categoryOrder: prefs.categoryOrder,
+    setSort: (list, mode) => void colorPrefs.update((p) => ({ ...p, sort: { ...p.sort, [list]: mode } })),
+    reorderCategories: (keys) =>
+      void colorPrefs.update((p) => ({
+        ...p,
+        categoryOrder: [...keys, ...p.categoryOrder.filter((k) => !keys.includes(k))],
+        sort: { ...p.sort, category: 'manual' },
+      })),
+    reorderTemplates: (ids) => void reorderTemplates(ids),
+    renameTemplate: (id, name) => void updateTemplate(id, { description: name }),
+    deleteTemplate: (id) => void deleteTemplate(id),
+    setTemplateColor: (id, hex) => void updateTemplate(id, { color: hex }),
+  }
+
+  // chips on the right follow the same sort as the Task dropdown
+  const chips = sortItems(templates, prefs.sort.template, { key: (t) => t.id, name: (t) => t.description || t.label, created: (t) => t.created_at }, templates.map((t) => t.id))
+  const chipDrag = useDragReorder(chipBox, (_, from, to) => void reorderTemplates(moveItem(chips.map((t) => t.id), from, to)), 5)
+  const chipMenuTemplate = chipMenu ? templates.find((t) => t.id === chipMenu.id) : undefined
 
   async function deleteTemplate(id: string) {
     try {
@@ -235,6 +281,9 @@ export function DailyLog() {
               ctx={ctx}
               templates={templates}
               colors={gridColors}
+              options={optionsApi}
+              layout={prefs.grid}
+              onLayoutChange={(grid) => void colorPrefs.update((p) => ({ ...p, grid }))}
               readOnly={!canEdit}
               onChange={(changes) => void persist(changes)}
               onUndo={undo}
@@ -279,37 +328,66 @@ export function DailyLog() {
               자주 하는 업무를 등록해 두세요. 행을 고르고 <strong>선택한 행 저장</strong>을 누르거나, Task 칸에 입력한 뒤 <strong>+ 반복 업무로 등록</strong>을 고르면 됩니다.
             </p>
           ) : (
-            <ul className="flex flex-wrap gap-2" data-testid="templates">
-              {templates.map((t) => (
-                <li key={t.id} className="relative flex items-center rounded-full pl-2 text-sm font-semibold" style={{ backgroundColor: chipBg(colorOfTemplate(t)) }}>
-                  <Swatch color={colorOfTemplate(t)} label={`Color of ${t.description || t.label}`} size={14} onClick={() => setTemplateColorFor(t.id)} />
-                  {templateColorFor === t.id && (
-                    <ColorPicker
-                      value={colorOfTemplate(t)}
-                      isCustom={t.color !== null}
-                      saved={prefs.palette}
-                      onPick={(hex) => void setTemplateColor(t.id, hex)}
-                      onSave={(hex) => void colorPrefs.savePreset(hex)}
-                      onRemoveSaved={(hex) => void colorPrefs.removePreset(hex)}
-                      onClose={() => setTemplateColorFor(null)}
-                    />
-                  )}
-                  <button
-                    className="max-w-[220px] truncate py-1 pl-1.5 pr-1 text-left"
-                    title={`${templateCategory(t, ctx)} · ${t.description}`}
-                    disabled={!canEdit}
-                    onClick={() => void persist(selection.rows.map((i) => ({ index: i, slot: applyTemplate(effectiveSlot(ctx, i), i, t, ctx) })))}
+            <ul ref={chipBox} className="flex flex-wrap gap-2" data-testid="templates">
+              {chips.map((t, i) => {
+                const d = chipDrag.state
+                const name = t.description || t.label
+                return (
+                  <li
+                    key={t.id}
+                    data-reorder="chips"
+                    className={cx(
+                      'group flex touch-none items-center rounded-full text-sm font-semibold shadow-sm',
+                      d?.from === i && 'opacity-40',
+                      d && d.over === i && d.from !== i && 'ring-2 ring-primary',
+                    )}
+                    style={{ backgroundColor: chipBg(colorOfTemplate(t)) }}
+                    {...(canEdit ? chipDrag.bind('chips', i) : {})}
                   >
-                    {t.description || t.label}
-                  </button>
-                  <button aria-label={`Delete template ${t.description || t.label}`} className="rounded-full p-1 pr-2 opacity-60 hover:opacity-100" onClick={() => void deleteTemplate(t.id)}>
-                    <X size={12} />
-                  </button>
-                </li>
-              ))}
+                    <button
+                      className="max-w-[220px] truncate py-1 pl-3 pr-1 text-left"
+                      title={`${templateCategory(t, ctx)} · ${t.description}`}
+                      disabled={!canEdit}
+                      onClick={() => {
+                        if (chipDrag.consumeDragged()) return
+                        void persist(selection.rows.map((r) => ({ index: r, slot: applyTemplate(effectiveSlot(ctx, r), r, t, ctx) })))
+                      }}
+                    >
+                      {name}
+                    </button>
+                    <button
+                      aria-label={`Options for ${name}`}
+                      className="rounded-full p-1 pr-2 opacity-50 hover:opacity-100 group-hover:opacity-100"
+                      onPointerDown={(e) => e.stopPropagation()}
+                      onClick={(e) => setChipMenu({ id: t.id, anchor: (e.currentTarget.parentElement as HTMLElement).getBoundingClientRect() })}
+                    >
+                      <MoreHorizontal size={14} />
+                    </button>
+                  </li>
+                )
+              })}
             </ul>
           )}
-          {templates.length > 0 && <p className="mt-2 text-xs text-muted">칩을 누르면 선택한 {selection.rows.length}개 행에 적용 · Task 칸 드롭다운에서도 선택</p>}
+          {templates.length > 0 && <p className="mt-2 text-xs text-muted">칩을 누르면 선택한 {selection.rows.length}개 행에 적용 · 끌어서 순서 변경 · … 에서 이름·색·삭제</p>}
+          {chipMenu && chipMenuTemplate && (
+            <ColorMenu
+              key={chipMenu.id}
+              anchor={chipMenu.anchor}
+              title={chipMenuTemplate.description || chipMenuTemplate.label}
+              onRename={(n) => void updateTemplate(chipMenuTemplate.id, { description: n })}
+              onDelete={() => {
+                void deleteTemplate(chipMenuTemplate.id)
+                setChipMenu(null)
+              }}
+              value={colorOfTemplate(chipMenuTemplate)}
+              isCustom={chipMenuTemplate.color !== null}
+              saved={prefs.palette}
+              onPick={(hex) => void updateTemplate(chipMenuTemplate.id, { color: hex })}
+              onSave={(hex) => void colorPrefs.savePreset(hex)}
+              onRemoveSaved={(hex) => void colorPrefs.removePreset(hex)}
+              onClose={() => setChipMenu(null)}
+            />
+          )}
         </Card>
 
         {newProjects.length > 0 && (

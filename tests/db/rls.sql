@@ -149,3 +149,14 @@ select pg_temp.expect_error($$insert into work_days (user_id, work_date, start_t
 select pg_temp.login('00000000-0000-0000-0000-00000000000a');
 select pg_temp.check(pg_temp.affected($$update work_days set start_time = '07:30' where user_id = '00000000-0000-0000-0000-00000000000c'$$) = 1, 'admin can fix others'' work hours');
 reset role;
+
+-- ── Backgrounds (0005) ───────────────────────────────────────────────────────
+set role authenticated;
+select pg_temp.login('00000000-0000-0000-0000-00000000000c');
+insert into user_backgrounds (user_id, image_data) values ('00000000-0000-0000-0000-00000000000c', 'data:image/jpeg;base64,AAAA');
+select pg_temp.check(pg_temp.affected($$update user_backgrounds set image_data = 'data:image/png;base64,BBBB'$$) = 1, 'member replaces own background');
+select pg_temp.expect_error($$update user_backgrounds set image_data = 'http://example.com/x.jpg'$$, 'background must be a data:image URL');
+select pg_temp.expect_error($$insert into user_backgrounds (user_id, image_data) values ('00000000-0000-0000-0000-00000000000a', 'data:image/jpeg;base64,AAAA')$$, 'cannot set someone else''s background');
+select pg_temp.login('00000000-0000-0000-0000-00000000000a');
+select pg_temp.check((select count(*) from user_backgrounds) = 0, 'backgrounds are private (even from admins)');
+reset role;

@@ -53,6 +53,7 @@ export interface GroupProject {
   status: ProjectStatus
   first_seen_import_id: string | null
   last_seen_import_id: string | null
+  created_at: string
 }
 
 export interface ProjectAlias {
@@ -112,6 +113,7 @@ export interface TaskTemplate {
   description: string
   sort_order: number
   color: string | null // #RRGGBB; null = category color
+  created_at: string
 }
 
 /** Working hours of one day ("HH:MM", end may be "24:00"). */

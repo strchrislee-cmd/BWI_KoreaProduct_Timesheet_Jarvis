@@ -1,10 +1,13 @@
-import { ChevronDown } from 'lucide-react'
-import { useEffect, useRef, useState, type ClipboardEvent, type KeyboardEvent, type MouseEvent } from 'react'
-import { ColorPicker, Swatch } from '../../../components/ColorPicker'
+import { ChevronDown, GripVertical, MoreHorizontal } from 'lucide-react'
+import { useEffect, useRef, useState, type ClipboardEvent, type FocusEvent, type KeyboardEvent, type MouseEvent, type PointerEvent } from 'react'
+import { ColorMenu, Swatch } from '../../../components/ColorMenu'
 import { cx } from '../../../components/ui'
+import { DEFAULT_GRID, GRID_LIMITS, ROW_HEIGHTS, type GridPrefs } from '../../../data/preferences'
 import { slotToTime } from '../../../domain/time'
-import type { TaskTemplate, TimeSlot } from '../../../domain/types'
-import { categoryKey, chipBg, rowBg } from '../colors'
+import type { ProjectKind, TaskTemplate, TimeSlot } from '../../../domain/types'
+import { SORT_LABELS, moveItem, sortItems, type SortMode } from '../../../lib/ordering'
+import { useDragReorder } from '../../../lib/useDragReorder'
+import { NONWORK_KEY, categoryKey, chipBg, rowBg } from '../colors'
 import { KIND_LABEL, displayName } from '../projectUi'
 import {
   COLS,
@@ -28,7 +31,12 @@ import {
 // composition works), becomes the visible editor while editing, and gets copy/paste events.
 
 const NONWORK_CHOICES = ['점심', '휴식', '퇴근']
-const GRID_COLS = 'grid-cols-[64px_minmax(200px,280px)_minmax(240px,1fr)_88px]'
+const GROUPS: { id: ProjectKind | 'nonwork'; label: string }[] = [
+  { id: 'project', label: KIND_LABEL.project },
+  { id: 'timelog', label: KIND_LABEL.timelog },
+  { id: 'local_section', label: KIND_LABEL.local_section },
+  { id: 'nonwork', label: 'Non-work' },
+]
 
 interface Sel {
   i: number // slot index
@@ -37,13 +45,15 @@ interface Sel {
 
 interface Option {
   key: string
-  group: string
+  group: string // reorder group id
+  groupLabel: string
   label: string
   hint?: string
   color?: string
   value?: string // category text to apply
   template?: TaskTemplate // task column: apply the template
-  create?: boolean // task column: save typed text as a template
+  create?: 'template' | 'category'
+  colorKey?: string // category options: preference key for its color
 }
 
 interface Editing {
@@ -61,11 +71,26 @@ export interface GridColors {
   template: (t: TaskTemplate) => string
 }
 
+/** Sorting, ordering and template actions for the dropdowns. */
+export interface GridOptionsApi {
+  sort: { category: SortMode; template: SortMode }
+  categoryOrder: string[]
+  setSort: (list: 'category' | 'template', mode: SortMode) => void
+  reorderCategories: (keys: string[]) => void
+  reorderTemplates: (ids: string[]) => void
+  renameTemplate: (id: string, name: string) => void
+  deleteTemplate: (id: string) => void
+  setTemplateColor: (id: string, hex: string | null) => void
+}
+
 export interface DailyGridProps {
   rows: number[]
   ctx: GridContext
   templates: TaskTemplate[]
   colors: GridColors
+  options: GridOptionsApi
+  layout: GridPrefs
+  onLayoutChange: (layout: GridPrefs) => void
   readOnly: boolean
   onChange: (changes: CellChange[]) => void
   onUndo: () => void
@@ -81,18 +106,35 @@ export function templateCategory(t: TaskTemplate, ctx: GridContext): string {
   return p ? displayName(p) : t.label
 }
 
-export function DailyGrid({ rows, ctx, templates, colors, readOnly, onChange, onUndo, onCreateTemplate, onSelectionChange }: DailyGridProps) {
+export function DailyGrid({
+  rows,
+  ctx,
+  templates,
+  colors,
+  options: api,
+  layout,
+  onLayoutChange,
+  readOnly,
+  onChange,
+  onUndo,
+  onCreateTemplate,
+  onSelectionChange,
+}: DailyGridProps) {
   const [anchor, setAnchor] = useState<Sel>({ i: rows[0], c: 0 })
   const [focus, setFocus] = useState<Sel>({ i: rows[0], c: 0 })
   const [editing, setEditing] = useState<Editing | null>(null)
   const [hi, setHi] = useState(-1)
   const [status, setStatus] = useState('')
-  const [colorKey, setColorKey] = useState<string | null>(null) // category whose color picker is open
+  const [menu, setMenu] = useState<{ key: string; anchor: DOMRect; placement: 'right' | 'below' } | null>(null)
+  const [sortOpen, setSortOpen] = useState(false)
+  const [live, setLive] = useState<GridPrefs | null>(null) // column widths while resizing
   const drag = useRef<'cell' | 'row' | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const listRef = useRef<HTMLDivElement>(null)
-  const wrapRef = useRef<HTMLDivElement>(null)
+  const popRef = useRef<HTMLDivElement>(null)
   const cellRefs = useRef(new Map<string, HTMLDivElement>())
+  const size = live ?? layout
+  const gridColumns = `${size.timeWidth}px ${size.categoryWidth}px minmax(220px, 1fr) 88px`
 
   // Selection is stored by slot index so it survives rows being added (e.g. pasting past 16:30).
   const pos = (i: number) => {
@@ -105,6 +147,7 @@ export function DailyGrid({ rows, ctx, templates, colors, readOnly, onChange, on
   const selRows = rows.slice(sel.r1, sel.r2 + 1)
   const activeIndex = rows[a.r]
   const activeCol = COLS[a.c]
+  const listKind: 'category' | 'template' = activeCol === 'task' ? 'template' : 'category'
 
   useEffect(() => {
     onSelectionChange(selRows, activeIndex)
@@ -125,34 +168,90 @@ export function DailyGrid({ rows, ctx, templates, colors, readOnly, onChange, on
     listRef.current?.querySelector(`[data-opt="${hi}"]`)?.scrollIntoView({ block: 'nearest' })
   }, [hi])
 
+  useEffect(() => {
+    if (!editing) {
+      setMenu(null)
+      setSortOpen(false)
+    }
+  }, [editing])
+
   // ── dropdown options ──────────────────────────────────────────────────────
   function buildOptions(state: Editing | null): Option[] {
     if (!state) return []
-    const q = state.dirty ? state.text.trim().toLowerCase() : ''
+    const text = state.dirty ? state.text.trim() : ''
+    const q = text.toLowerCase()
     const match = (...xs: string[]) => !q || xs.some((x) => x.toLowerCase().includes(q))
+    const list: Option[] = []
+
     if (activeCol === 'category') {
-      const list: Option[] = []
-      for (const p of ctx.projects) {
-        if (p.status !== 'active') continue
-        const aliases = ctx.aliases.filter((x) => x.group_project_id === p.id).map((x) => x.alias)
-        if (match(displayName(p), p.name, ...aliases))
-          list.push({ key: p.id, group: KIND_LABEL[p.kind], label: displayName(p), hint: aliases.join(', '), color: ctx.color('work', p.id), value: displayName(p) })
+      for (const g of GROUPS) {
+        const items: Option[] =
+          g.id === 'nonwork'
+            ? NONWORK_CHOICES.filter((l) => match(l)).map((l) => ({
+                key: `nw:${l}`,
+                group: g.id,
+                groupLabel: g.label,
+                label: l,
+                color: ctx.color('nonwork', null),
+                value: l,
+                colorKey: NONWORK_KEY,
+              }))
+            : ctx.projects
+                .filter((p) => p.status === 'active' && p.kind === g.id)
+                .map((p) => ({ p, aliases: ctx.aliases.filter((x) => x.group_project_id === p.id).map((x) => x.alias) }))
+                .filter(({ p, aliases }) => match(displayName(p), p.name, ...aliases))
+                .map(({ p, aliases }) => ({
+                  key: p.id,
+                  group: g.id,
+                  groupLabel: g.label,
+                  label: displayName(p),
+                  hint: aliases.join(', '),
+                  color: ctx.color('work', p.id),
+                  value: displayName(p),
+                  colorKey: p.id,
+                }))
+        const created = new Map(ctx.projects.map((p) => [p.id, p.created_at]))
+        list.push(...sortItems(items, api.sort.category, { key: (o) => o.key, name: (o) => o.label, created: (o) => created.get(o.key) ?? '' }, api.categoryOrder))
       }
-      for (const l of NONWORK_CHOICES) if (match(l)) list.push({ key: `nw:${l}`, group: 'Non-work', label: l, color: ctx.color('nonwork', null), value: l })
+      if (text && !list.some((o) => o.label.toLowerCase() === q))
+        list.push({ key: 'create', group: 'create', groupLabel: '', label: `+ “${text}” 생성`, hint: '미매핑 — 나중에 프로젝트에 연결', value: text, create: 'category' })
       return list
     }
+
     if (activeCol === 'task') {
-      const list: Option[] = templates
+      const items: Option[] = templates
         .filter((t) => match(t.description, t.label, templateCategory(t, ctx)))
-        .map((t) => ({ key: t.id, group: '반복 업무', label: t.description || t.label, hint: templateCategory(t, ctx), color: colors.template(t), template: t }))
-      const text = state.text.trim()
-      if (state.dirty && text && !templates.some((t) => t.description === text))
-        list.push({ key: 'create', group: '새 반복 업무', label: `+ 반복 업무로 등록: “${text}”`, create: true })
+        .map((t) => ({ key: t.id, group: 'template', groupLabel: '반복 업무', label: t.description || t.label, hint: templateCategory(t, ctx), color: colors.template(t), template: t }))
+      const created = new Map(templates.map((t) => [t.id, t.created_at]))
+      list.push(...sortItems(items, api.sort.template, { key: (o) => o.key, name: (o) => o.label, created: (o) => created.get(o.key) ?? '' }, templates.map((t) => t.id)))
+      if (text && !templates.some((t) => t.description === text))
+        list.push({ key: 'create', group: 'create', groupLabel: '', label: `+ “${text}” 생성 · 반복 업무로 등록`, create: 'template' })
       return list
     }
     return []
   }
   const options = buildOptions(editing)
+  const filtering = !!editing?.dirty && !!editing.text.trim()
+
+  // drag reorder inside a group (disabled while a search filter is active)
+  const reorder = useDragReorder(popRef, (group, from, to) => {
+    const keys = moveItem(
+      options.filter((o) => o.group === group).map((o) => o.key),
+      from,
+      to,
+    )
+    if (group === 'template') api.reorderTemplates(keys)
+    else api.reorderCategories(keys)
+  })
+  const groupIndex = new Map<string, number>()
+  {
+    const counters = new Map<string, number>()
+    for (const o of options) {
+      const n = counters.get(o.group) ?? 0
+      groupIndex.set(o.key, n)
+      counters.set(o.group, n + 1)
+    }
+  }
 
   // ── selection & editing ───────────────────────────────────────────────────
   function setSel(next: Sel, extend: boolean) {
@@ -197,7 +296,7 @@ export function DailyGrid({ rows, ctx, templates, colors, readOnly, onChange, on
         onChange(selRows.map((i) => ({ index: i, slot: applyTemplate(effectiveSlot(ctx, i), i, t, ctx) })))
       } else {
         const text = opt?.value ?? editing.text
-        if (opt?.create) {
+        if (opt?.create === 'template') {
           const base = effectiveSlot(ctx, activeIndex)
           onCreateTemplate({ kind: base?.kind ?? 'work', group_project_id: base?.group_project_id ?? null, label: base?.label ?? '', description: text.trim() })
         }
@@ -240,7 +339,10 @@ export function DailyGrid({ rows, ctx, templates, colors, readOnly, onChange, on
         commit(e.shiftKey ? 'left' : 'right')
       } else if (e.key === 'Escape') {
         e.preventDefault()
-        setEditing(null)
+        if (menu || sortOpen) {
+          setMenu(null)
+          setSortOpen(false)
+        } else setEditing(null)
       } else if ((e.key === 'ArrowDown' || e.key === 'ArrowUp') && options.length) {
         e.preventDefault()
         setHi((h) => clamp(h + (e.key === 'ArrowDown' ? 1 : -1), -1, options.length - 1))
@@ -313,6 +415,13 @@ export function DailyGrid({ rows, ctx, templates, colors, readOnly, onChange, on
     setStatus(`${ops.length}칸 붙여넣음`)
   }
 
+  function onBlur(e: FocusEvent<HTMLInputElement>) {
+    // focus moved into the dropdown / an option menu (e.g. renaming) → keep editing
+    const to = e.relatedTarget as HTMLElement | null
+    if (to && (popRef.current?.contains(to) || to.closest('[data-grid-popover]'))) return
+    if (editing) commit('none')
+  }
+
   // ── mouse ─────────────────────────────────────────────────────────────────
   function onCellDown(e: MouseEvent, i: number, c: number) {
     if (e.button !== 0) return
@@ -338,6 +447,30 @@ export function DailyGrid({ rows, ctx, templates, colors, readOnly, onChange, on
     if (drag.current === 'row') setFocus({ i, c: COLS.length - 1 })
   }
 
+  // ── column resize ─────────────────────────────────────────────────────────
+  function startResize(e: PointerEvent<HTMLDivElement>, which: 'timeWidth' | 'categoryWidth') {
+    e.preventDefault()
+    e.stopPropagation()
+    const startX = e.clientX
+    const start = size[which]
+    const [lo, hi] = GRID_LIMITS[which]
+    const el = e.currentTarget
+    el.setPointerCapture(e.pointerId)
+    let latest = size
+    const move = (ev: globalThis.PointerEvent) => {
+      latest = { ...size, [which]: clamp(start + ev.clientX - startX, lo, hi) }
+      setLive(latest)
+    }
+    const up = () => {
+      el.removeEventListener('pointermove', move)
+      el.removeEventListener('pointerup', up)
+      setLive(null)
+      if (latest[which] !== layout[which]) onLayoutChange(latest)
+    }
+    el.addEventListener('pointermove', move)
+    el.addEventListener('pointerup', up)
+  }
+
   // ── render ────────────────────────────────────────────────────────────────
   const activeEl = cellRefs.current.get(`${activeIndex}:${a.c}`)
   const box = activeEl
@@ -358,14 +491,28 @@ export function DailyGrid({ rows, ctx, templates, colors, readOnly, onChange, on
     )
   }
 
+  const menuOption = menu ? options.find((o) => o.key === menu.key) : undefined
+  const menuCategoryKey = menu && !menuOption ? menu.key : menuOption?.colorKey // cell swatch → category key directly
+  const rowStyle = { height: size.rowHeight }
+
   return (
     <div>
-      <div ref={wrapRef} className={cx('relative select-none text-[13px]', readOnly ? 'cursor-default' : 'cursor-cell')} role="grid" aria-label="30-min log">
-        <div className={cx('sticky top-0 z-10 grid bg-sage-light font-semibold', GRID_COLS)}>
-          <div className="px-2.5 py-2">Time</div>
-          <div className="px-2.5 py-2">Category</div>
-          <div className="px-2.5 py-2">Task</div>
-          <div className="px-2.5 py-2">Focus</div>
+      <div className={cx('relative select-none text-[13px]', readOnly ? 'cursor-default' : 'cursor-cell')} role="grid" aria-label="30-min log">
+        <div className="sticky top-0 z-10 grid rounded-t-xl bg-sage-light/90 font-semibold backdrop-blur" style={{ gridTemplateColumns: gridColumns }}>
+          {(['Time', 'Category', 'Task', 'Focus'] as const).map((h, k) => (
+            <div key={h} className={cx('relative px-2.5 py-2', k > 0 && 'border-l border-dashed border-black/10')}>
+              {h}
+              {k < 2 && (
+                <div
+                  role="separator"
+                  aria-label={`Resize ${h} column`}
+                  className="absolute -right-1 top-0 z-10 h-full w-2 cursor-col-resize hover:bg-primary/30"
+                  onPointerDown={(e) => startResize(e, k === 0 ? 'timeWidth' : 'categoryWidth')}
+                  onDoubleClick={() => onLayoutChange({ ...layout, [k === 0 ? 'timeWidth' : 'categoryWidth']: DEFAULT_GRID[k === 0 ? 'timeWidth' : 'categoryWidth'] })}
+                />
+              )}
+            </div>
+          ))}
         </div>
 
         {rows.map((i, r) => {
@@ -376,10 +523,15 @@ export function DailyGrid({ rows, ctx, templates, colors, readOnly, onChange, on
               key={i}
               data-slot={i}
               role="row"
-              className={cx('grid border-t border-line', GRID_COLS, lunchDefault && 'text-muted')}
-              style={s ? { backgroundColor: rowBg(ctx.color(s.kind, s.group_project_id)) } : undefined}
+              className={cx('grid border-t border-dashed border-black/15', lunchDefault && 'text-muted')}
+              style={{ gridTemplateColumns: gridColumns, backgroundColor: s ? rowBg(ctx.color(s.kind, s.group_project_id)) : undefined }}
             >
-              <div className="cursor-pointer px-2.5 py-2 font-semibold tabular-nums" onMouseDown={(e) => onRowDown(e, i)} onMouseEnter={() => onCellEnter(i, COLS.length - 1)}>
+              <div
+                className="flex cursor-pointer items-center px-2.5 font-semibold tabular-nums"
+                style={rowStyle}
+                onMouseDown={(e) => onRowDown(e, i)}
+                onMouseEnter={() => onCellEnter(i, COLS.length - 1)}
+              >
                 {slotToTime(i)}
               </div>
               {COLS.map((col, c) => {
@@ -396,19 +548,26 @@ export function DailyGrid({ rows, ctx, templates, colors, readOnly, onChange, on
                     aria-selected={selected}
                     data-cell={`${i}:${col}`}
                     className={cx(
-                      'relative min-h-9 truncate px-2.5 py-2',
+                      'relative flex items-center overflow-hidden whitespace-nowrap border-l border-dashed border-black/10 px-2.5',
                       selected && 'shadow-[inset_0_0_0_9999px_rgba(31,77,58,0.12)]',
                       active && 'outline outline-2 -outline-offset-2 outline-primary',
                     )}
+                    style={rowStyle}
                     onMouseDown={(e) => onCellDown(e, i, c)}
                     onMouseEnter={() => onCellEnter(i, c)}
                     onDoubleClick={openEditor}
                   >
-                    {renderCell(col, s, lunchDefault)}
+                    <span className="min-w-0 truncate">{renderCell(col, s, lunchDefault)}</span>
                     {active && !editing && col !== 'focus' && (
                       <span className="absolute right-1 top-1/2 flex -translate-y-1/2 items-center gap-1" onMouseDown={(e) => e.stopPropagation()}>
                         {col === 'category' && s && categoryKey(s.kind, s.group_project_id) && (
-                          <Swatch color={ctx.color(s.kind, s.group_project_id)} label="Category color" onClick={() => setColorKey(categoryKey(s.kind, s.group_project_id))} />
+                          <span
+                            onClick={(e) =>
+                              setMenu({ key: categoryKey(s.kind, s.group_project_id)!, anchor: (e.target as HTMLElement).getBoundingClientRect(), placement: 'below' })
+                            }
+                          >
+                            <Swatch color={ctx.color(s.kind, s.group_project_id)} label="Category color" />
+                          </span>
                         )}
                         {!readOnly && (
                           <button
@@ -437,7 +596,7 @@ export function DailyGrid({ rows, ctx, templates, colors, readOnly, onChange, on
           autoComplete="off"
           spellCheck={false}
           value={editing?.text ?? ''}
-          placeholder={editing && activeCol === 'category' ? cellText(effectiveSlot(ctx, activeIndex), 'category', ctx.byId) || '카테고리 검색…' : ''}
+          placeholder={editing && activeCol === 'category' ? cellText(effectiveSlot(ctx, activeIndex), 'category', ctx.byId) || '옵션 검색…' : ''}
           readOnly={readOnly}
           onChange={(e) => {
             if (readOnly) return
@@ -449,7 +608,7 @@ export function DailyGrid({ rows, ctx, templates, colors, readOnly, onChange, on
           onCopy={onCopy}
           onCut={onCut}
           onPaste={onPaste}
-          onBlur={() => editing && commit('none')}
+          onBlur={onBlur}
           className={cx(
             'absolute z-20 rounded-md px-2.5 text-[13px] outline-none',
             editing ? 'border-2 border-primary bg-white shadow-lg' : 'pointer-events-none opacity-0',
@@ -459,64 +618,184 @@ export function DailyGrid({ rows, ctx, templates, colors, readOnly, onChange, on
           style={{ top: box.top, left: box.left, width: Math.max(box.width, 200), height: box.height }}
         />
 
-        {colorKey && (
-          // laid over the active cell (cells clip overflow); opens upward near the bottom
-          <div className="pointer-events-none absolute z-40" style={{ top: box.top, left: box.left, width: box.width, height: box.height }}>
-            <ColorPicker
-              value={colorKey === 'nonwork' ? ctx.color('nonwork', null) : ctx.color('work', colorKey)}
-              isCustom={colors.isCustom(colorKey)}
-              saved={colors.saved}
-              align="right"
-              side={box.top > (wrapRef.current?.offsetHeight ?? 0) - 380 && box.top > 380 ? 'top' : 'bottom'}
-              onPick={(hex) => colors.setCategory(colorKey, hex)}
-              onSave={colors.save}
-              onRemoveSaved={colors.removeSaved}
-              onClose={() => {
-                setColorKey(null)
-                inputRef.current?.focus({ preventScroll: true })
-              }}
-            />
+        {editing && (activeCol === 'category' || activeCol === 'task') && (
+          <div
+            ref={popRef}
+            className="glass-strong absolute z-30 rounded-2xl p-1"
+            style={{ top: box.top + box.height + 4, left: box.left, width: Math.max(box.width, 340) }}
+            onMouseDown={(e) => e.preventDefault()}
+          >
+            <div className="relative flex items-center justify-between px-2 pb-1 pt-1.5 text-[11px] font-semibold text-muted">
+              <span>옵션 선택 또는 생성</span>
+              <button
+                aria-label="Sort options"
+                title={`정렬: ${SORT_LABELS[api.sort[listKind]]}`}
+                className="rounded p-0.5 hover:bg-black/5"
+                onClick={() => setSortOpen((o) => !o)}
+              >
+                <MoreHorizontal size={16} />
+              </button>
+              {sortOpen && (
+                <div role="menu" aria-label="Sort menu" className="glass-strong absolute right-1 top-7 z-40 w-52 rounded-xl p-1 text-[13px] font-normal text-ink">
+                  <div className="px-2 py-1 text-[11px] font-semibold text-muted">정렬</div>
+                  {(Object.keys(SORT_LABELS) as SortMode[]).map((m) => (
+                    <button
+                      key={m}
+                      role="menuitemradio"
+                      aria-checked={api.sort[listKind] === m}
+                      className="flex w-full items-center justify-between rounded-lg px-2 py-1 text-left hover:bg-black/5"
+                      onClick={() => {
+                        api.setSort(listKind, m)
+                        setSortOpen(false)
+                      }}
+                    >
+                      {SORT_LABELS[m]}
+                      {api.sort[listKind] === m && <span>✓</span>}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div ref={listRef} role="listbox" className="max-h-72 overflow-auto">
+              {options.length === 0 && <p className="px-2 py-2 text-xs text-muted">{activeCol === 'task' ? '등록된 반복 업무가 없습니다. 입력하면 새로 만들 수 있어요.' : '일치하는 옵션이 없습니다.'}</p>}
+              {options.map((o, k) => {
+                const gi = groupIndex.get(o.key) ?? 0
+                const d = reorder.state
+                const dragging = d?.group === o.group && d.from === gi
+                const dropLine = d && d.group === o.group && d.over === gi && d.over !== d.from ? (d.over > d.from ? 'after' : 'before') : null
+                const canReorder = !filtering && !readOnly && o.group !== 'create'
+                const hasMenu = !!o.colorKey || !!o.template
+                return (
+                  <div key={o.key}>
+                    {(k === 0 || options[k - 1].group !== o.group) && o.groupLabel && (
+                      <div className="px-2 pb-1 pt-2 text-[11px] font-semibold uppercase text-muted">{o.groupLabel}</div>
+                    )}
+                    <div
+                      role="option"
+                      aria-selected={k === hi}
+                      data-opt={k}
+                      data-reorder={canReorder ? o.group : undefined}
+                      className={cx(
+                        'group flex cursor-pointer items-center gap-1.5 rounded-xl px-1.5 py-1',
+                        k === hi ? 'bg-black/[0.07]' : 'hover:bg-black/[0.04]',
+                        dragging && 'opacity-40',
+                        dropLine === 'before' && 'shadow-[inset_0_2px_0_#1f4d3a]',
+                        dropLine === 'after' && 'shadow-[inset_0_-2px_0_#1f4d3a]',
+                      )}
+                      onMouseDown={(e) => {
+                        e.preventDefault()
+                        commit('none', k)
+                      }}
+                      onMouseEnter={() => setHi(k)}
+                    >
+                      {canReorder ? (
+                        <span
+                          aria-label={`Drag ${o.label}`}
+                          className="cursor-grab touch-none text-muted opacity-0 group-hover:opacity-100 group-aria-selected:opacity-100"
+                          onMouseDown={(e) => {
+                            e.preventDefault()
+                            e.stopPropagation()
+                          }}
+                          {...reorder.bind(o.group, gi)}
+                        >
+                          <GripVertical size={14} />
+                        </span>
+                      ) : (
+                        <span className="w-[14px]" />
+                      )}
+                      <span className="truncate rounded-md px-1.5 py-0.5 text-[13px] font-medium" style={o.color ? { backgroundColor: chipBg(o.color) } : undefined}>
+                        {o.label}
+                      </span>
+                      {o.hint && <span className="ml-auto shrink-0 truncate pl-2 text-xs text-muted">{o.hint}</span>}
+                      {hasMenu && (
+                        <button
+                          aria-label={`Options for ${o.label}`}
+                          className={cx('shrink-0 rounded p-0.5 text-muted opacity-0 hover:bg-black/10 group-hover:opacity-100 group-aria-selected:opacity-100', !o.hint && 'ml-auto')}
+                          onMouseDown={(e) => {
+                            e.preventDefault()
+                            e.stopPropagation()
+                          }}
+                          onClick={(e) => setMenu({ key: o.key, anchor: (e.currentTarget.parentElement as HTMLElement).getBoundingClientRect(), placement: 'right' })}
+                        >
+                          <MoreHorizontal size={14} />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
           </div>
         )}
 
-        {editing && options.length > 0 && (
-          <div
-            ref={listRef}
-            role="listbox"
-            className="absolute z-30 max-h-72 overflow-auto rounded-2xl border border-line bg-white p-1 shadow-xl"
-            style={{ top: box.top + box.height + 4, left: box.left, width: Math.max(box.width, 320) }}
-          >
-            {options.map((o, k) => (
-              <div key={o.key}>
-                {(k === 0 || options[k - 1].group !== o.group) && o.group && <div className="px-2 pb-1 pt-2 text-[11px] font-semibold uppercase text-muted">{o.group}</div>}
-                <div
-                  role="option"
-                  aria-selected={k === hi}
-                  data-opt={k}
-                  className={cx('flex cursor-pointer items-center gap-2 rounded-xl px-2 py-1.5', k === hi ? 'bg-sage' : 'hover:bg-sage-light')}
-                  onMouseDown={(e) => {
-                    e.preventDefault()
-                    commit('none', k)
-                  }}
-                  onMouseEnter={() => setHi(k)}
-                >
-                  <span className="truncate rounded-full px-2 py-0.5 text-[13px] font-medium" style={o.color ? { backgroundColor: chipBg(o.color) } : undefined}>
-                    {o.label}
-                  </span>
-                  {o.hint && <span className="ml-auto shrink-0 truncate text-xs text-muted">{o.hint}</span>}
-                </div>
-              </div>
-            ))}
-          </div>
+        {menu && menuOption?.template && (
+          <ColorMenu
+            key={menu.key}
+            anchor={menu.anchor}
+            placement={menu.placement}
+            title={menuOption.template.description || menuOption.template.label}
+            onRename={(name) => api.renameTemplate(menuOption.template!.id, name)}
+            onDelete={() => {
+              api.deleteTemplate(menuOption.template!.id)
+              setMenu(null)
+            }}
+            value={colors.template(menuOption.template)}
+            isCustom={menuOption.template.color !== null}
+            saved={colors.saved}
+            onPick={(hex) => api.setTemplateColor(menuOption.template!.id, hex)}
+            onSave={colors.save}
+            onRemoveSaved={colors.removeSaved}
+            onClose={() => {
+              setMenu(null)
+              inputRef.current?.focus({ preventScroll: true })
+            }}
+          />
+        )}
+        {menu && menuCategoryKey && !menuOption?.template && (
+          <ColorMenu
+            key={menu.key}
+            anchor={menu.anchor}
+            placement={menu.placement}
+            title={
+              menuCategoryKey === NONWORK_KEY
+                ? 'Non-work (점심·휴식·퇴근)'
+                : ctx.byId.get(menuCategoryKey)
+                  ? displayName(ctx.byId.get(menuCategoryKey)!)
+                  : menuCategoryKey
+            }
+            note="그룹 프로젝트 이름은 마스터 시트에서 관리되어 여기서는 색만 바꿀 수 있습니다."
+            value={menuCategoryKey === NONWORK_KEY ? ctx.color('nonwork', null) : ctx.color('work', menuCategoryKey)}
+            isCustom={colors.isCustom(menuCategoryKey)}
+            saved={colors.saved}
+            onPick={(hex) => colors.setCategory(menuCategoryKey, hex)}
+            onSave={colors.save}
+            onRemoveSaved={colors.removeSaved}
+            onClose={() => {
+              setMenu(null)
+              inputRef.current?.focus({ preventScroll: true })
+            }}
+          />
         )}
       </div>
-      <p className="mt-2 flex flex-wrap gap-x-3 text-xs text-muted">
-        <span>클릭·드래그·Shift로 여러 칸 선택</span>
-        <span>입력/Enter → 선택한 칸 모두 적용</span>
-        <span>Ctrl+C / Ctrl+V (엑셀 호환)</span>
-        <span>Delete 지우기 · Ctrl+D 아래로 채우기 · Ctrl+Z 되돌리기</span>
+      <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted">
+        <span className="flex items-center gap-1" role="group" aria-label="Row height">
+          행 높이
+          {ROW_HEIGHTS.map((h) => (
+            <button
+              key={h.value}
+              aria-pressed={size.rowHeight === h.value}
+              className={cx('rounded-full px-2 py-0.5', size.rowHeight === h.value ? 'bg-primary text-white' : 'bg-black/5 hover:bg-black/10')}
+              onClick={() => onLayoutChange({ ...layout, rowHeight: h.value })}
+            >
+              {h.label}
+            </button>
+          ))}
+        </span>
+        <span>열 경계를 끌어 너비 조절</span>
+        <span>클릭·드래그·Shift로 여러 칸 선택 · 입력/Enter → 선택한 칸 모두 적용</span>
+        <span>Ctrl+C / Ctrl+V · Delete · Ctrl+D · Ctrl+Z</span>
         {status && <span className="font-semibold text-primary" role="status">{status}</span>}
-      </p>
+      </div>
     </div>
   )
 }

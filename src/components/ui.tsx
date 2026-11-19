@@ -5,10 +5,10 @@ const cx = (...c: (string | false | null | undefined)[]) => c.filter(Boolean).jo
 
 type CardTone = 'white' | 'sage' | 'accent' | 'dark'
 const TONES: Record<CardTone, string> = {
-  white: 'bg-surface',
-  sage: 'bg-sage',
-  accent: 'bg-accent text-white',
-  dark: 'bg-primary text-white',
+  white: 'glass',
+  sage: 'glass glass-sage',
+  accent: 'glass-accent text-white',
+  dark: 'glass-dark text-white',
 }
 
 export function Card({
@@ -25,7 +25,7 @@ export function Card({
   children?: ReactNode
 }) {
   return (
-    <section className={cx('rounded-[var(--radius-card)] p-5 shadow-[0_1px_2px_rgba(0,0,0,0.04)]', TONES[tone], className)}>
+    <section className={cx('rounded-[var(--radius-card)] p-5', TONES[tone], className)}>
       {(title || action) && (
         <header className="mb-3 flex items-center justify-between gap-3">
           {title && <h2 className="text-lg font-bold">{title}</h2>}
@@ -40,9 +40,9 @@ export function Card({
 type ButtonVariant = 'primary' | 'outline' | 'ghost' | 'light'
 const VARIANTS: Record<ButtonVariant, string> = {
   primary: 'bg-primary text-white hover:bg-primary-soft',
-  outline: 'border border-primary text-primary bg-white hover:bg-sage-light',
+  outline: 'border border-primary text-primary bg-white/70 hover:bg-white',
   ghost: 'text-ink hover:bg-sage-light',
-  light: 'bg-white text-ink hover:bg-sage-light',
+  light: 'bg-white/80 text-ink hover:bg-white',
 }
 
 export function Button({
@@ -91,8 +91,8 @@ export function Field({ label, children, hint }: { label: string; children: Reac
 
 export function Modal({ title, onClose, children, wide }: { title: string; onClose: () => void; children: ReactNode; wide?: boolean }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4" role="dialog" aria-label={title}>
-      <div className={cx('max-h-[90vh] w-full overflow-auto rounded-[var(--radius-card)] bg-white p-6 shadow-xl', wide ? 'max-w-4xl' : 'max-w-lg')}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/25 p-4 backdrop-blur-sm" role="dialog" aria-label={title}>
+      <div className={cx('glass-strong max-h-[90vh] w-full overflow-auto rounded-[var(--radius-card)] p-6', wide ? 'max-w-4xl' : 'max-w-lg')}>
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-2xl font-bold">{title}</h2>
           <button onClick={onClose} aria-label="Close" className="rounded-full p-1 hover:bg-sage-light">

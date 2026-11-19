@@ -49,9 +49,13 @@ export interface DataStore {
 
   /** The signed-in user's repeated tasks. */
   listTemplates(userId: string): Promise<TaskTemplate[]>
-  addTemplate(template: Omit<TaskTemplate, 'id'>): Promise<void>
-  updateTemplate(id: string, patch: Pick<TaskTemplate, 'color'>): Promise<void>
+  addTemplate(template: Omit<TaskTemplate, 'id' | 'created_at'>): Promise<void>
+  updateTemplate(id: string, patch: Partial<Pick<TaskTemplate, 'color' | 'description' | 'sort_order'>>): Promise<void>
   deleteTemplate(id: string): Promise<void>
+
+  /** Uploaded background photo of the signed-in user (data URL), or null. */
+  getBackground(userId: string): Promise<string | null>
+  saveBackground(userId: string, imageData: string | null): Promise<void>
 
   listLeave(userId: string, from: string, to: string): Promise<LeaveRequest[]>
   addLeave(leave: Omit<LeaveRequest, 'id'>): Promise<void>

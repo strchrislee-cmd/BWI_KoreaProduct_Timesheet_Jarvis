@@ -1,13 +1,19 @@
-import { Sparkles, X } from 'lucide-react'
-import { useEffect, useState } from 'react'
-import { ColorPicker, Swatch } from '../components/ColorPicker'
+import { Bell, ImagePlus, RefreshCw, Sparkles, X } from 'lucide-react'
+import { useEffect, useState, type ReactNode } from 'react'
+import { BACKGROUND_CHANGED, fetchDailyPhoto } from '../components/BackgroundLayer'
+import { ColorMenu, Swatch } from '../components/ColorMenu'
 import { PageTitle } from '../components/Shell'
 import { TimeRangePicker } from '../components/TimeRangePicker'
 import { Button, Card, ErrorNote, Field } from '../components/ui'
 import { LocalStore } from '../data/localStore'
 import { useStore, useUser } from '../data/StoreContext'
+import { usePreferences } from '../data/usePreferences'
+import type { BackgroundMode } from '../data/preferences'
 import { sortProjects } from '../domain/projects'
+import { todayLocal } from '../domain/time'
 import type { OrgSettings, Profile } from '../domain/types'
+import { gradientBackground } from '../lib/background'
+import { compressImage } from '../lib/files'
 import { useAsync } from '../lib/hooks'
 import { NONWORK_KEY, categoryColor } from './timesheets/colors'
 import { KIND_LABEL, displayName } from './timesheets/projectUi'
@@ -158,6 +164,8 @@ export function Settings() {
             )}
           </Card>
         </div>
+        <NotificationsCard />
+        <BackgroundCard />
         <CategoryColorsCard />
       </div>
     </div>
@@ -169,7 +177,7 @@ function CategoryColorsCard() {
   const { store } = useStore()
   const projectsQ = useAsync(() => store.listProjects(), [store])
   const colors = useColorPrefs()
-  const [open, setOpen] = useState<string | null>(null)
+  const [open, setOpen] = useState<{ key: string; name: string; anchor: DOMRect } | null>(null)
   const active = sortProjects((projectsQ.data ?? []).filter((p) => p.status === 'active'))
   const groups = [
     ...(['project', 'timelog', 'local_section'] as const).map((kind) => ({
@@ -189,29 +197,35 @@ function CategoryColorsCard() {
             <h3 className="mb-1 text-xs font-semibold uppercase text-muted">{g.title}</h3>
             <ul>
               {g.items.map((it) => (
-                <li key={it.key} className="relative flex items-center gap-2 py-1 text-sm">
-                  <Swatch color={it.color} label={`Color of ${it.name}`} onClick={() => setOpen(it.key)} />
+                <li key={it.key} className="flex items-center gap-2 py-1 text-sm">
+                  <span onClick={(e) => setOpen({ key: it.key, name: it.name, anchor: (e.target as HTMLElement).getBoundingClientRect() })}>
+                    <Swatch color={it.color} label={`Color of ${it.name}`} />
+                  </span>
                   <span className="min-w-0 flex-1 truncate" title={it.name}>
                     {it.name}
                   </span>
                   {colors.isCustom(it.key) && <span className="shrink-0 text-[11px] text-muted">사용자 지정</span>}
-                  {open === it.key && (
-                    <ColorPicker
-                      value={it.color}
-                      isCustom={colors.isCustom(it.key)}
-                      saved={colors.prefs.palette}
-                      onPick={(hex) => void colors.setCategoryColor(it.key, hex)}
-                      onSave={(hex) => void colors.savePreset(hex)}
-                      onRemoveSaved={(hex) => void colors.removePreset(hex)}
-                      onClose={() => setOpen(null)}
-                    />
-                  )}
                 </li>
               ))}
             </ul>
           </div>
         ))}
       </div>
+      {open && (
+        <ColorMenu
+          key={open.key}
+          anchor={open.anchor}
+          title={open.name}
+          note="그룹 프로젝트 이름은 마스터 시트에서 관리되어 여기서는 색만 바꿀 수 있습니다."
+          value={groups.flatMap((g) => g.items).find((it) => it.key === open.key)?.color ?? '#A3A3A3'}
+          isCustom={colors.isCustom(open.key)}
+          saved={colors.prefs.palette}
+          onPick={(hex) => void colors.setCategoryColor(open.key, hex)}
+          onSave={(hex) => void colors.savePreset(hex)}
+          onRemoveSaved={(hex) => void colors.removePreset(hex)}
+          onClose={() => setOpen(null)}
+        />
+      )}
       <h3 className="mb-1 mt-4 text-xs font-semibold uppercase text-muted">내 색상 프리셋</h3>
       {colors.prefs.palette.length === 0 ? (
         <p className="text-sm text-muted">색상 선택 창에서 “프리셋에 저장”을 누르면 여기에 보관됩니다.</p>
@@ -228,6 +242,163 @@ function CategoryColorsCard() {
           ))}
         </ul>
       )}
+    </Card>
+  )
+}
+
+/** 30-minute browser reminders (A4). */
+function NotificationsCard() {
+  const { prefs, update, error } = usePreferences()
+  const supported = typeof Notification !== 'undefined'
+  const [permission, setPermission] = useState<string>(supported ? Notification.permission : 'unsupported')
+  const [msg, setMsg] = useState('')
+
+  async function toggle(on: boolean) {
+    setMsg('')
+    if (on && supported && Notification.permission !== 'granted') {
+      const p = await Notification.requestPermission()
+      setPermission(p)
+      if (p !== 'granted') {
+        setMsg('브라우저에서 알림이 차단되어 있습니다. 주소창의 사이트 설정에서 알림을 허용해 주세요.')
+        return
+      }
+    }
+    await update((p) => ({ ...p, notifications: on }))
+  }
+
+  const status = { granted: '허용됨', denied: '차단됨', default: '아직 묻지 않음', unsupported: '이 브라우저는 지원하지 않음' }[permission] ?? permission
+
+  return (
+    <Card title={<span className="flex items-center gap-2"><Bell size={18} /> 알림</span>}>
+      <label className="flex items-center gap-2 text-sm font-semibold">
+        <input type="checkbox" aria-label="30-minute reminders" checked={prefs.notifications} disabled={!supported} onChange={(e) => void toggle(e.target.checked)} />
+        30분마다 기록 알림
+      </label>
+      <p className="mt-2 text-xs text-muted">매시 정각·30분에, 방금 끝난 30분이 비어 있으면 알려 드립니다. 평일 근무시간에만, 점심은 제외합니다.</p>
+      <p className="mt-1 text-xs text-muted">JARVIS 탭이 열려 있어야 합니다(최소화·다른 탭은 괜찮음).</p>
+      <p className="mt-2 text-sm">
+        브라우저 권한: <strong data-testid="notification-permission">{status}</strong>
+      </p>
+      <ErrorNote error={error ?? (msg || null)} />
+      {supported && permission === 'granted' && (
+        <Button variant="outline" className="mt-2" onClick={() => new Notification('JARVIS · 테스트 알림', { body: '알림이 정상적으로 동작합니다.' })}>
+          테스트 알림
+        </Button>
+      )}
+    </Card>
+  )
+}
+
+/** Glass UI background: random gradient pattern, Unsplash daily photo, or an uploaded photo (A8). */
+function BackgroundCard() {
+  const { store } = useStore()
+  const user = useUser()
+  const { prefs, update, error } = usePreferences()
+  const [unsplash, setUnsplash] = useState<'checking' | 'available' | 'unavailable'>('checking')
+  const [upload, setUpload] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState<Error | null>(null)
+  const mode = prefs.background.mode
+
+  useEffect(() => {
+    void fetchDailyPhoto().then((p) => setUnsplash(p ? 'available' : 'unavailable'))
+    void store.getBackground(user.id).then(setUpload, () => setUpload(null))
+  }, [store, user.id])
+
+  const setBackground = (patch: Partial<{ mode: BackgroundMode; seed: string | null }>) =>
+    update((p) => ({ ...p, background: { ...p.background, ...patch } }))
+
+  async function onFile(file: File) {
+    setBusy(true)
+    setErr(null)
+    try {
+      const data = await compressImage(file)
+      await store.saveBackground(user.id, data)
+      setUpload(data)
+      await setBackground({ mode: 'upload' })
+      window.dispatchEvent(new Event(BACKGROUND_CHANGED))
+    } catch (e) {
+      setErr(e as Error)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function removeUpload() {
+    try {
+      await store.saveBackground(user.id, null)
+      setUpload(null)
+      if (mode === 'upload') await setBackground({ mode: 'gradient' })
+      window.dispatchEvent(new Event(BACKGROUND_CHANGED))
+    } catch (e) {
+      setErr(e as Error)
+    }
+  }
+
+  const preview = gradientBackground(prefs.background.seed ?? todayLocal())
+  const Option = ({ value, label, children, disabled }: { value: BackgroundMode; label: string; children?: ReactNode; disabled?: boolean }) => (
+    <div className={`rounded-2xl border p-3 ${mode === value ? 'border-primary bg-white/60' : 'border-white/60 bg-white/30'} ${disabled ? 'opacity-60' : ''}`}>
+      <label className="flex items-center gap-2 text-sm font-semibold">
+        <input type="radio" name="background" aria-label={label} checked={mode === value} disabled={disabled} onChange={() => void setBackground({ mode: value })} />
+        {label}
+      </label>
+      {children}
+    </div>
+  )
+
+  return (
+    <Card title={<span className="flex items-center gap-2"><ImagePlus size={18} /> 배경</span>} className="lg:col-span-2">
+      <ErrorNote error={err ?? error} />
+      <div className="grid gap-3 md:grid-cols-3">
+        <Option value="gradient" label="무작위 그라데이션 패턴">
+          <div className="mt-2 h-16 rounded-xl border border-white/60" style={preview} data-testid="gradient-preview" />
+          <p className="mt-1 text-xs text-muted">{prefs.background.seed ? '고정된 패턴' : '매일 새로운 패턴'}</p>
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            <Button variant="outline" className="!px-2.5 !py-1 text-xs" onClick={() => void setBackground({ mode: 'gradient', seed: Math.random().toString(36).slice(2, 10) })}>
+              <RefreshCw size={12} /> 다른 패턴
+            </Button>
+            {prefs.background.seed && (
+              <Button variant="ghost" className="!px-2.5 !py-1 text-xs" onClick={() => void setBackground({ seed: null })}>
+                매일 자동으로
+              </Button>
+            )}
+          </div>
+        </Option>
+        <Option value="unsplash" label="Unsplash 오늘의 사진" disabled={unsplash !== 'available'}>
+          <p className="mt-2 text-xs text-muted">
+            {unsplash === 'checking'
+              ? '확인 중…'
+              : unsplash === 'available'
+                ? '매일 한 장씩 바뀌는 무료 사진입니다. 화면 오른쪽 아래에 작가가 표시됩니다.'
+                : '사용하려면 Vercel 환경변수 UNSPLASH_ACCESS_KEY가 필요합니다(무료 발급, README 참고). 지금은 그라데이션을 씁니다.'}
+          </p>
+        </Option>
+        <Option value="upload" label="내 사진" disabled={!upload}>
+          {upload && <img src={upload} alt="Uploaded background" className="mt-2 h-16 w-full rounded-xl object-cover" />}
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            <label className="inline-flex cursor-pointer items-center gap-1 rounded-full border border-primary bg-white px-2.5 py-1 text-xs font-semibold text-primary hover:bg-sage-light">
+              <ImagePlus size={12} /> {busy ? '올리는 중…' : '사진 업로드'}
+              <input
+                type="file"
+                accept="image/*"
+                aria-label="Background photo"
+                className="hidden"
+                onChange={(e) => {
+                  const f = e.target.files?.[0]
+                  e.target.value = ''
+                  if (f) void onFile(f)
+                }}
+              />
+            </label>
+            {upload && (
+              <Button variant="ghost" className="!px-2.5 !py-1 text-xs" onClick={() => void removeUpload()}>
+                삭제
+              </Button>
+            )}
+          </div>
+          <p className="mt-1 text-xs text-muted">긴 변 1920px로 줄여 저장합니다. 나에게만 보입니다.</p>
+        </Option>
+      </div>
     </Card>
   )
 }

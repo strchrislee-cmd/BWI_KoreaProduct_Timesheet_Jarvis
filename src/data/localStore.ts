@@ -28,6 +28,7 @@ interface DemoState {
   invitations: Invitation[]
   templates: TaskTemplate[]
   workDays: WorkDay[]
+  backgrounds: Record<string, string>
 }
 
 const uid = () => crypto.randomUUID()
@@ -41,6 +42,7 @@ function seed(): DemoState {
     status: 'active',
     first_seen_import_id: null,
     last_seen_import_id: null,
+    created_at: new Date().toISOString(),
   }))
   return {
     profiles: [
@@ -75,6 +77,7 @@ function seed(): DemoState {
     invitations: [],
     templates: [],
     workDays: [],
+    backgrounds: {},
   }
 }
 
@@ -85,12 +88,15 @@ export class LocalStore implements DataStore {
   constructor() {
     const raw = localStorage.getItem(KEY)
     if (raw) {
-      const saved = JSON.parse(raw) as Partial<DemoState> & Omit<DemoState, 'templates' | 'workDays'>
+      const saved = JSON.parse(raw) as Partial<DemoState> & Omit<DemoState, 'templates' | 'workDays' | 'backgrounds'>
       // demo data saved by older versions lacks these collections / fields
+      const epoch = '2026-01-01T00:00:00.000Z'
       this.state = {
         ...saved,
-        templates: (saved.templates ?? []).map((t) => ({ ...t, color: t.color ?? null })),
+        projects: saved.projects.map((p) => ({ ...p, created_at: p.created_at ?? epoch })),
+        templates: (saved.templates ?? []).map((t) => ({ ...t, color: t.color ?? null, created_at: t.created_at ?? epoch })),
         workDays: saved.workDays ?? [],
+        backgrounds: saved.backgrounds ?? {},
       }
     } else {
       this.state = seed()
@@ -195,6 +201,7 @@ export class LocalStore implements DataStore {
           status: 'active',
           first_seen_import_id: imp.id,
           last_seen_import_id: imp.id,
+          created_at: imp.created_at,
         })
       }
       for (const m of diff.missing) s.projects.find((x) => x.id === m.id)!.status = 'missing'
@@ -253,9 +260,10 @@ export class LocalStore implements DataStore {
   }
   async addTemplate(template: Omit<TaskTemplate, 'id'>) {
     if (!template.label.trim() && !template.description.trim()) throw new Error('Template is empty')
-    this.mutate((s) => s.templates.push({ ...template, id: uid() }))
+    this.mutate((s) => s.templates.push({ ...template, id: uid(), created_at: new Date().toISOString() }))
   }
-  async updateTemplate(id: string, patch: Pick<TaskTemplate, 'color'>) {
+  async updateTemplate(id: string, patch: Partial<Pick<TaskTemplate, 'color' | 'description' | 'sort_order'>>) {
+    if (patch.description !== undefined && !patch.description.trim()) throw new Error('Name is empty')
     this.mutate((s) => {
       const t = s.templates.find((x) => x.id === id)
       if (t) Object.assign(t, patch)
@@ -263,6 +271,16 @@ export class LocalStore implements DataStore {
   }
   async deleteTemplate(id: string) {
     this.mutate((s) => (s.templates = s.templates.filter((t) => t.id !== id)))
+  }
+
+  async getBackground(userId: string) {
+    return this.state.backgrounds[userId] ?? null
+  }
+  async saveBackground(userId: string, imageData: string | null) {
+    this.mutate((s) => {
+      if (imageData) s.backgrounds[userId] = imageData
+      else delete s.backgrounds[userId]
+    })
   }
 
   async listLeave(userId: string, from: string, to: string) {

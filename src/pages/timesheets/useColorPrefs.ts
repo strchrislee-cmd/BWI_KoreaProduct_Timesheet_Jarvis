@@ -1,34 +1,14 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
-import { useStore, useUser } from '../../data/StoreContext'
-import { addToPalette, readColorPrefs, type ColorPrefs } from './colors'
+import { usePreferences } from '../../data/usePreferences'
+import { addToPalette } from './colors'
 
-/** The signed-in user's category colors and saved palette, saved in profiles.preferences. */
+/** Category colors and the saved palette (part of the user's preferences). */
 export function useColorPrefs() {
-  const { store, refreshUser } = useStore()
-  const user = useUser()
-  const prefs = useMemo(() => readColorPrefs(user.preferences), [user.preferences])
-  const latest = useRef<ColorPrefs>(prefs) // so quick successive changes don't overwrite each other
-  const [error, setError] = useState<Error | null>(null)
-
-  useEffect(() => {
-    latest.current = prefs
-  }, [prefs])
-
-  async function update(fn: (p: ColorPrefs) => ColorPrefs) {
-    const next = fn(latest.current)
-    latest.current = next
-    try {
-      await store.updateProfile(user.id, { preferences: { ...user.preferences, ...next } })
-      await refreshUser()
-      setError(null)
-    } catch (e) {
-      setError(e as Error)
-    }
-  }
-
+  const { prefs, update, error } = usePreferences()
   return {
     prefs,
     error,
+    /** Update any other preference through the same queue. */
+    update,
     isCustom: (key: string) => key in prefs.categoryColors,
     setCategoryColor: (key: string, hex: string | null) =>
       update((p) => {

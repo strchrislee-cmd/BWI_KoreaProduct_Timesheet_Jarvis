@@ -1,5 +1,6 @@
 import { Mail } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
+import { BackgroundLayer } from '../components/BackgroundLayer'
 import { Button, ErrorNote } from '../components/ui'
 import { useStore } from '../data/StoreContext'
 
@@ -26,8 +27,9 @@ export function Login() {
 
   return (
     <div className="flex min-h-full items-center justify-center p-6">
+      <BackgroundLayer />
       <div className="grid w-full max-w-4xl gap-5 md:grid-cols-[1.1fr_1fr]">
-        <div className="flex flex-col justify-between rounded-[var(--radius-card)] bg-primary p-8 text-white">
+        <div className="glass-dark flex flex-col justify-between rounded-[var(--radius-card)] p-8 text-white">
           <div className="flex items-center gap-3">
             <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white text-2xl font-extrabold text-primary">J</div>
             <div>
@@ -37,7 +39,7 @@ export function Login() {
           </div>
           <p className="mt-16 text-4xl font-extrabold leading-tight">Your timesheet, on autopilot.</p>
         </div>
-        <form onSubmit={submit} className="rounded-[var(--radius-card)] bg-white p-8">
+        <form onSubmit={submit} className="glass rounded-[var(--radius-card)] p-8">
           <h1 className="text-4xl font-extrabold">Sign in</h1>
           <p className="mb-6 mt-1 text-muted">Invite-only workspace. Use your work e-mail.</p>
           {sent ? (

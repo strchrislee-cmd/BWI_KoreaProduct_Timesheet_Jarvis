@@ -38,6 +38,43 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+/* Glassmorphism surfaces (A8): translucent panels over the background layer */
+/* in the components layer so Tailwind utilities (hover:, bg-…) can still override */
+@layer components {
+  .glass {
+    background: rgba(255, 255, 255, 0.58);
+    backdrop-filter: blur(18px) saturate(150%);
+    border: 1px solid rgba(255, 255, 255, 0.65);
+    box-shadow:
+      0 8px 32px rgba(15, 40, 30, 0.1),
+      inset 0 1px 0 rgba(255, 255, 255, 0.7);
+  }
+  .glass-strong {
+    background: rgba(255, 255, 255, 0.86);
+    backdrop-filter: blur(24px) saturate(160%);
+    border: 1px solid rgba(255, 255, 255, 0.8);
+    box-shadow: 0 16px 48px rgba(15, 40, 30, 0.2);
+  }
+  .glass-sage {
+    background: rgba(220, 229, 218, 0.62);
+  }
+  .glass-accent {
+    background: rgba(242, 107, 42, 0.82);
+    backdrop-filter: blur(18px) saturate(150%);
+    border: 1px solid rgba(255, 255, 255, 0.35);
+    box-shadow: 0 8px 32px rgba(242, 107, 42, 0.25);
+  }
+  .glass-dark {
+    background: rgba(31, 77, 58, 0.84);
+    backdrop-filter: blur(18px) saturate(150%);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    box-shadow: 0 8px 32px rgba(31, 77, 58, 0.3);
+  }
+  .text-on-glass {
+    text-shadow: 0 1px 12px rgba(255, 255, 255, 0.85);
+  }
+}
+
 /* Spreadsheet-like table used across Timesheets */
 .sheet {
   width: 100%;
@@ -46,7 +83,7 @@ body {
   font-size: 13px;
 }
 .sheet th {
-  background: var(--color-sage-light);
+  background: rgba(234, 240, 232, 0.85);
   font-weight: 600;
   text-align: left;
   padding: 8px 10px;
@@ -56,7 +93,7 @@ body {
   white-space: nowrap;
 }
 .sheet td {
-  border-top: 1px solid var(--color-line);
+  border-top: 1px dashed rgba(0, 0, 0, 0.12);
   padding: 4px 10px;
   vertical-align: middle;
 }
@@ -82,10 +119,10 @@ body {
 }
 .field {
   width: 100%;
-  border: 1px solid var(--color-line);
+  border: 1px solid rgba(255, 255, 255, 0.8);
   border-radius: 14px;
   padding: 8px 12px;
-  background: #fff;
+  background: rgba(255, 255, 255, 0.75);
   outline: none;
 }
 .field:focus {

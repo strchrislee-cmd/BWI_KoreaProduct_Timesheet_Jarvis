@@ -15,6 +15,7 @@ export function project(p: Partial<GroupProject> & { name: string }): GroupProje
     status: p.status ?? 'active',
     first_seen_import_id: p.first_seen_import_id ?? null,
     last_seen_import_id: p.last_seen_import_id ?? null,
+    created_at: p.created_at ?? `2026-01-${String(n % 28 + 1).padStart(2, '0')}T00:00:00.000Z`,
   }
 }
 

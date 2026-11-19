@@ -14,7 +14,7 @@ export function Home() {
         {SLOTS.map((span, i) => (
           <div
             key={i}
-            className={cx('flex flex-col items-center justify-center gap-2 rounded-[var(--radius-card)] border-2 border-dashed border-line bg-sage-light/50 text-muted', span)}
+            className={cx('glass flex flex-col items-center justify-center gap-2 rounded-[var(--radius-card)] border-2 !border-dashed !border-white/80 text-muted', span)}
           >
             <Plus />
             <span className="text-sm font-semibold">{i === 0 ? 'Dashboard widgets will be defined in a later phase' : 'Widget slot – TBD'}</span>

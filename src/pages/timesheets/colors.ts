@@ -3,10 +3,33 @@
 //   { categoryColors: { [groupProjectId | 'nonwork']: '#RRGGBB' }, palette: ['#RRGGBB', …] }
 import type { GroupProject, Profile, SlotKind, TaskTemplate } from '../../domain/types'
 
-export const PRESET_COLORS = [
-  '#5AB4E5', '#6C9BE8', '#9B8AFB', '#E879A6', '#F26B6B', '#F28C38',
-  '#F0B429', '#E8D44D', '#7BC47F', '#3FB8A9', '#8C9BAB', '#A3A3A3',
+/** Notion-like named colors (base tones; rows/chips show light tints of them). */
+export const NAMED_COLORS = [
+  { name: '회색', hex: '#787774' },
+  { name: '갈색', hex: '#9F6B53' },
+  { name: '주황색', hex: '#D9730D' },
+  { name: '노란색', hex: '#CB912F' },
+  { name: '초록색', hex: '#448361' },
+  { name: '파란색', hex: '#337EA9' },
+  { name: '보라색', hex: '#9065B0' },
+  { name: '분홍색', hex: '#C14C8A' },
+  { name: '빨간색', hex: '#D44C47' },
 ]
+
+export function hslToHex(h: number, s: number, l: number): string {
+  const a = (s / 100) * Math.min(l / 100, 1 - l / 100)
+  const f = (n: number) => {
+    const k = (n + h / 30) % 12
+    return Math.round(255 * (l / 100 - a * Math.max(-1, Math.min(k - 3, 9 - k, 1))))
+  }
+  return rgbToHex(f(0), f(8), f(4))
+}
+
+/** Vivid random color. */
+export const randomColor = (rnd: () => number = Math.random) => hslToHex(Math.floor(rnd() * 360), 70, 48)
+/** Soft random pastel. */
+export const randomPastel = (rnd: () => number = Math.random) => hslToHex(Math.floor(rnd() * 360), 60, 74)
+
 export const UNMAPPED_COLOR = '#F26B2A'
 export const NONWORK_KEY = 'nonwork'
 const MAX_SAVED = 16
