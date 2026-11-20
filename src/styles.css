@@ -13,6 +13,7 @@
   --color-ink: #1a1a1a;
   --color-muted: #6b6b6b;
   --color-line: #e6e2d8;
+  --color-now: #e5484d;
 
   --color-cat-project: #bfe3f7;
   --color-cat-timelog: #fff5c2;
@@ -21,7 +22,11 @@
   --color-cat-nonwork: #e5e5e5;
   --color-band-local: #e3f1df;
 
-  --radius-card: 24px;
+  /* Corner radius scale (B10): small, iPhone-like corners. rounded-card / -menu / -control / -chip */
+  --radius-card: 16px;
+  --radius-menu: 12px;
+  --radius-control: 10px;
+  --radius-chip: 6px;
   --font-sans: "Pretendard Variable", Pretendard, Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
 }
 
@@ -29,6 +34,14 @@ html,
 body,
 #root {
   height: 100%;
+}
+
+/* Continuous (superellipse) corners like iOS where supported (Chromium); plain rounded corners elsewhere.
+   Circles (rounded-full: avatar) stay circles. */
+@supports (corner-shape: superellipse(1.5)) {
+  *:not(.rounded-full) {
+    corner-shape: superellipse(1.5);
+  }
 }
 
 body {
@@ -73,6 +86,135 @@ body {
   .text-on-glass {
     text-shadow: 0 1px 12px rgba(255, 255, 255, 0.85);
   }
+
+  /* Liquid glass (B3, Settings → 화면 스타일): clear panels, light edges, refracting rim in Chromium */
+  :root[data-ui='liquid'] .glass {
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.36), rgba(255, 255, 255, 0.1) 45%, rgba(255, 255, 255, 0.22));
+    backdrop-filter: blur(2px) saturate(180%);
+    border: 1px solid rgba(255, 255, 255, 0.55);
+    box-shadow:
+      inset 1px 1px 0 rgba(255, 255, 255, 0.9),
+      inset -1px -1px 0 rgba(255, 255, 255, 0.3),
+      inset 0 0 24px rgba(255, 255, 255, 0.18),
+      0 10px 30px rgba(15, 40, 30, 0.12);
+  }
+  :root[data-ui='liquid'] .glass-sage {
+    background: linear-gradient(135deg, rgba(220, 229, 218, 0.55), rgba(220, 229, 218, 0.2) 45%, rgba(220, 229, 218, 0.35));
+  }
+  :root[data-ui='liquid'] .glass-accent {
+    background: linear-gradient(135deg, rgba(242, 107, 42, 0.8), rgba(242, 107, 42, 0.6));
+    backdrop-filter: blur(2px) saturate(180%);
+    box-shadow:
+      inset 1px 1px 0 rgba(255, 255, 255, 0.55),
+      0 10px 30px rgba(242, 107, 42, 0.25);
+  }
+  :root[data-ui='liquid'] .glass-dark {
+    background: linear-gradient(135deg, rgba(31, 77, 58, 0.8), rgba(31, 77, 58, 0.62));
+    backdrop-filter: blur(2px) saturate(180%);
+    box-shadow:
+      inset 1px 1px 0 rgba(255, 255, 255, 0.35),
+      0 10px 30px rgba(31, 77, 58, 0.3);
+  }
+  /* menus and dialogs stay readable over the grid: clearer than before but still mostly opaque, no bend */
+  :root[data-ui='liquid'] .glass-strong {
+    background: rgba(255, 255, 255, 0.78);
+    backdrop-filter: blur(12px) saturate(180%);
+    box-shadow:
+      inset 1px 1px 0 rgba(255, 255, 255, 0.95),
+      inset -1px -1px 0 rgba(255, 255, 255, 0.4),
+      0 16px 48px rgba(15, 40, 30, 0.2);
+  }
+  :root[data-ui='liquid'][data-refraction='on'] .glass,
+  :root[data-ui='liquid'][data-refraction='on'] .glass-accent,
+  :root[data-ui='liquid'][data-refraction='on'] .glass-dark {
+    backdrop-filter: url(#jarvis-liquid-glass) blur(1px) saturate(180%);
+  }
+}
+
+/* Flowing gradient background (B4): blobs drift like waves, colours slowly shift, light bands roll by.
+   --flow-k scales every duration (Settings → 배경 → 속도). Off when the OS asks for reduced motion. */
+.bg-blob {
+  position: absolute;
+  width: 120vmax;
+  height: 120vmax;
+  margin: -60vmax 0 0 -60vmax;
+}
+.bg-wave {
+  position: absolute;
+  top: -10%;
+  bottom: -10%;
+  left: -10vw;
+  width: 220vw;
+  background-image: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.16) 30%, transparent 52%, rgba(255, 255, 255, 0.1) 78%, transparent 100%);
+  background-size: 100vw 100%;
+  opacity: 0;
+}
+.bg-flow[data-animated='true'] .bg-flow-hue {
+  animation: bg-hue calc(80s * var(--flow-k)) ease-in-out infinite alternate;
+  will-change: filter;
+}
+.bg-flow[data-animated='true'] .bg-blob {
+  animation: bg-drift-a calc(46s * var(--flow-k)) ease-in-out infinite;
+  will-change: transform;
+}
+.bg-flow[data-animated='true'] .bg-blob:nth-child(2) {
+  animation: bg-drift-b calc(58s * var(--flow-k)) ease-in-out infinite;
+}
+.bg-flow[data-animated='true'] .bg-blob:nth-child(3) {
+  animation: bg-drift-a calc(64s * var(--flow-k)) ease-in-out infinite reverse;
+}
+.bg-flow[data-animated='true'] .bg-blob:nth-child(4) {
+  animation: bg-drift-b calc(52s * var(--flow-k)) ease-in-out infinite reverse;
+}
+.bg-flow[data-animated='true'] .bg-wave {
+  opacity: 1;
+  animation: bg-wave calc(36s * var(--flow-k)) linear infinite;
+  will-change: transform;
+}
+.bg-flow[data-paused='true'] * {
+  animation-play-state: paused !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  .bg-flow * {
+    animation: none !important;
+  }
+}
+@keyframes bg-hue {
+  from {
+    filter: hue-rotate(-16deg);
+  }
+  to {
+    filter: hue-rotate(16deg);
+  }
+}
+@keyframes bg-drift-a {
+  0%,
+  100% {
+    transform: translate(0, 0) scale(1);
+  }
+  33% {
+    transform: translate(9vw, -7vh) scale(1.08);
+  }
+  66% {
+    transform: translate(-7vw, 6vh) scale(0.94);
+  }
+}
+@keyframes bg-drift-b {
+  0%,
+  100% {
+    transform: translate(0, 0) scale(1);
+  }
+  50% {
+    transform: translate(-11vw, 8vh) scale(1.12);
+  }
+}
+@keyframes bg-wave {
+  from {
+    transform: translateX(0) skewX(-12deg);
+  }
+  to {
+    transform: translateX(-100vw) skewX(-12deg);
+  }
 }
 
 /* Spreadsheet-like table used across Timesheets */
@@ -106,7 +248,7 @@ body {
   width: 100%;
   background: transparent;
   border: 1px solid transparent;
-  border-radius: 8px;
+  border-radius: var(--radius-chip);
   padding: 4px 6px;
   outline: none;
 }
@@ -120,7 +262,7 @@ body {
 .field {
   width: 100%;
   border: 1px solid rgba(255, 255, 255, 0.8);
-  border-radius: 14px;
+  border-radius: var(--radius-control);
   padding: 8px 12px;
   background: rgba(255, 255, 255, 0.75);
   outline: none;

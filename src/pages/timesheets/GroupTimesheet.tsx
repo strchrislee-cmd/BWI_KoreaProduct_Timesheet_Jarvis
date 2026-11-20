@@ -131,13 +131,13 @@ export function GroupTimesheetPage() {
       {/* above the table on narrower screens so the week columns get the full width */}
       <Card title="Validation" className="order-first 2xl:order-none">
         {gt.issues.length === 0 ? (
-          <p className="flex items-center gap-2 rounded-xl bg-sage px-3 py-2 font-semibold text-primary">
+          <p className="flex items-center gap-2 rounded-control bg-sage px-3 py-2 font-semibold text-primary">
             <CircleCheck size={18} /> Every day = {engineer.daily_target_hours}h, nothing unmapped
           </p>
         ) : (
           <ul className="space-y-2" data-testid="issues">
             {gt.issues.map((i) => (
-              <li key={`${i.date}-${i.type}`} className={cx('flex items-start gap-2 rounded-xl px-3 py-2 text-sm', i.type === 'over' ? 'bg-sage-light' : 'bg-accent-soft')}>
+              <li key={`${i.date}-${i.type}`} className={cx('flex items-start gap-2 rounded-control px-3 py-2 text-sm', i.type === 'over' ? 'bg-sage-light' : 'bg-accent-soft')}>
                 <CircleAlert size={16} className="mt-0.5 shrink-0" />
                 <span>
                   <strong>{shortLabel(i.date)}</strong> — {ISSUE_TEXT[i.type](i.hours)}

@@ -1,4 +1,4 @@
-import { diffMaster } from '../domain/projects'
+import { diffMaster, projectNameKey } from '../domain/projects'
 import { SEED_ALIASES, SEED_PROJECTS } from '../domain/seed'
 import type {
   GroupProject,
@@ -8,6 +8,7 @@ import type {
   OrgSettings,
   Profile,
   ProjectAlias,
+  ProjectKind,
   TaskTemplate,
   TimeSlot,
   WorkDay,
@@ -40,6 +41,8 @@ function seed(): DemoState {
     id: uid(),
     code: null,
     status: 'active',
+    hidden: false,
+    manual: false,
     first_seen_import_id: null,
     last_seen_import_id: null,
     created_at: new Date().toISOString(),
@@ -93,7 +96,7 @@ export class LocalStore implements DataStore {
       const epoch = '2026-01-01T00:00:00.000Z'
       this.state = {
         ...saved,
-        projects: saved.projects.map((p) => ({ ...p, created_at: p.created_at ?? epoch })),
+        projects: saved.projects.map((p) => ({ ...p, created_at: p.created_at ?? epoch, hidden: p.hidden ?? false, manual: p.manual ?? false })),
         templates: (saved.templates ?? []).map((t) => ({ ...t, color: t.color ?? null, created_at: t.created_at ?? epoch })),
         workDays: saved.workDays ?? [],
         backgrounds: saved.backgrounds ?? {},
@@ -162,6 +165,51 @@ export class LocalStore implements DataStore {
   async deleteAlias(id: string) {
     this.mutate((s) => (s.aliases = s.aliases.filter((a) => a.id !== id)))
   }
+  async addProject(input: { name: string; code: string | null; kind: ProjectKind }) {
+    const name = input.name.replace(/\s+/g, ' ').trim()
+    if (!name) throw new Error('project name is required')
+    const same = this.state.projects.find((p) => projectNameKey(p.name) === projectNameKey(name))
+    if (same) throw new Error(same.hidden ? `숨긴 항목에 같은 이름이 있습니다: ${name} (숨긴 항목 보기 → 되돌리기)` : `이미 있는 프로젝트입니다: ${name}`)
+    const order = Math.max(0, ...this.state.projects.filter((p) => p.kind === input.kind).map((p) => p.sort_order)) + 1
+    this.mutate((s) =>
+      s.projects.push({
+        id: uid(),
+        code: input.code,
+        name,
+        kind: input.kind,
+        system_key: null,
+        counts_toward_total: true,
+        sort_order: order,
+        status: 'active',
+        hidden: false,
+        manual: true,
+        first_seen_import_id: null,
+        last_seen_import_id: null,
+        created_at: new Date().toISOString(),
+      }),
+    )
+  }
+  async removeProject(id: string): Promise<'deleted' | 'hidden'> {
+    const p = this.state.projects.find((x) => x.id === id)
+    if (!p) throw new Error('project not found')
+    if (p.system_key) throw new Error('built-in rows cannot be removed')
+    const used = this.state.slots.some((x) => x.group_project_id === id) || this.state.templates.some((t) => t.group_project_id === id)
+    if (p.manual && !used) {
+      this.mutate((s) => {
+        s.projects = s.projects.filter((x) => x.id !== id)
+        s.aliases = s.aliases.filter((a) => a.group_project_id !== id)
+      })
+      return 'deleted'
+    }
+    this.mutate((s) => (s.projects.find((x) => x.id === id)!.hidden = true))
+    return 'hidden'
+  }
+  async restoreProject(id: string) {
+    this.mutate((s) => {
+      const p = s.projects.find((x) => x.id === id)
+      if (p) p.hidden = false
+    })
+  }
   async latestImport() {
     const last = this.state.imports.at(-1)
     return last ? { ...last } : null
@@ -187,7 +235,7 @@ export class LocalStore implements DataStore {
       s.imports.push(imp)
       for (const m of diff.matched) {
         const p = s.projects.find((x) => x.id === m.project.id)!
-        Object.assign(p, { name: m.row.name, code: m.row.code ?? p.code, sort_order: m.order, status: 'active', last_seen_import_id: imp.id })
+        Object.assign(p, { name: m.row.name, code: m.row.code ?? p.code, sort_order: m.order, status: 'active', manual: false, last_seen_import_id: imp.id })
       }
       for (const a of diff.added) {
         s.projects.push({
@@ -199,6 +247,8 @@ export class LocalStore implements DataStore {
           counts_toward_total: true,
           sort_order: a.order,
           status: 'active',
+          hidden: false,
+          manual: false,
           first_seen_import_id: imp.id,
           last_seen_import_id: imp.id,
           created_at: imp.created_at,

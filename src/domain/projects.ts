@@ -31,6 +31,13 @@ export function projectNameKey(name: string): string {
     .toLowerCase()
 }
 
+/** Name and code of a project added by hand: tidy spaces, "00.Timelog--" prefix for timelog rows. */
+export function manualProjectRow(name: string, kind: ProjectKind): { name: string; code: string | null } {
+  let clean = name.replace(/\s+/g, ' ').trim()
+  if (kind === 'timelog' && clean && classifyKind(clean) !== 'timelog') clean = `00.Timelog--${clean}`
+  return { name: clean, code: kind === 'project' ? parseProjectCode(clean) : null }
+}
+
 export function toMasterRow(name: string): MasterRow {
   const clean = name.replace(/\s+/g, ' ').trim()
   return { name: clean, code: parseProjectCode(clean), kind: classifyKind(clean) }
@@ -64,8 +71,14 @@ export function diffMaster(existing: GroupProject[], rows: MasterRow[]): MasterD
       diff.added.push({ row, order })
     }
   })
-  diff.missing = pool.filter((p) => !seen.has(p.id) && p.status !== 'missing')
+  // projects added by hand are not expected in the master sheet, so they are never "missing"
+  diff.missing = pool.filter((p) => !seen.has(p.id) && p.status !== 'missing' && !p.manual)
   return diff
+}
+
+/** Offered in dropdowns and pickers: listed in the master sheet (or added by hand) and not hidden. */
+export function isSelectable(p: GroupProject): boolean {
+  return p.status === 'active' && !p.hidden
 }
 
 /** A project is NEW when the latest (non-baseline) import introduced it. */

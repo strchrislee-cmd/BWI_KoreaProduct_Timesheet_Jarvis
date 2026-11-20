@@ -160,3 +160,42 @@ select pg_temp.expect_error($$insert into user_backgrounds (user_id, image_data)
 select pg_temp.login('00000000-0000-0000-0000-00000000000a');
 select pg_temp.check((select count(*) from user_backgrounds) = 0, 'backgrounds are private (even from admins)');
 reset role;
+
+-- ── Manual / hidden projects (0006) ──────────────────────────────────────────
+set role authenticated;
+select pg_temp.login('00000000-0000-0000-0000-00000000000c');
+select pg_temp.expect_error($$select add_group_project('9001--Hand Made', '9001', 'project')$$, 'member cannot add projects by hand');
+select pg_temp.expect_error($$select remove_group_project((select id from group_projects where kind = 'timelog' and system_key is null limit 1))$$, 'member cannot remove projects');
+
+select pg_temp.login('00000000-0000-0000-0000-00000000000a');
+select add_group_project('  9001--Hand   Made ', '9001', 'project');
+select pg_temp.check((select manual and not hidden and name = '9001--Hand Made' and first_seen_import_id is null from group_projects where code = '9001'), 'admin adds a manual project (name tidied)');
+select pg_temp.expect_error($$select add_group_project('9001 -- hand  made', null, 'project')$$, 'duplicate name (same matching key) refused');
+select add_group_project('9002--Unused Draft', '9002', 'project');
+select pg_temp.check((select remove_group_project(id) from group_projects where code = '9002') = 'deleted', 'unused manual project is deleted');
+select pg_temp.check(not exists (select 1 from group_projects where code = '9002'), 'deleted manual project is gone');
+
+insert into time_slots (user_id, work_date, slot_index, group_project_id)
+  select '00000000-0000-0000-0000-00000000000a', '2026-11-18', 20, id from group_projects where code = '9001';
+select pg_temp.check((select remove_group_project(id) from group_projects where code = '9001') = 'hidden', 'manual project with logs is hidden, not deleted');
+select pg_temp.check((select count(*) from time_slots where group_project_id = (select id from group_projects where code = '9001')) = 1, 'logs keep their project after hiding');
+select pg_temp.expect_error($$select add_group_project('9001--Hand Made', null, 'project')$$, 'adding a hidden name again is refused (restore instead)');
+select pg_temp.expect_error($$select remove_group_project((select id from group_projects where system_key = 'leave'))$$, 'built-in rows cannot be removed');
+select pg_temp.check((select remove_group_project(id) from group_projects where code = '2041') = 'hidden', 'master project is hidden, not deleted');
+
+select add_group_project('9003--Later In Master', '9003', 'project');
+select add_group_project('9004--Only Manual', '9004', 'project');
+select pg_temp.check(
+  (select (r ->> 'added')::int = 1 from (select apply_master_import('m4.xlsx', 'manual', 'hash4',
+     '[{"name":"2041--Utility Work Lamp Series","code":"2041","kind":"project"},{"name":"9003--Later In Master","code":"9003","kind":"project"},{"name":"3001--Brand New","code":"3001","kind":"project"}]'::jsonb) as r) x),
+  're-import adds only the truly new project');
+select pg_temp.check((select hidden and status = 'active' from group_projects where code = '2041'), 'hidden master project stays hidden after re-import');
+select pg_temp.check((select not manual and first_seen_import_id is null from group_projects where code = '9003'), 'manual project merged into master without NEW');
+select pg_temp.check((select status = 'active' and manual from group_projects where code = '9004'), 'manual project not in the master sheet is never marked missing');
+select pg_temp.check((select status = 'active' and manual and hidden from group_projects where code = '9001'), 'hidden manual project untouched by import');
+select pg_temp.check((select first_seen_import_id is not null and first_seen_import_id = last_seen_import_id from group_projects where code = '3001'), 'brand-new master project is NEW');
+select pg_temp.check(pg_temp.affected($$update group_projects set hidden = false where code = '2041'$$) = 1, 'admin restores a hidden project');
+
+select pg_temp.login('00000000-0000-0000-0000-00000000000c');
+select pg_temp.check(pg_temp.affected($$update group_projects set hidden = false where code = '9001'$$) = 0, 'member cannot restore hidden projects');
+reset role;

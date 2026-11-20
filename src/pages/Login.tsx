@@ -29,9 +29,9 @@ export function Login() {
     <div className="flex min-h-full items-center justify-center p-6">
       <BackgroundLayer />
       <div className="grid w-full max-w-4xl gap-5 md:grid-cols-[1.1fr_1fr]">
-        <div className="glass-dark flex flex-col justify-between rounded-[var(--radius-card)] p-8 text-white">
+        <div className="glass-dark flex flex-col justify-between rounded-card p-8 text-white">
           <div className="flex items-center gap-3">
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white text-2xl font-extrabold text-primary">J</div>
+            <div className="flex h-12 w-12 items-center justify-center rounded-control bg-white text-2xl font-extrabold text-primary">J</div>
             <div>
               <div className="text-2xl font-extrabold">JARVIS</div>
               <div className="text-sm opacity-80">Internal Groupware Assistant</div>
@@ -39,14 +39,14 @@ export function Login() {
           </div>
           <p className="mt-16 text-4xl font-extrabold leading-tight">Your timesheet, on autopilot.</p>
         </div>
-        <form onSubmit={submit} className="glass rounded-[var(--radius-card)] p-8">
+        <form onSubmit={submit} className="glass rounded-card p-8">
           <h1 className="text-4xl font-extrabold">Sign in</h1>
           <p className="mb-6 mt-1 text-muted">Invite-only workspace. Use your work e-mail.</p>
           {sent ? (
-            <p className="rounded-xl bg-sage px-4 py-3 font-semibold text-primary">Check your inbox — we sent a sign-in link to {email}.</p>
+            <p className="rounded-control bg-sage px-4 py-3 font-semibold text-primary">Check your inbox — we sent a sign-in link to {email}.</p>
           ) : (
             <div className="space-y-3">
-              <label className="flex items-center gap-2 rounded-full border border-line px-4 py-2 focus-within:border-primary">
+              <label className="flex items-center gap-2 rounded-control border border-line px-4 py-2 focus-within:border-primary">
                 <Mail size={18} className="text-primary" />
                 <input
                   type="email"

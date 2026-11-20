@@ -72,8 +72,8 @@ export function TimesheetsLayout() {
     <div>
       <PageTitle>Timesheets</PageTitle>
       <div className="mb-4 flex flex-wrap items-center gap-2">
-        <div className="glass glass-sage flex items-center gap-1 rounded-full px-2 py-1 text-sm font-semibold">
-          <button aria-label="Previous day" className="rounded-full p-1 hover:bg-white" onClick={() => value?.setDate(addDays(date, -1))}>
+        <div className="glass glass-sage flex items-center gap-1 rounded-control px-2 py-1 text-sm font-semibold">
+          <button aria-label="Previous day" className="rounded-chip p-1 hover:bg-white" onClick={() => value?.setDate(addDays(date, -1))}>
             <ChevronLeft size={16} />
           </button>
           <input
@@ -84,7 +84,7 @@ export function TimesheetsLayout() {
             className="bg-transparent px-1 outline-none"
           />
           <span className="pr-1">· {shortLabel(date).slice(0, 3)} · W{week}</span>
-          <button aria-label="Next day" className="rounded-full p-1 hover:bg-white" onClick={() => value?.setDate(addDays(date, 1))}>
+          <button aria-label="Next day" className="rounded-chip p-1 hover:bg-white" onClick={() => value?.setDate(addDays(date, 1))}>
             <ChevronRight size={16} />
           </button>
         </div>
@@ -95,7 +95,7 @@ export function TimesheetsLayout() {
               to={{ pathname: t.to, search }}
               end={t.end}
               className={({ isActive }) =>
-                cx('rounded-full px-4 py-2 text-sm font-semibold', isActive ? 'bg-primary text-white shadow-md' : 'glass hover:bg-white/80')
+                cx('rounded-control px-4 py-2 text-sm font-semibold', isActive ? 'bg-primary text-white shadow-md' : 'glass hover:bg-white/80')
               }
             >
               {t.label}
@@ -105,7 +105,7 @@ export function TimesheetsLayout() {
         {canPickEngineer && value && (
           <select
             aria-label="Engineer"
-            className="field ml-auto !w-auto !rounded-full !py-1.5 text-sm"
+            className="field ml-auto !w-auto !rounded-control !py-1.5 text-sm"
             value={value.engineer.id}
             onChange={(e) => setParams((p) => (p.set('eng', e.target.value), p))}
           >

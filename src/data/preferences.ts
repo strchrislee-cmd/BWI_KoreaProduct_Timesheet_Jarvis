@@ -11,6 +11,14 @@ export interface GridPrefs {
 }
 
 export type BackgroundMode = 'gradient' | 'unsplash' | 'upload'
+export type FlowSpeed = 'slow' | 'normal' | 'fast'
+export type UiStyle = 'blur' | 'liquid'
+
+export const FLOW_SPEEDS: { value: FlowSpeed; label: string }[] = [
+  { value: 'slow', label: '느리게' },
+  { value: 'normal', label: '보통' },
+  { value: 'fast', label: '빠르게' },
+]
 
 export interface Prefs extends ColorPrefs {
   /** Personal manual order of category keys (project ids, "nw:<label>"). */
@@ -18,8 +26,10 @@ export interface Prefs extends ColorPrefs {
   sort: { category: SortMode; template: SortMode }
   grid: GridPrefs
   notifications: boolean
-  /** seed null = a new random gradient every day */
-  background: { mode: BackgroundMode; seed: string | null }
+  /** seed null = a new random gradient every day; animate = gradient flows like water */
+  background: { mode: BackgroundMode; seed: string | null; animate: boolean; speed: FlowSpeed }
+  /** blur = frosted glass (default), liquid = clear glass with refracting edges */
+  uiStyle: UiStyle
 }
 
 export const DEFAULT_GRID: GridPrefs = { timeWidth: 64, categoryWidth: 260, rowHeight: 36 }
@@ -54,6 +64,9 @@ export function readPrefs(preferences: Profile['preferences']): Prefs {
     background: {
       mode: bg.mode === 'unsplash' || bg.mode === 'upload' ? bg.mode : 'gradient',
       seed: typeof bg.seed === 'string' ? bg.seed : null,
+      animate: bg.animate !== false,
+      speed: FLOW_SPEEDS.some((x) => x.value === bg.speed) ? (bg.speed as FlowSpeed) : 'slow',
     },
+    uiStyle: p.uiStyle === 'liquid' ? 'liquid' : 'blur',
   }
 }

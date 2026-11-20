@@ -9,6 +9,7 @@ import type {
   OrgSettings,
   Profile,
   ProjectAlias,
+  ProjectKind,
   Role,
   TaskTemplate,
   TimeSlot,
@@ -24,7 +25,7 @@ function must<T>(res: Result<T>): T {
 }
 
 const PROJECT_COLUMNS =
-  'id, code, name, kind, system_key, counts_toward_total, sort_order, status, first_seen_import_id, last_seen_import_id, created_at'
+  'id, code, name, kind, system_key, counts_toward_total, sort_order, status, hidden, manual, first_seen_import_id, last_seen_import_id, created_at'
 const SLOT_COLUMNS = 'user_id, work_date, slot_index, kind, group_project_id, label, description, focus'
 
 export class SupabaseStore implements DataStore {
@@ -86,6 +87,15 @@ export class SupabaseStore implements DataStore {
   }
   async deleteAlias(id: string) {
     must(await this.sb.from('project_aliases').delete().eq('id', id))
+  }
+  async addProject(input: { name: string; code: string | null; kind: ProjectKind }) {
+    must(await this.sb.rpc('add_group_project', { p_name: input.name, p_code: input.code, p_kind: input.kind }))
+  }
+  async removeProject(id: string) {
+    return must<'deleted' | 'hidden'>(await this.sb.rpc('remove_group_project', { p_id: id }))
+  }
+  async restoreProject(id: string) {
+    must(await this.sb.from('group_projects').update({ hidden: false }).eq('id', id))
   }
   async latestImport() {
     return must<MasterImport | null>(

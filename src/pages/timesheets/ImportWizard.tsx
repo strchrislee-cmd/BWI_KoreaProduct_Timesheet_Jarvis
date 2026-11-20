@@ -3,6 +3,7 @@ import { Button, ErrorNote, Field, Modal, Pill } from '../../components/ui'
 import { useStore, useUser } from '../../data/StoreContext'
 import type { ParsedDay } from '../../excel/dailyLog'
 import { resolveLabel } from '../../domain/labels'
+import { isSelectable } from '../../domain/projects'
 import type { TimeSlot } from '../../domain/types'
 import { loadExcel } from '../../lib/files'
 import { displayName } from './projectUi'
@@ -90,7 +91,7 @@ export function ImportWizard({ onClose, onDone }: { onClose: () => void; onDone:
       <ErrorNote error={error} />
       {done ? (
         <div className="space-y-4">
-          <p className="rounded-xl bg-sage px-4 py-3 font-semibold text-primary">{done}</p>
+          <p className="rounded-control bg-sage px-4 py-3 font-semibold text-primary">{done}</p>
           <Button onClick={onDone}>Close</Button>
         </div>
       ) : !days ? (
@@ -187,7 +188,7 @@ export function ImportWizard({ onClose, onDone }: { onClose: () => void; onDone:
                         >
                           <option value="">⚠ Leave unmapped</option>
                           {projects
-                            .filter((p) => p.status === 'active')
+                            .filter(isSelectable)
                             .map((p) => (
                               <option key={p.id} value={p.id}>
                                 {displayName(p)}

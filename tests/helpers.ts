@@ -13,6 +13,8 @@ export function project(p: Partial<GroupProject> & { name: string }): GroupProje
     counts_toward_total: p.counts_toward_total ?? true,
     sort_order: p.sort_order ?? n,
     status: p.status ?? 'active',
+    hidden: p.hidden ?? false,
+    manual: p.manual ?? false,
     first_seen_import_id: p.first_seen_import_id ?? null,
     last_seen_import_id: p.last_seen_import_id ?? null,
     created_at: p.created_at ?? `2026-01-${String(n % 28 + 1).padStart(2, '0')}T00:00:00.000Z`,

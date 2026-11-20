@@ -8,6 +8,7 @@ import type {
   OrgSettings,
   Profile,
   ProjectAlias,
+  ProjectKind,
   Role,
   TaskTemplate,
   TimeSlot,
@@ -36,6 +37,11 @@ export interface DataStore {
   listAliases(): Promise<ProjectAlias[]>
   addAlias(groupProjectId: string, alias: string): Promise<void>
   deleteAlias(id: string): Promise<void>
+  /** Admins: add a project by hand (see manualProjectRow for name/code). */
+  addProject(input: { name: string; code: string | null; kind: ProjectKind }): Promise<void>
+  /** Admins: delete a hand-added project nobody has used yet, otherwise hide it. */
+  removeProject(id: string): Promise<'deleted' | 'hidden'>
+  restoreProject(id: string): Promise<void>
   latestImport(): Promise<MasterImport | null>
   applyMasterImport(input: { fileName: string; contentHash: string; rows: MasterRow[] }): Promise<MasterImportResult>
 

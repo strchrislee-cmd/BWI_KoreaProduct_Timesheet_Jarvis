@@ -5,10 +5,10 @@ import { ColorMenu } from '../../components/ColorMenu'
 import { TimeRangePicker } from '../../components/TimeRangePicker'
 import { Button, Card, ErrorNote, Loading, Pill, cx } from '../../components/ui'
 import { useStore, useUser } from '../../data/StoreContext'
-import { isNewProject } from '../../domain/projects'
-import { SLOTS_PER_DAY, SLOT_HOURS, timeToSlot } from '../../domain/time'
+import { isNewProject, isSelectable } from '../../domain/projects'
+import { SLOTS_PER_DAY, SLOT_HOURS, currentSlot, timeToSlot, todayLocal } from '../../domain/time'
 import type { TaskTemplate, TimeSlot } from '../../domain/types'
-import { useAsync } from '../../lib/hooks'
+import { useAsync, useMinuteClock } from '../../lib/hooks'
 import { moveItem, sortItems } from '../../lib/ordering'
 import { useDragReorder } from '../../lib/useDragReorder'
 import { categoryColor, chipBg, templateColor } from './colors'
@@ -46,6 +46,8 @@ export function DailyLog() {
   const undoStack = useRef<CellChange[][]>([])
   const colorPrefs = useColorPrefs()
   const { prefs } = colorPrefs
+  const clock = useMinuteClock()
+  const now = date === todayLocal(clock) ? currentSlot(clock) : null
 
   // Working hours of this day: saved per day, else the profile default (Settings → Work hours).
   const workDayQ = useAsync(() => store.getWorkDay(engineer.id, date), [store, engineer.id, date])
@@ -76,7 +78,7 @@ export function DailyLog() {
   }, [date, engineer.id])
 
   const byId = useMemo(() => new Map(projects.map((p) => [p.id, p])), [projects])
-  const newProjects = projects.filter((p) => isNewProject(p, latestImport))
+  const newProjects = projects.filter((p) => !p.hidden && isNewProject(p, latestImport))
 
   // Lunch (Settings → Work hours, default 12:00–13:00) shows as 점심 unless something else is saved.
   const lunch = useMemo(() => {
@@ -284,6 +286,7 @@ export function DailyLog() {
               options={optionsApi}
               layout={prefs.grid}
               onLayoutChange={(grid) => void colorPrefs.update((p) => ({ ...p, grid }))}
+              now={now}
               readOnly={!canEdit}
               onChange={(changes) => void persist(changes)}
               onUndo={undo}
@@ -305,7 +308,7 @@ export function DailyLog() {
               .sort((a, b) => b[1].hours - a[1].hours)
               .map(([name, v]) => (
                 <li key={name} className="flex items-center gap-2">
-                  <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: v.color }} />
+                  <span className="h-2.5 w-2.5 shrink-0 rounded-[3px]" style={{ backgroundColor: v.color }} />
                   <span className="min-w-0 flex-1 truncate">{name}</span>
                   <span className="font-semibold tabular-nums">{v.hours.toFixed(1)}h</span>
                 </li>
@@ -337,7 +340,7 @@ export function DailyLog() {
                     key={t.id}
                     data-reorder="chips"
                     className={cx(
-                      'group flex touch-none items-center rounded-full text-sm font-semibold shadow-sm',
+                      'group flex touch-none items-center rounded-chip text-sm font-semibold shadow-sm',
                       d?.from === i && 'opacity-40',
                       d && d.over === i && d.from !== i && 'ring-2 ring-primary',
                     )}
@@ -357,7 +360,7 @@ export function DailyLog() {
                     </button>
                     <button
                       aria-label={`Options for ${name}`}
-                      className="rounded-full p-1 pr-2 opacity-50 hover:opacity-100 group-hover:opacity-100"
+                      className="rounded-chip p-1 pr-2 opacity-50 hover:opacity-100 group-hover:opacity-100"
                       onPointerDown={(e) => e.stopPropagation()}
                       onClick={(e) => setChipMenu({ id: t.id, anchor: (e.currentTarget.parentElement as HTMLElement).getBoundingClientRect() })}
                     >
@@ -394,12 +397,12 @@ export function DailyLog() {
           <Card tone="accent" title={`${newProjects.length} new group project${newProjects.length > 1 ? 's' : ''} detected`}>
             <ul className="mb-3 space-y-1.5">
               {newProjects.map((p) => (
-                <li key={p.id} className="truncate rounded-xl bg-white/90 px-3 py-1.5 text-sm font-semibold text-ink">
+                <li key={p.id} className="truncate rounded-control bg-white/90 px-3 py-1.5 text-sm font-semibold text-ink">
                   {p.name}
                 </li>
               ))}
             </ul>
-            <Link to={{ pathname: '/timesheets/projects', search }} className="inline-block rounded-full bg-white px-4 py-1.5 text-sm font-semibold text-ink">
+            <Link to={{ pathname: '/timesheets/projects', search }} className="inline-block rounded-control bg-white px-4 py-1.5 text-sm font-semibold text-ink">
               Map now
             </Link>
           </Card>
@@ -421,7 +424,7 @@ export function DailyLog() {
                   >
                     <option value="">Map to…</option>
                     {projects
-                      .filter((p) => p.status === 'active')
+                      .filter(isSelectable)
                       .map((p) => (
                         <option key={p.id} value={p.id}>
                           {displayName(p)}

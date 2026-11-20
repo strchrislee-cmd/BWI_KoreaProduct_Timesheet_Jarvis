@@ -13,7 +13,7 @@ function NavItem({ to, icon, label, end }: { to: string; icon: ReactNode; label:
       end={end}
       className={({ isActive }) =>
         cx(
-          'flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-semibold transition-colors',
+          'flex items-center gap-3 rounded-control px-3 py-2.5 text-sm font-semibold transition-colors',
           isActive ? 'bg-primary text-white shadow-md' : 'text-ink hover:bg-white/60',
         )
       }
@@ -32,9 +32,9 @@ export function Shell() {
     <div className="flex min-h-full gap-5 p-4">
       <BackgroundLayer />
       <ReminderScheduler />
-      <nav className="glass sticky top-4 flex h-[calc(100vh-2rem)] w-[168px] shrink-0 flex-col rounded-[var(--radius-card)] p-3">
+      <nav className="glass sticky top-4 flex h-[calc(100vh-2rem)] w-[168px] shrink-0 flex-col rounded-card p-3">
         <div className="mb-6 flex items-start gap-2 px-1 pt-1">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-sm font-bold text-white">J</div>
+          <div className="flex h-8 w-8 items-center justify-center rounded-chip bg-primary text-sm font-bold text-white">J</div>
           <div>
             <div className="font-extrabold tracking-tight text-primary">JARVIS</div>
             <div className="text-[11px] leading-tight text-muted">Internal Groupware Assistant</div>
@@ -57,7 +57,7 @@ export function Shell() {
             <div className="truncate text-[11px] text-muted">{user.role}</div>
           </div>
           {store.mode === 'supabase' && (
-            <button onClick={() => void store.signOut()} aria-label="Sign out" className="rounded-full p-1 text-muted hover:bg-sage-light">
+            <button onClick={() => void store.signOut()} aria-label="Sign out" className="rounded-control p-1 text-muted hover:bg-sage-light">
               <LogOut size={16} />
             </button>
           )}
@@ -66,7 +66,7 @@ export function Shell() {
 
       <main className="min-w-0 flex-1">
         {store.mode === 'demo' && (
-          <div className="glass mb-3 rounded-2xl px-4 py-2 text-sm text-[#9a3a0e]">
+          <div className="glass mb-3 rounded-control px-4 py-2 text-sm text-[#9a3a0e]">
             <strong>Demo mode</strong> — Supabase is not configured, so data is saved in this browser only. See README → Setup.
           </div>
         )}

@@ -1,13 +1,14 @@
 import { ChevronDown, GripVertical, MoreHorizontal } from 'lucide-react'
 import { useEffect, useRef, useState, type ClipboardEvent, type FocusEvent, type KeyboardEvent, type MouseEvent, type PointerEvent } from 'react'
-import { ColorMenu, Swatch } from '../../../components/ColorMenu'
+import { ColorMenu } from '../../../components/ColorMenu'
 import { cx } from '../../../components/ui'
 import { DEFAULT_GRID, GRID_LIMITS, ROW_HEIGHTS, type GridPrefs } from '../../../data/preferences'
+import { isSelectable } from '../../../domain/projects'
 import { slotToTime } from '../../../domain/time'
 import type { ProjectKind, TaskTemplate, TimeSlot } from '../../../domain/types'
 import { SORT_LABELS, moveItem, sortItems, type SortMode } from '../../../lib/ordering'
 import { useDragReorder } from '../../../lib/useDragReorder'
-import { NONWORK_KEY, categoryKey, chipBg, rowBg } from '../colors'
+import { NONWORK_KEY, chipBg, rowBg } from '../colors'
 import { KIND_LABEL, displayName } from '../projectUi'
 import {
   COLS,
@@ -49,6 +50,7 @@ interface Option {
   groupLabel: string
   label: string
   hint?: string
+  tooltip?: string
   color?: string
   value?: string // category text to apply
   template?: TaskTemplate // task column: apply the template
@@ -91,6 +93,8 @@ export interface DailyGridProps {
   options: GridOptionsApi
   layout: GridPrefs
   onLayoutChange: (layout: GridPrefs) => void
+  /** current time when the grid shows today (draws the "now" line), else null */
+  now: { slot: number; frac: number; time: string } | null
   readOnly: boolean
   onChange: (changes: CellChange[]) => void
   onUndo: () => void
@@ -114,6 +118,7 @@ export function DailyGrid({
   options: api,
   layout,
   onLayoutChange,
+  now,
   readOnly,
   onChange,
   onUndo,
@@ -125,7 +130,7 @@ export function DailyGrid({
   const [editing, setEditing] = useState<Editing | null>(null)
   const [hi, setHi] = useState(-1)
   const [status, setStatus] = useState('')
-  const [menu, setMenu] = useState<{ key: string; anchor: DOMRect; placement: 'right' | 'below' } | null>(null)
+  const [menu, setMenu] = useState<{ key: string; anchor: DOMRect } | null>(null)
   const [sortOpen, setSortOpen] = useState(false)
   const [live, setLive] = useState<GridPrefs | null>(null) // column widths while resizing
   const drag = useRef<'cell' | 'row' | null>(null)
@@ -197,7 +202,7 @@ export function DailyGrid({
                 colorKey: NONWORK_KEY,
               }))
             : ctx.projects
-                .filter((p) => p.status === 'active' && p.kind === g.id)
+                .filter((p) => isSelectable(p) && p.kind === g.id)
                 .map((p) => ({ p, aliases: ctx.aliases.filter((x) => x.group_project_id === p.id).map((x) => x.alias) }))
                 .filter(({ p, aliases }) => match(displayName(p), p.name, ...aliases))
                 .map(({ p, aliases }) => ({
@@ -221,7 +226,7 @@ export function DailyGrid({
     if (activeCol === 'task') {
       const items: Option[] = templates
         .filter((t) => match(t.description, t.label, templateCategory(t, ctx)))
-        .map((t) => ({ key: t.id, group: 'template', groupLabel: '반복 업무', label: t.description || t.label, hint: templateCategory(t, ctx), color: colors.template(t), template: t }))
+        .map((t) => ({ key: t.id, group: 'template', groupLabel: '반복 업무', label: t.description || t.label, tooltip: templateCategory(t, ctx), color: colors.template(t), template: t }))
       const created = new Map(templates.map((t) => [t.id, t.created_at]))
       list.push(...sortItems(items, api.sort.template, { key: (o) => o.key, name: (o) => o.label, created: (o) => created.get(o.key) ?? '' }, templates.map((t) => t.id)))
       if (text && !templates.some((t) => t.description === text))
@@ -492,13 +497,13 @@ export function DailyGrid({
   }
 
   const menuOption = menu ? options.find((o) => o.key === menu.key) : undefined
-  const menuCategoryKey = menu && !menuOption ? menu.key : menuOption?.colorKey // cell swatch → category key directly
+  const menuCategoryKey = menuOption?.colorKey
   const rowStyle = { height: size.rowHeight }
 
   return (
     <div>
       <div className={cx('relative select-none text-[13px]', readOnly ? 'cursor-default' : 'cursor-cell')} role="grid" aria-label="30-min log">
-        <div className="sticky top-0 z-10 grid rounded-t-xl bg-sage-light/90 font-semibold backdrop-blur" style={{ gridTemplateColumns: gridColumns }}>
+        <div className="sticky top-0 z-10 grid rounded-t-control bg-sage-light/90 font-semibold backdrop-blur" style={{ gridTemplateColumns: gridColumns }}>
           {(['Time', 'Category', 'Task', 'Focus'] as const).map((h, k) => (
             <div key={h} className={cx('relative px-2.5 py-2', k > 0 && 'border-l border-dashed border-black/10')}>
               {h}
@@ -518,16 +523,17 @@ export function DailyGrid({
         {rows.map((i, r) => {
           const s = effectiveSlot(ctx, i)
           const lunchDefault = isLunchDefault(ctx, i)
+          const isNow = now?.slot === i
           return (
             <div
               key={i}
               data-slot={i}
               role="row"
-              className={cx('grid border-t border-dashed border-black/15', lunchDefault && 'text-muted')}
+              className={cx('relative grid border-t border-dashed border-black/15', lunchDefault && 'text-muted')}
               style={{ gridTemplateColumns: gridColumns, backgroundColor: s ? rowBg(ctx.color(s.kind, s.group_project_id)) : undefined }}
             >
               <div
-                className="flex cursor-pointer items-center px-2.5 font-semibold tabular-nums"
+                className={cx('flex cursor-pointer items-center px-2.5 font-semibold tabular-nums', isNow && 'text-now')}
                 style={rowStyle}
                 onMouseDown={(e) => onRowDown(e, i)}
                 onMouseEnter={() => onCellEnter(i, COLS.length - 1)}
@@ -557,22 +563,13 @@ export function DailyGrid({
                     onMouseEnter={() => onCellEnter(i, c)}
                     onDoubleClick={openEditor}
                   >
-                    <span className="min-w-0 truncate">{renderCell(col, s, lunchDefault)}</span>
+                    <span className="relative z-[1] min-w-0 truncate">{renderCell(col, s, lunchDefault)}</span>
                     {active && !editing && col !== 'focus' && (
                       <span className="absolute right-1 top-1/2 flex -translate-y-1/2 items-center gap-1" onMouseDown={(e) => e.stopPropagation()}>
-                        {col === 'category' && s && categoryKey(s.kind, s.group_project_id) && (
-                          <span
-                            onClick={(e) =>
-                              setMenu({ key: categoryKey(s.kind, s.group_project_id)!, anchor: (e.target as HTMLElement).getBoundingClientRect(), placement: 'below' })
-                            }
-                          >
-                            <Swatch color={ctx.color(s.kind, s.group_project_id)} label="Category color" />
-                          </span>
-                        )}
                         {!readOnly && (
                           <button
                             aria-label="Open options"
-                            className="rounded p-0.5 text-muted hover:bg-white"
+                            className="rounded-chip p-0.5 text-muted hover:bg-white"
                             onMouseDown={(e) => {
                               e.preventDefault()
                               openEditor()
@@ -586,6 +583,18 @@ export function DailyGrid({
                   </div>
                 )
               })}
+              {isNow && (
+                // starts after the Time column (whose label turns red) and runs under the cell text
+                <div
+                  aria-hidden
+                  data-testid="now-line"
+                  className="pointer-events-none absolute right-0 z-0 h-0 border-t-2 border-now"
+                  style={{ top: `${now!.frac * 100}%`, left: size.timeWidth }}
+                >
+                  <span className="absolute -left-1 -top-[5px] h-2 w-2 rounded-full bg-now" />
+                  <span className="absolute -top-[9px] right-1 rounded-chip bg-now px-1.5 text-[10px] font-bold leading-4 text-white">{now!.time}</span>
+                </div>
+              )}
             </div>
           )
         })}
@@ -610,7 +619,7 @@ export function DailyGrid({
           onPaste={onPaste}
           onBlur={onBlur}
           className={cx(
-            'absolute z-20 rounded-md px-2.5 text-[13px] outline-none',
+            'absolute z-20 rounded-chip px-2.5 text-[13px] outline-none',
             editing ? 'border-2 border-primary bg-white shadow-lg' : 'pointer-events-none opacity-0',
           )}
           // Same size whether hidden or editing: if the input grows after the first inserted
@@ -621,7 +630,7 @@ export function DailyGrid({
         {editing && (activeCol === 'category' || activeCol === 'task') && (
           <div
             ref={popRef}
-            className="glass-strong absolute z-30 rounded-2xl p-1"
+            className="glass-strong absolute z-30 rounded-menu p-1"
             style={{ top: box.top + box.height + 4, left: box.left, width: Math.max(box.width, 340) }}
             onMouseDown={(e) => e.preventDefault()}
           >
@@ -630,20 +639,20 @@ export function DailyGrid({
               <button
                 aria-label="Sort options"
                 title={`정렬: ${SORT_LABELS[api.sort[listKind]]}`}
-                className="rounded p-0.5 hover:bg-black/5"
+                className="rounded-chip p-0.5 hover:bg-black/5"
                 onClick={() => setSortOpen((o) => !o)}
               >
                 <MoreHorizontal size={16} />
               </button>
               {sortOpen && (
-                <div role="menu" aria-label="Sort menu" className="glass-strong absolute right-1 top-7 z-40 w-52 rounded-xl p-1 text-[13px] font-normal text-ink">
+                <div role="menu" aria-label="Sort menu" className="glass-strong absolute right-1 top-7 z-40 w-52 rounded-menu p-1 text-[13px] font-normal text-ink">
                   <div className="px-2 py-1 text-[11px] font-semibold text-muted">정렬</div>
                   {(Object.keys(SORT_LABELS) as SortMode[]).map((m) => (
                     <button
                       key={m}
                       role="menuitemradio"
                       aria-checked={api.sort[listKind] === m}
-                      className="flex w-full items-center justify-between rounded-lg px-2 py-1 text-left hover:bg-black/5"
+                      className="flex w-full items-center justify-between rounded-chip px-2 py-1 text-left hover:bg-black/5"
                       onClick={() => {
                         api.setSort(listKind, m)
                         setSortOpen(false)
@@ -676,7 +685,7 @@ export function DailyGrid({
                       data-opt={k}
                       data-reorder={canReorder ? o.group : undefined}
                       className={cx(
-                        'group flex cursor-pointer items-center gap-1.5 rounded-xl px-1.5 py-1',
+                        'group flex cursor-pointer items-center gap-1.5 rounded-chip px-1.5 py-1',
                         k === hi ? 'bg-black/[0.07]' : 'hover:bg-black/[0.04]',
                         dragging && 'opacity-40',
                         dropLine === 'before' && 'shadow-[inset_0_2px_0_#1f4d3a]',
@@ -687,6 +696,7 @@ export function DailyGrid({
                         commit('none', k)
                       }}
                       onMouseEnter={() => setHi(k)}
+                      title={o.tooltip}
                     >
                       {canReorder ? (
                         <span
@@ -703,19 +713,19 @@ export function DailyGrid({
                       ) : (
                         <span className="w-[14px]" />
                       )}
-                      <span className="truncate rounded-md px-1.5 py-0.5 text-[13px] font-medium" style={o.color ? { backgroundColor: chipBg(o.color) } : undefined}>
+                      <span className="truncate rounded-chip px-1.5 py-0.5 text-[13px] font-medium" style={o.color ? { backgroundColor: chipBg(o.color) } : undefined}>
                         {o.label}
                       </span>
                       {o.hint && <span className="ml-auto shrink-0 truncate pl-2 text-xs text-muted">{o.hint}</span>}
                       {hasMenu && (
                         <button
                           aria-label={`Options for ${o.label}`}
-                          className={cx('shrink-0 rounded p-0.5 text-muted opacity-0 hover:bg-black/10 group-hover:opacity-100 group-aria-selected:opacity-100', !o.hint && 'ml-auto')}
+                          className={cx('shrink-0 rounded-chip p-0.5 text-muted opacity-0 hover:bg-black/10 group-hover:opacity-100 group-aria-selected:opacity-100', !o.hint && 'ml-auto')}
                           onMouseDown={(e) => {
                             e.preventDefault()
                             e.stopPropagation()
                           }}
-                          onClick={(e) => setMenu({ key: o.key, anchor: (e.currentTarget.parentElement as HTMLElement).getBoundingClientRect(), placement: 'right' })}
+                          onClick={(e) => setMenu({ key: o.key, anchor: (e.currentTarget.parentElement as HTMLElement).getBoundingClientRect() })}
                         >
                           <MoreHorizontal size={14} />
                         </button>
@@ -732,7 +742,7 @@ export function DailyGrid({
           <ColorMenu
             key={menu.key}
             anchor={menu.anchor}
-            placement={menu.placement}
+            placement="right"
             title={menuOption.template.description || menuOption.template.label}
             onRename={(name) => api.renameTemplate(menuOption.template!.id, name)}
             onDelete={() => {
@@ -755,7 +765,7 @@ export function DailyGrid({
           <ColorMenu
             key={menu.key}
             anchor={menu.anchor}
-            placement={menu.placement}
+            placement="right"
             title={
               menuCategoryKey === NONWORK_KEY
                 ? 'Non-work (점심·휴식·퇴근)'
@@ -784,7 +794,7 @@ export function DailyGrid({
             <button
               key={h.value}
               aria-pressed={size.rowHeight === h.value}
-              className={cx('rounded-full px-2 py-0.5', size.rowHeight === h.value ? 'bg-primary text-white' : 'bg-black/5 hover:bg-black/10')}
+              className={cx('rounded-chip px-2 py-0.5', size.rowHeight === h.value ? 'bg-primary text-white' : 'bg-black/5 hover:bg-black/10')}
               onClick={() => onLayoutChange({ ...layout, rowHeight: h.value })}
             >
               {h.label}

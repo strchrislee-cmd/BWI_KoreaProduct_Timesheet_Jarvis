@@ -1,12 +1,15 @@
-import { Plus, Upload, X } from 'lucide-react'
+import { Eye, EyeOff, Plus, RotateCcw, Trash2, Upload, X } from 'lucide-react'
 import { useState } from 'react'
+import { ColorMenu, Swatch } from '../../components/ColorMenu'
 import { Button, Card, ErrorNote, Modal, Pill, cx } from '../../components/ui'
 import { useStore, useUser } from '../../data/StoreContext'
-import { diffMaster, isNewProject, type MasterDiff } from '../../domain/projects'
-import type { MasterImportResult, MasterRow, ProjectKind } from '../../domain/types'
+import { diffMaster, isNewProject, manualProjectRow, type MasterDiff } from '../../domain/projects'
+import type { GroupProject, MasterImportResult, MasterRow, ProjectKind } from '../../domain/types'
 import { loadExcel, sha256Hex } from '../../lib/files'
+import { categoryColor } from './colors'
 import { KIND_LABEL } from './projectUi'
 import { useTimesheets } from './TimesheetsLayout'
+import { useColorPrefs } from './useColorPrefs'
 
 interface Preview {
   fileName: string
@@ -27,9 +30,16 @@ export function ProjectsPage() {
   const [drafts, setDrafts] = useState<Record<string, string>>({})
   const [error, setError] = useState<Error | null>(null)
   const [busy, setBusy] = useState(false)
+  const [showHidden, setShowHidden] = useState(false)
+  const [draft, setDraft] = useState<{ name: string; kind: ProjectKind }>({ name: '', kind: 'project' })
+  const [note, setNote] = useState('')
+  const [confirmDelete, setConfirmDelete] = useState<GroupProject | null>(null)
+  const [colorOf, setColorOf] = useState<{ project: GroupProject; anchor: DOMRect } | null>(null)
+  const colors = useColorPrefs()
 
-  const newOnes = projects.filter((p) => isNewProject(p, latestImport))
-  const shown = projects.filter((p) => filter === 'all' || p.kind === filter)
+  const newOnes = projects.filter((p) => !p.hidden && isNewProject(p, latestImport))
+  const hiddenCount = projects.filter((p) => p.hidden).length
+  const shown = projects.filter((p) => (showHidden || !p.hidden) && (filter === 'all' || p.kind === filter))
 
   async function onFile(file: File) {
     setError(null)
@@ -80,12 +90,53 @@ export function ProjectsPage() {
     }
   }
 
+  async function addProject() {
+    const row = manualProjectRow(draft.name, draft.kind)
+    if (!row.name) return
+    setError(null)
+    try {
+      await store.addProject({ ...row, kind: draft.kind })
+      setDraft({ ...draft, name: '' })
+      setNote(`‘${row.name}’ 추가됨 · Daily Log 드롭다운에서 바로 쓸 수 있습니다.`)
+      reloadMaster()
+    } catch (e) {
+      setError(e as Error)
+    }
+  }
+
+  async function removeProject(p: GroupProject) {
+    setConfirmDelete(null)
+    setError(null)
+    try {
+      const how = await store.removeProject(p.id)
+      setNote(
+        how === 'deleted'
+          ? `‘${p.name}’ 삭제됨`
+          : `‘${p.name}’ 숨김 · 기존 기록은 그대로이고, 숨긴 항목 보기에서 되돌릴 수 있습니다.`,
+      )
+      reloadMaster()
+    } catch (e) {
+      setError(e as Error)
+    }
+  }
+
+  async function restoreProject(p: GroupProject) {
+    setError(null)
+    try {
+      await store.restoreProject(p.id)
+      setNote(`‘${p.name}’ 되돌림`)
+      reloadMaster()
+    } catch (e) {
+      setError(e as Error)
+    }
+  }
+
   return (
     <div className="space-y-4">
       <div className="grid gap-4 lg:grid-cols-3">
         <Card title="Group master sheet">
           {isAdmin ? (
-            <label className="flex cursor-pointer flex-col items-center gap-2 rounded-2xl border-2 border-dashed border-line px-4 py-6 text-center hover:bg-sage-light">
+            <label className="flex cursor-pointer flex-col items-center gap-2 rounded-control border-2 border-dashed border-line px-4 py-6 text-center hover:bg-sage-light">
               <Upload className="text-primary" />
               <span className="font-semibold">Drop group master sheet (.xlsx exported from SharePoint)</span>
               <input
@@ -126,7 +177,7 @@ export function ProjectsPage() {
           {isAdmin ? (
             <div className="space-y-1 text-sm">
               <p>POST the master .xlsx to:</p>
-              <code className="block break-all rounded-lg bg-white px-2 py-1 text-xs">{window.location.origin}/api/ingest</code>
+              <code className="block break-all rounded-chip bg-white px-2 py-1 text-xs">{window.location.origin}/api/ingest</code>
               <p>
                 Header <code className="text-xs">x-jarvis-token</code> = <code className="text-xs">INGEST_TOKEN</code>. See README → Power Automate.
               </p>
@@ -139,7 +190,7 @@ export function ProjectsPage() {
 
       <ErrorNote error={error} />
       {result && (
-        <p className="rounded-xl bg-sage px-4 py-2 text-sm font-semibold text-primary" role="status">
+        <p className="rounded-control bg-sage px-4 py-2 text-sm font-semibold text-primary" role="status">
           {result.status === 'duplicate'
             ? 'This exact file was already imported — nothing changed.'
             : `Imported ${result.total} rows: ${result.added} new, ${result.missing} no longer listed${result.is_baseline ? ' (first import = baseline, nothing flagged NEW)' : ''}.`}
@@ -149,32 +200,88 @@ export function ProjectsPage() {
       <Card
         title="Project mapping"
         action={
-          <div className="flex gap-1">
+          <div className="flex flex-wrap items-center justify-end gap-1">
             {(['all', 'project', 'timelog', 'local_section'] as const).map((k) => (
               <button
                 key={k}
                 onClick={() => setFilter(k)}
-                className={cx('rounded-full px-3 py-1 text-sm font-semibold', filter === k ? 'bg-primary text-white' : 'bg-sage-light')}
+                className={cx('rounded-control px-3 py-1 text-sm font-semibold', filter === k ? 'bg-primary text-white' : 'bg-sage-light')}
               >
                 {k === 'all' ? 'All' : KIND_LABEL[k]}
               </button>
             ))}
+            {isAdmin && hiddenCount > 0 && (
+              <button
+                aria-pressed={showHidden}
+                onClick={() => setShowHidden((v) => !v)}
+                className={cx('ml-1 flex items-center gap-1 rounded-control px-3 py-1 text-sm font-semibold', showHidden ? 'bg-ink text-white' : 'bg-black/5 hover:bg-black/10')}
+              >
+                {showHidden ? <Eye size={14} /> : <EyeOff size={14} />} 숨긴 항목 보기 ({hiddenCount})
+              </button>
+            )}
           </div>
         }
       >
+        {isAdmin && (
+          <form
+            className="mb-3 flex flex-wrap items-center gap-2"
+            onSubmit={(e) => {
+              e.preventDefault()
+              void addProject()
+            }}
+          >
+            <input
+              aria-label="New project name"
+              className="field !w-auto min-w-[260px] flex-1 !py-1.5 text-sm"
+              placeholder="새 프로젝트 이름 (예: 2045--Compact Work Lamp)"
+              value={draft.name}
+              onChange={(e) => setDraft({ ...draft, name: e.target.value })}
+            />
+            <select
+              aria-label="New project kind"
+              className="field !w-auto !py-1.5 text-sm"
+              value={draft.kind}
+              onChange={(e) => setDraft({ ...draft, kind: e.target.value as ProjectKind })}
+            >
+              {(['project', 'timelog', 'local_section'] as const).map((k) => (
+                <option key={k} value={k}>
+                  {KIND_LABEL[k]}
+                </option>
+              ))}
+            </select>
+            <Button type="submit" disabled={!draft.name.trim()}>
+              <Plus size={16} /> 추가
+            </Button>
+            <span className="w-full text-xs text-muted">
+              직접 추가한 항목은 나중에 마스터 시트에 같은 이름으로 들어오면 자동으로 합쳐집니다(NEW 표시 없음). Timelog는 이름 앞에 <code>00.Timelog--</code>가 붙습니다.
+            </span>
+          </form>
+        )}
+        {note && (
+          <p className="mb-3 rounded-control bg-sage px-3 py-1.5 text-sm font-semibold text-primary" role="status">
+            {note}
+          </p>
+        )}
         <div className="overflow-auto">
           <table className="sheet">
             <thead>
               <tr>
+                <th className="w-10">Color</th>
                 <th>Group Project</th>
                 <th>Kind</th>
                 <th>Local aliases</th>
                 <th>Status</th>
+                {isAdmin && <th className="w-28" />}
               </tr>
             </thead>
             <tbody>
               {shown.map((p) => (
-                <tr key={p.id}>
+                <tr key={p.id} className={cx(p.hidden && 'opacity-60')}>
+                  <td>
+                    <span className="inline-flex" onClick={(e) => setColorOf({ project: p, anchor: e.currentTarget.getBoundingClientRect() })}>
+                      <Swatch color={categoryColor('work', p, colors.prefs)} label={`Color of ${p.name}`} />
+                    </span>
+                  </td>
                   <td className="font-semibold">{p.name}</td>
                   <td className="text-muted">{KIND_LABEL[p.kind]}</td>
                   <td>
@@ -202,7 +309,7 @@ export function ProjectsPage() {
                             onKeyDown={(e) => e.key === 'Enter' && void addAlias(p.id)}
                           />
                           {(drafts[p.id] ?? '').trim() && (
-                            <button aria-label="Save alias" className="rounded-full p-1 hover:bg-sage-light" onClick={() => void addAlias(p.id)}>
+                            <button aria-label="Save alias" className="rounded-control p-1 hover:bg-sage-light" onClick={() => void addAlias(p.id)}>
                               <Plus size={14} />
                             </button>
                           )}
@@ -211,20 +318,79 @@ export function ProjectsPage() {
                     </div>
                   </td>
                   <td>
-                    {isNewProject(p, latestImport) ? (
-                      <Pill tone="orange">NEW</Pill>
-                    ) : p.status === 'missing' ? (
-                      <Pill>Not in sheet</Pill>
-                    ) : (
-                      <Pill tone="green">Active</Pill>
-                    )}
+                    <span className="flex flex-wrap gap-1">
+                      {p.hidden ? (
+                        <Pill>숨김</Pill>
+                      ) : isNewProject(p, latestImport) ? (
+                        <Pill tone="orange">NEW</Pill>
+                      ) : p.status === 'missing' ? (
+                        <Pill>Not in sheet</Pill>
+                      ) : (
+                        <Pill tone="green">Active</Pill>
+                      )}
+                      {p.manual && <Pill tone="blue">직접 추가</Pill>}
+                    </span>
                   </td>
+                  {isAdmin && (
+                    <td className="text-right">
+                      {p.hidden ? (
+                        <Button variant="ghost" className="whitespace-nowrap !px-2 !py-1 text-xs" aria-label={`Restore ${p.name}`} onClick={() => void restoreProject(p)}>
+                          <RotateCcw size={14} /> 되돌리기
+                        </Button>
+                      ) : p.system_key ? (
+                        <span className="whitespace-nowrap text-xs text-muted" title="기본 항목은 삭제할 수 없습니다">기본 항목</span>
+                      ) : (
+                        <button
+                          aria-label={`Remove ${p.name}`}
+                          title={p.manual ? '삭제' : '숨기기 (되돌리기 가능)'}
+                          className="rounded-control p-1.5 text-muted hover:bg-black/5 hover:text-[#9a3a0e]"
+                          onClick={() => (p.manual ? setConfirmDelete(p) : void removeProject(p))}
+                        >
+                          <Trash2 size={15} />
+                        </button>
+                      )}
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
       </Card>
+
+      {colorOf && (
+        <ColorMenu
+          key={colorOf.project.id}
+          anchor={colorOf.anchor}
+          title={colorOf.project.name}
+          note="내 색상입니다. Daily Log의 같은 카테고리 색과 함께 바뀝니다."
+          value={categoryColor('work', colorOf.project, colors.prefs)}
+          isCustom={colors.isCustom(colorOf.project.id)}
+          saved={colors.prefs.palette}
+          onPick={(hex) => void colors.setCategoryColor(colorOf.project.id, hex)}
+          onSave={(hex) => void colors.savePreset(hex)}
+          onRemoveSaved={(hex) => void colors.removePreset(hex)}
+          onClose={() => setColorOf(null)}
+        />
+      )}
+
+      {confirmDelete && (
+        <Modal title="프로젝트 삭제" onClose={() => setConfirmDelete(null)}>
+          <p className="text-sm">
+            <strong>{confirmDelete.name}</strong>을(를) 삭제할까요?
+          </p>
+          <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-muted">
+            <li>아직 아무도 기록하지 않았다면 <strong className="text-ink">완전히 삭제</strong>되고 되돌릴 수 없습니다.</li>
+            <li>이미 기록이나 반복 업무에 쓰였다면 숨김 처리되고, 숨긴 항목 보기에서 되돌릴 수 있습니다.</li>
+          </ul>
+          <div className="mt-5 flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setConfirmDelete(null)}>
+              취소
+            </Button>
+            <Button onClick={() => void removeProject(confirmDelete)}>삭제</Button>
+          </div>
+        </Modal>
+      )}
 
       {preview && (
         <Modal title="Review master import" onClose={() => setPreview(null)} wide>

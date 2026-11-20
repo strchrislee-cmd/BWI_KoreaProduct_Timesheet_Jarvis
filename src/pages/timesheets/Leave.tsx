@@ -63,7 +63,7 @@ export function LeavePage() {
       <Card title={new Date(`${month}-01T00:00:00Z`).toLocaleString('en', { month: 'long', year: 'numeric', timeZone: 'UTC' })}>
         <div className="grid grid-cols-7 gap-1 text-sm">
           {WEEKDAY_SHORT.map((d) => (
-            <div key={d} className="rounded-lg bg-sage-light py-1 text-center font-semibold">
+            <div key={d} className="rounded-chip bg-sage-light py-1 text-center font-semibold">
               {d}
             </div>
           ))}
@@ -73,11 +73,11 @@ export function LeavePage() {
               <button
                 key={d}
                 onClick={() => setDate(d)}
-                className={cx('min-h-20 rounded-lg border border-line p-1 text-left align-top', d.slice(0, 7) !== month && 'opacity-40', d === date && 'ring-2 ring-primary')}
+                className={cx('min-h-20 rounded-chip border border-line p-1 text-left align-top', d.slice(0, 7) !== month && 'opacity-40', d === date && 'ring-2 ring-primary')}
               >
                 <div className="text-xs font-semibold">{Number(d.slice(8))}</div>
                 {dayLeaves.map((l) => (
-                  <div key={l.id} className={cx('mt-1 truncate rounded-full px-2 text-[11px] font-semibold', LEAVE_COLOR[l.leave_type])}>
+                  <div key={l.id} className={cx('mt-1 truncate rounded-chip px-2 text-[11px] font-semibold', LEAVE_COLOR[l.leave_type])}>
                     {LEAVE_LABEL[l.leave_type]}
                   </div>
                 ))}
@@ -139,7 +139,7 @@ export function LeavePage() {
                   {l.end_date !== l.start_date && `–${l.end_date.slice(5)}`} · {l.hours_per_day}h/day
                 </span>
                 {canEdit && (
-                  <button aria-label="Delete leave" className="rounded-full p-1 text-muted hover:bg-sage-light" onClick={() => void remove(l.id)}>
+                  <button aria-label="Delete leave" className="rounded-control p-1 text-muted hover:bg-sage-light" onClick={() => void remove(l.id)}>
                     <Trash2 size={14} />
                   </button>
                 )}

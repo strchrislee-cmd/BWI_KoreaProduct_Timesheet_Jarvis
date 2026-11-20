@@ -25,7 +25,7 @@ export function Card({
   children?: ReactNode
 }) {
   return (
-    <section className={cx('rounded-[var(--radius-card)] p-5', TONES[tone], className)}>
+    <section className={cx('rounded-card p-5', TONES[tone], className)}>
       {(title || action) && (
         <header className="mb-3 flex items-center justify-between gap-3">
           {title && <h2 className="text-lg font-bold">{title}</h2>}
@@ -54,7 +54,7 @@ export function Button({
     <button
       {...props}
       className={cx(
-        'inline-flex items-center justify-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50',
+        'inline-flex items-center justify-center gap-2 rounded-control px-4 py-2 text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50',
         VARIANTS[variant],
         className,
       )}
@@ -73,7 +73,7 @@ const PILLS: Record<PillTone, string> = {
 
 export function Pill({ tone = 'grey', children, className }: { tone?: PillTone; children: ReactNode; className?: string }) {
   return (
-    <span className={cx('inline-flex items-center whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-semibold', PILLS[tone], className)}>
+    <span className={cx('inline-flex items-center whitespace-nowrap rounded-chip px-2.5 py-0.5 text-xs font-semibold', PILLS[tone], className)}>
       {children}
     </span>
   )
@@ -92,10 +92,10 @@ export function Field({ label, children, hint }: { label: string; children: Reac
 export function Modal({ title, onClose, children, wide }: { title: string; onClose: () => void; children: ReactNode; wide?: boolean }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/25 p-4 backdrop-blur-sm" role="dialog" aria-label={title}>
-      <div className={cx('glass-strong max-h-[90vh] w-full overflow-auto rounded-[var(--radius-card)] p-6', wide ? 'max-w-4xl' : 'max-w-lg')}>
+      <div className={cx('glass-strong max-h-[90vh] w-full overflow-auto rounded-menu p-6', wide ? 'max-w-4xl' : 'max-w-lg')}>
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-2xl font-bold">{title}</h2>
-          <button onClick={onClose} aria-label="Close" className="rounded-full p-1 hover:bg-sage-light">
+          <button onClick={onClose} aria-label="Close" className="rounded-control p-1 hover:bg-sage-light">
             <X size={20} />
           </button>
         </div>
@@ -108,7 +108,7 @@ export function Modal({ title, onClose, children, wide }: { title: string; onClo
 export function ErrorNote({ error }: { error?: Error | string | null }) {
   if (!error) return null
   return (
-    <p role="alert" className="rounded-xl bg-accent-soft px-3 py-2 text-sm text-[#9a3a0e]">
+    <p role="alert" className="rounded-control bg-accent-soft px-3 py-2 text-sm text-[#9a3a0e]">
       {typeof error === 'string' ? error : error.message}
     </p>
   )

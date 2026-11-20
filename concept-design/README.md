@@ -35,7 +35,7 @@
 | 카테고리 칩 | General `#A9D4F5`, Meeting `#F7D774`, Project `#BFE3F7`, Lunch `#D9D9D9` | 30분 로그 구분 |
 | 그룹 시트 밴드 | Timelog `#FFF5C2`/`#FFE0B2`, 로컬 섹션 `#E3F1DF` | 원본 엑셀의 노랑/주황/녹색을 부드럽게 바꾼 색 |
 
-- **Radius**: 카드 24px · 입력 14px · 버튼/칩 pill(999px)
+- **Radius** (2026-11-20 변경, 아이폰 같은 작은 R): 카드 16px · 메뉴/모달 12px · 버튼/입력/탭 10px · 칩/색상 견본 6px · 프로필 이니셜만 원형. Chromium에서는 `corner-shape: superellipse(1.5)`로 연속 곡선 모서리. 토큰 `--radius-card/-menu/-control/-chip`(`src/styles.css`)
 - **Type**: 한글 `Pretendard`, 영문/숫자 `Inter` (또는 Plus Jakarta Sans). 페이지 타이틀 40/700, 카드 타이틀 24/700, KPI 숫자 56/800, 본문 15/500
 - **Layout**: 내비 레일 168px 고정, 콘텐츠 12-col 그리드 · gap 16px · 카드 높이 120px 배수
 - **컴포넌트**: `NavRail`, `PageHeader`(타이틀, 날짜 칩, `TabBar`, 액션), `BentoCard`(white/sage/orange/dark), `SheetGrid`, `CategoryPill`, `StatusPill`(Active/NEW/Invited/Unmapped), `KpiStat`, `Donut`, `AlertCard`, `AiSuggestionCard`, `WizardModal`

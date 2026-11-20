@@ -72,7 +72,7 @@ export function Admin() {
 
       <div className="mb-4 space-y-2">
         <ErrorNote error={error ?? profiles.error ?? invitations.error} />
-        {notice && <p className="rounded-xl bg-sage px-4 py-2 text-sm font-semibold text-primary" role="status">{notice}</p>}
+        {notice && <p className="rounded-control bg-sage px-4 py-2 text-sm font-semibold text-primary" role="status">{notice}</p>}
       </div>
 
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_340px]">

@@ -1,4 +1,4 @@
-import { Bell, ImagePlus, RefreshCw, Sparkles, X } from 'lucide-react'
+import { Bell, ImagePlus, Layers, RefreshCw, Sparkles, X } from 'lucide-react'
 import { useEffect, useState, type ReactNode } from 'react'
 import { BACKGROUND_CHANGED, fetchDailyPhoto } from '../components/BackgroundLayer'
 import { ColorMenu, Swatch } from '../components/ColorMenu'
@@ -8,12 +8,13 @@ import { Button, Card, ErrorNote, Field } from '../components/ui'
 import { LocalStore } from '../data/localStore'
 import { useStore, useUser } from '../data/StoreContext'
 import { usePreferences } from '../data/usePreferences'
-import type { BackgroundMode } from '../data/preferences'
-import { sortProjects } from '../domain/projects'
+import { FLOW_SPEEDS, type BackgroundMode, type Prefs, type UiStyle } from '../data/preferences'
+import { isSelectable, sortProjects } from '../domain/projects'
 import { todayLocal } from '../domain/time'
 import type { OrgSettings, Profile } from '../domain/types'
 import { gradientBackground } from '../lib/background'
 import { compressImage } from '../lib/files'
+import { supportsRefraction } from '../lib/liquidGlass'
 import { useAsync } from '../lib/hooks'
 import { NONWORK_KEY, categoryColor } from './timesheets/colors'
 import { KIND_LABEL, displayName } from './timesheets/projectUi'
@@ -68,7 +69,7 @@ export function Settings() {
       <PageTitle>Settings</PageTitle>
       <div className="mb-4 space-y-2">
         <ErrorNote error={error ?? org.error} />
-        {saved && <p className="rounded-xl bg-sage px-4 py-2 text-sm font-semibold text-primary" role="status">{saved}</p>}
+        {saved && <p className="rounded-control bg-sage px-4 py-2 text-sm font-semibold text-primary" role="status">{saved}</p>}
       </div>
       <div className="grid gap-4 lg:grid-cols-3">
         <Card title="Profile">
@@ -165,6 +166,7 @@ export function Settings() {
           </Card>
         </div>
         <NotificationsCard />
+        <UiStyleCard />
         <BackgroundCard />
         <CategoryColorsCard />
       </div>
@@ -178,7 +180,7 @@ function CategoryColorsCard() {
   const projectsQ = useAsync(() => store.listProjects(), [store])
   const colors = useColorPrefs()
   const [open, setOpen] = useState<{ key: string; name: string; anchor: DOMRect } | null>(null)
-  const active = sortProjects((projectsQ.data ?? []).filter((p) => p.status === 'active'))
+  const active = sortProjects((projectsQ.data ?? []).filter(isSelectable))
   const groups = [
     ...(['project', 'timelog', 'local_section'] as const).map((kind) => ({
       title: KIND_LABEL[kind],
@@ -232,8 +234,8 @@ function CategoryColorsCard() {
       ) : (
         <ul className="flex flex-wrap gap-2" data-testid="saved-palette">
           {colors.prefs.palette.map((c) => (
-            <li key={c} className="flex items-center gap-1 rounded-full border border-line py-0.5 pl-1 pr-2 font-mono text-xs">
-              <span className="h-4 w-4 rounded-full border border-black/15" style={{ backgroundColor: c }} />
+            <li key={c} className="flex items-center gap-1 rounded-chip border border-line py-0.5 pl-1 pr-2 font-mono text-xs">
+              <span className="h-4 w-4 rounded-[4px] border border-black/15" style={{ backgroundColor: c }} />
               {c}
               <button aria-label={`Remove saved color ${c}`} className="text-muted hover:text-ink" onClick={() => void colors.removePreset(c)}>
                 <X size={12} />
@@ -290,6 +292,38 @@ function NotificationsCard() {
 }
 
 /** Glass UI background: random gradient pattern, Unsplash daily photo, or an uploaded photo (A8). */
+const UI_STYLES: { value: UiStyle; label: string; desc: string }[] = [
+  { value: 'blur', label: '블러', desc: '뿌옇게 흐린 유리. 배경이 은은하게 비칩니다.' },
+  { value: 'liquid', label: '리퀴드 글래스', desc: '맑은 유리. 배경이 그대로 비치고, 가장자리가 렌즈처럼 휘어 보입니다.' },
+]
+
+function UiStyleCard() {
+  const { prefs, update, error } = usePreferences()
+  return (
+    <Card title={<span className="flex items-center gap-2"><Layers size={18} /> 화면 스타일</span>}>
+      <ErrorNote error={error} />
+      <div className="grid gap-2 sm:grid-cols-2">
+        {UI_STYLES.map((o) => (
+          <label
+            key={o.value}
+            className={`flex cursor-pointer flex-col gap-1 rounded-control border p-3 text-sm ${prefs.uiStyle === o.value ? 'border-primary bg-white/60' : 'border-white/60 bg-white/30'}`}
+          >
+            <span className="flex items-center gap-2 font-semibold">
+              <input type="radio" name="ui-style" aria-label={o.label} checked={prefs.uiStyle === o.value} onChange={() => void update((p) => ({ ...p, uiStyle: o.value }))} />
+              {o.label}
+              {o.value === 'blur' && <span className="text-xs font-normal text-muted">(기본)</span>}
+            </span>
+            <span className="text-xs text-muted">{o.desc}</span>
+          </label>
+        ))}
+      </div>
+      {prefs.uiStyle === 'liquid' && !supportsRefraction() && (
+        <p className="mt-2 text-xs text-muted">이 브라우저에서는 가장자리 휘어짐 없이 맑은 유리로만 보입니다. Chrome·Edge에서는 휘어짐까지 보입니다.</p>
+      )}
+    </Card>
+  )
+}
+
 function BackgroundCard() {
   const { store } = useStore()
   const user = useUser()
@@ -305,7 +339,8 @@ function BackgroundCard() {
     void store.getBackground(user.id).then(setUpload, () => setUpload(null))
   }, [store, user.id])
 
-  const setBackground = (patch: Partial<{ mode: BackgroundMode; seed: string | null }>) =>
+  const reducedMotion = typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+  const setBackground = (patch: Partial<Prefs['background']>) =>
     update((p) => ({ ...p, background: { ...p.background, ...patch } }))
 
   async function onFile(file: File) {
@@ -337,7 +372,7 @@ function BackgroundCard() {
 
   const preview = gradientBackground(prefs.background.seed ?? todayLocal())
   const Option = ({ value, label, children, disabled }: { value: BackgroundMode; label: string; children?: ReactNode; disabled?: boolean }) => (
-    <div className={`rounded-2xl border p-3 ${mode === value ? 'border-primary bg-white/60' : 'border-white/60 bg-white/30'} ${disabled ? 'opacity-60' : ''}`}>
+    <div className={`rounded-control border p-3 ${mode === value ? 'border-primary bg-white/60' : 'border-white/60 bg-white/30'} ${disabled ? 'opacity-60' : ''}`}>
       <label className="flex items-center gap-2 text-sm font-semibold">
         <input type="radio" name="background" aria-label={label} checked={mode === value} disabled={disabled} onChange={() => void setBackground({ mode: value })} />
         {label}
@@ -351,7 +386,7 @@ function BackgroundCard() {
       <ErrorNote error={err ?? error} />
       <div className="grid gap-3 md:grid-cols-3">
         <Option value="gradient" label="무작위 그라데이션 패턴">
-          <div className="mt-2 h-16 rounded-xl border border-white/60" style={preview} data-testid="gradient-preview" />
+          <div className="mt-2 h-16 rounded-control border border-white/60" style={preview} data-testid="gradient-preview" />
           <p className="mt-1 text-xs text-muted">{prefs.background.seed ? '고정된 패턴' : '매일 새로운 패턴'}</p>
           <div className="mt-2 flex flex-wrap gap-1.5">
             <Button variant="outline" className="!px-2.5 !py-1 text-xs" onClick={() => void setBackground({ mode: 'gradient', seed: Math.random().toString(36).slice(2, 10) })}>
@@ -363,6 +398,26 @@ function BackgroundCard() {
               </Button>
             )}
           </div>
+          <label className="mt-3 flex items-center gap-2 text-xs font-semibold">
+            <input type="checkbox" aria-label="Flowing gradient" checked={prefs.background.animate} onChange={(e) => void setBackground({ animate: e.target.checked })} />
+            물결처럼 흐르기
+          </label>
+          {prefs.background.animate && (
+            <div role="group" aria-label="Flow speed" className="mt-1.5 flex items-center gap-1 text-xs">
+              <span className="mr-1 text-muted">속도</span>
+              {FLOW_SPEEDS.map((sp) => (
+                <button
+                  key={sp.value}
+                  aria-pressed={prefs.background.speed === sp.value}
+                  className={`rounded-chip px-2 py-0.5 ${prefs.background.speed === sp.value ? 'bg-primary text-white' : 'bg-black/5 hover:bg-black/10'}`}
+                  onClick={() => void setBackground({ speed: sp.value })}
+                >
+                  {sp.label}
+                </button>
+              ))}
+            </div>
+          )}
+          {prefs.background.animate && reducedMotion && <p className="mt-1 text-xs text-muted">OS의 ‘동작 줄이기’가 켜져 있어 움직이지 않습니다.</p>}
         </Option>
         <Option value="unsplash" label="Unsplash 오늘의 사진" disabled={unsplash !== 'available'}>
           <p className="mt-2 text-xs text-muted">
@@ -374,9 +429,9 @@ function BackgroundCard() {
           </p>
         </Option>
         <Option value="upload" label="내 사진" disabled={!upload}>
-          {upload && <img src={upload} alt="Uploaded background" className="mt-2 h-16 w-full rounded-xl object-cover" />}
+          {upload && <img src={upload} alt="Uploaded background" className="mt-2 h-16 w-full rounded-control object-cover" />}
           <div className="mt-2 flex flex-wrap gap-1.5">
-            <label className="inline-flex cursor-pointer items-center gap-1 rounded-full border border-primary bg-white px-2.5 py-1 text-xs font-semibold text-primary hover:bg-sage-light">
+            <label className="inline-flex cursor-pointer items-center gap-1 rounded-control border border-primary bg-white px-2.5 py-1 text-xs font-semibold text-primary hover:bg-sage-light">
               <ImagePlus size={12} /> {busy ? '올리는 중…' : '사진 업로드'}
               <input
                 type="file"

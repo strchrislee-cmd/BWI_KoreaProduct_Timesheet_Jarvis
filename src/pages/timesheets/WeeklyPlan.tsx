@@ -105,7 +105,7 @@ export function WeeklyPlanPage() {
             {perDay.map((h, i) => (
               <div key={dates[i]} className="flex flex-1 flex-col items-center gap-1">
                 <span className="text-xs font-semibold">{h ? h.toFixed(1) : ''}</span>
-                <div className="w-full rounded-lg bg-sage" style={{ height: `${(h / max) * 80}px`, minHeight: 4 }} />
+                <div className="w-full rounded-chip bg-sage" style={{ height: `${(h / max) * 80}px`, minHeight: 4 }} />
                 <span className="text-xs text-muted">{WEEKDAY_SHORT[i]}</span>
               </div>
             ))}
@@ -120,8 +120,8 @@ export function WeeklyPlanPage() {
                   <span className="truncate">{name}</span>
                   <span className="font-semibold">{h.toFixed(1)}h</span>
                 </div>
-                <div className="mt-1 h-2 rounded-full bg-sage-light">
-                  <div className="h-2 rounded-full bg-primary" style={{ width: `${(h / (top[0]?.[1] || 1)) * 100}%` }} />
+                <div className="mt-1 h-2 rounded-[3px] bg-sage-light">
+                  <div className="h-2 rounded-[3px] bg-primary" style={{ width: `${(h / (top[0]?.[1] || 1)) * 100}%` }} />
                 </div>
               </li>
             ))}

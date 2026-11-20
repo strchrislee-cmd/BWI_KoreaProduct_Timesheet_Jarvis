@@ -21,3 +21,20 @@ export function useAsync<T>(fn: () => Promise<T>, deps: unknown[]) {
   const reload = useCallback(() => setTick((t) => t + 1), [])
   return { ...state, reload }
 }
+
+/** Current time, refreshed at the start of every minute. */
+export function useMinuteClock(): Date {
+  const [now, setNow] = useState(() => new Date())
+  useEffect(() => {
+    let t = 0
+    const schedule = () => {
+      t = window.setTimeout(() => {
+        setNow(new Date())
+        schedule()
+      }, 60_000 - (Date.now() % 60_000) + 50)
+    }
+    schedule()
+    return () => window.clearTimeout(t)
+  }, [])
+  return now
+}

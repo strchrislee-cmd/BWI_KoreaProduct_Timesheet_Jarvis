@@ -51,6 +51,12 @@ export function defaultEndTime(start: string, targetHours: number, lunchStart: s
 }
 
 /** 'HH:MM' → slot index (rounded down to the 30-min slot). */
+/** Where a moment falls in the 30-min grid: slot index, how far into it (0–1) and "HH:MM". */
+export function currentSlot(now: Date): { slot: number; frac: number; time: string } {
+  const m = now.getHours() * 60 + now.getMinutes()
+  return { slot: Math.floor(m / SLOT_MINUTES), frac: (m % SLOT_MINUTES) / SLOT_MINUTES, time: minutesToTime(m) }
+}
+
 export function timeToSlot(time: string): number {
   const [h, m] = time.split(':').map(Number)
   return Math.floor((h * 60 + m) / SLOT_MINUTES)

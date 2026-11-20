@@ -1,4 +1,4 @@
-import { sortProjects } from './projects.js'
+import { isSelectable, sortProjects } from './projects.js'
 import { SLOT_HOURS, isWeekend, isoWeek } from './time.js'
 import type { GroupProject, LeaveRequest, LeaveType, SystemKey, TimeSlot } from './types.js'
 
@@ -139,7 +139,7 @@ export function buildGroupTimesheet(input: {
     }
   }
 
-  const visible = sortProjects(projects.filter((p) => p.status === 'active' || hours.has(p.id)))
+  const visible = sortProjects(projects.filter((p) => isSelectable(p) || hours.has(p.id)))
   const rows = visible.map((project) => {
     const h = hours.get(project.id) ?? dates.map(() => 0)
     return { project, hours: h, total: h.reduce((a, b) => a + b, 0) }

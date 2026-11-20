@@ -13,7 +13,7 @@ export function Swatch({ color, label, onClick, size = 16 }: { color: string; la
       title={label}
       onMouseDown={(e) => e.preventDefault()} // keep focus where it is (e.g. the grid)
       onClick={onClick}
-      className="shrink-0 rounded-full border border-black/15 shadow-sm hover:scale-110"
+      className="shrink-0 rounded-chip border border-black/15 shadow-sm hover:scale-110"
       style={{ backgroundColor: color, width: size, height: size }}
     />
   )
@@ -86,8 +86,8 @@ export function ColorMenu({ title, onRename, onDelete, note, value, isCustom, sa
   const current = value.toUpperCase()
 
   const Row = ({ label, color, checked, onClick, icon }: { label: string; color?: string; checked?: boolean; onClick: () => void; icon?: ReactNode }) => (
-    <button type="button" onClick={onClick} className="flex w-full items-center gap-2 rounded-lg px-2 py-0.5 text-left text-[13px] hover:bg-black/5">
-      {icon ?? <span className="h-4 w-4 shrink-0 rounded border border-black/10" style={{ backgroundColor: color }} />}
+    <button type="button" onClick={onClick} className="flex w-full items-center gap-2 rounded-chip px-2 py-0.5 text-left text-[13px] hover:bg-black/5">
+      {icon ?? <span className="h-4 w-4 shrink-0 rounded-[4px] border border-black/10" style={{ backgroundColor: color }} />}
       <span className="flex-1">{label}</span>
       {checked && <Check size={14} />}
     </button>
@@ -102,14 +102,14 @@ export function ColorMenu({ title, onRename, onDelete, note, value, isCustom, sa
       // keep keyboard focus (e.g. the grid editor) unless a text field is clicked
       onMouseDown={(e) => !(e.target instanceof HTMLInputElement) && e.preventDefault()}
       onKeyDown={(e) => e.key === 'Escape' && onClose()}
-      className="glass-strong fixed z-[60] max-h-[calc(100vh-16px)] w-[260px] cursor-default select-text overflow-auto rounded-2xl p-2 text-left text-xs font-normal text-ink"
+      className="glass-strong fixed z-[60] max-h-[calc(100vh-16px)] w-[260px] cursor-default select-text overflow-auto rounded-menu p-2 text-left text-xs font-normal text-ink"
       style={pos ? { top: pos.top, left: pos.left } : { top: anchor.bottom, left: anchor.left, visibility: 'hidden' }}
     >
       <div className="flex items-center gap-1 px-1 pb-1">
         {onRename ? (
           <input
             aria-label="Option name"
-            className="field !rounded-lg !px-2 !py-1 text-[13px]"
+            className="field !rounded-control !px-2 !py-1 text-[13px]"
             value={name}
             onChange={(e) => setName(e.target.value)}
             onBlur={rename}
@@ -130,7 +130,7 @@ export function ColorMenu({ title, onRename, onDelete, note, value, isCustom, sa
         )}
       </div>
       {onDelete && (
-        <button type="button" onClick={onDelete} className="flex w-full items-center gap-2 rounded-lg px-2 py-1 text-[13px] hover:bg-black/5">
+        <button type="button" onClick={onDelete} className="flex w-full items-center gap-2 rounded-chip px-2 py-1 text-[13px] hover:bg-black/5">
           <Trash2 size={14} /> 삭제
         </button>
       )}
@@ -153,14 +153,14 @@ export function ColorMenu({ title, onRename, onDelete, note, value, isCustom, sa
                   aria-label={`Color ${c}`}
                   title={c}
                   onClick={() => onPick(c)}
-                  className={cx('h-5 w-5 rounded-full border border-black/15 hover:scale-110', isCustom && c.toUpperCase() === current && 'ring-2 ring-primary ring-offset-1')}
+                  className={cx('h-5 w-5 rounded-chip border border-black/15 hover:scale-110', isCustom && c.toUpperCase() === current && 'ring-2 ring-primary ring-offset-1')}
                   style={{ backgroundColor: c }}
                 />
                 <button
                   type="button"
                   aria-label={`Remove saved color ${c}`}
                   onClick={() => onRemoveSaved(c)}
-                  className="absolute -right-1 -top-1 hidden rounded-full bg-white p-0.5 shadow group-hover:block"
+                  className="absolute -right-1 -top-1 hidden rounded-chip bg-white p-0.5 shadow group-hover:block"
                 >
                   <X size={8} />
                 </button>
@@ -173,7 +173,7 @@ export function ColorMenu({ title, onRename, onDelete, note, value, isCustom, sa
       {custom ? (
         <CustomColor value={value} onApply={onPick} onSave={onSave} />
       ) : (
-        <button type="button" onClick={() => setCustom(true)} className="w-full rounded-lg px-2 py-1 text-left text-[13px] hover:bg-black/5">
+        <button type="button" onClick={() => setCustom(true)} className="w-full rounded-chip px-2 py-1 text-left text-[13px] hover:bg-black/5">
           직접 지정 (RGB)…
         </button>
       )}
@@ -194,7 +194,7 @@ function CustomColor({ value, onApply, onSave }: { value: string; onApply: (hex:
   return (
     <div className="space-y-2 px-2 pb-1">
       <div className="flex items-center gap-1">
-        <input type="color" aria-label="Color wheel" value={draft.toLowerCase()} onChange={(e) => set(e.target.value.toUpperCase())} className="h-7 w-7 shrink-0 cursor-pointer rounded border-0 bg-transparent p-0" />
+        <input type="color" aria-label="Color wheel" value={draft.toLowerCase()} onChange={(e) => set(e.target.value.toUpperCase())} className="h-7 w-7 shrink-0 cursor-pointer rounded-chip border-0 bg-transparent p-0" />
         {(['R', 'G', 'B'] as const).map((ch, k) => (
           <input
             key={ch}
@@ -208,7 +208,7 @@ function CustomColor({ value, onApply, onSave }: { value: string; onApply: (hex:
               next[k] = Number(e.target.value)
               set(rgbToHex(...next))
             }}
-            className="field !w-11 shrink-0 !rounded-lg !px-1 !py-0.5 text-center"
+            className="field !w-11 shrink-0 !rounded-chip !px-1 !py-0.5 text-center"
           />
         ))}
         <input
@@ -219,11 +219,11 @@ function CustomColor({ value, onApply, onSave }: { value: string; onApply: (hex:
             const h = normalizeHex(e.target.value)
             if (h) setDraft(h)
           }}
-          className="field !w-[74px] shrink-0 !rounded-lg !px-1 !py-0.5 font-mono"
+          className="field !w-[74px] shrink-0 !rounded-chip !px-1 !py-0.5 font-mono"
         />
       </div>
       <div className="flex items-center gap-1.5">
-        <span className="h-5 w-5 rounded-full border border-black/15" style={{ backgroundColor: draft }} />
+        <span className="h-5 w-5 rounded-chip border border-black/15" style={{ backgroundColor: draft }} />
         <span className="flex-1 font-mono text-muted">{draft}</span>
         <Button type="button" variant="outline" className="!px-2 !py-0.5 text-[11px]" onClick={() => (onSave(draft), onApply(draft))}>
           프리셋에 저장
