@@ -131,23 +131,13 @@ body {
   }
 }
 
-/* Flowing gradient background (B4): blobs drift like waves, colours slowly shift, light bands roll by.
+/* Flowing gradient background (B4): colour blobs drift like water and the colours slowly shift.
    --flow-k scales every duration (Settings → 배경 → 속도). Off when the OS asks for reduced motion. */
 .bg-blob {
   position: absolute;
   width: 120vmax;
   height: 120vmax;
   margin: -60vmax 0 0 -60vmax;
-}
-.bg-wave {
-  position: absolute;
-  top: -10%;
-  bottom: -10%;
-  left: -10vw;
-  width: 220vw;
-  background-image: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.16) 30%, transparent 52%, rgba(255, 255, 255, 0.1) 78%, transparent 100%);
-  background-size: 100vw 100%;
-  opacity: 0;
 }
 .bg-flow[data-animated='true'] .bg-flow-hue {
   animation: bg-hue calc(80s * var(--flow-k)) ease-in-out infinite alternate;
@@ -165,11 +155,6 @@ body {
 }
 .bg-flow[data-animated='true'] .bg-blob:nth-child(4) {
   animation: bg-drift-b calc(52s * var(--flow-k)) ease-in-out infinite reverse;
-}
-.bg-flow[data-animated='true'] .bg-wave {
-  opacity: 1;
-  animation: bg-wave calc(36s * var(--flow-k)) linear infinite;
-  will-change: transform;
 }
 .bg-flow[data-paused='true'] * {
   animation-play-state: paused !important;
@@ -208,14 +193,7 @@ body {
     transform: translate(-11vw, 8vh) scale(1.12);
   }
 }
-@keyframes bg-wave {
-  from {
-    transform: translateX(0) skewX(-12deg);
-  }
-  to {
-    transform: translateX(-100vw) skewX(-12deg);
-  }
-}
+
 
 /* Spreadsheet-like table used across Timesheets */
 .sheet {

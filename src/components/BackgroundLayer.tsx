@@ -26,7 +26,7 @@ export async function fetchDailyPhoto(): Promise<Photo | null> {
   }
 }
 
-/** Gradient background whose blobs drift like waves and whose colours slowly shift (B4). */
+/** Gradient background whose colour blobs drift like water and whose colours slowly shift (B4). */
 function FlowingGradient({ seed, animate, factor, paused }: { seed: string; animate: boolean; factor: number; paused: boolean }) {
   const scene = gradientScene(seed)
   return (
@@ -43,7 +43,6 @@ function FlowingGradient({ seed, animate, factor, paused }: { seed: string; anim
         {scene.blobs.map((b, i) => (
           <div key={i} className="bg-blob" style={{ left: `${b.x}%`, top: `${b.y}%`, backgroundImage: `radial-gradient(circle closest-side, ${b.color}, transparent)` }} />
         ))}
-        <div className="bg-wave" />
       </div>
       {scene.pattern && <div className="absolute inset-0" style={{ backgroundImage: scene.pattern.image, backgroundSize: scene.pattern.size }} />}
     </div>
