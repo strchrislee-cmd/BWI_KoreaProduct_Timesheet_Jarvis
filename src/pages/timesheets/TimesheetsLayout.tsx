@@ -73,7 +73,7 @@ export function TimesheetsLayout() {
       {/* title, date and tabs on one line (all controls 36px high) to leave room for the 30-min log */}
       <div className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-2">
         <h1 className={TITLE_CLASS}>Timesheets</h1>
-        <div className="glass glass-sage flex h-9 items-center gap-0.5 rounded-control px-1 text-sm font-semibold">
+        <div className="glass glass-sage flex h-9 items-center gap-0.5 rounded-control px-1 text-sm font-semibold max-md:w-full max-md:justify-between">
           <button aria-label="Previous day" className="rounded-chip p-1 hover:bg-white" onClick={() => value?.setDate(addDays(date, -1))}>
             <ChevronLeft size={16} />
           </button>
@@ -89,14 +89,15 @@ export function TimesheetsLayout() {
             <ChevronRight size={16} />
           </button>
         </div>
-        <nav className="flex flex-wrap gap-1">
+        {/* phones: one row of tabs you can swipe sideways */}
+        <nav className="no-scrollbar flex gap-1 max-md:-mx-3 max-md:w-[calc(100%+1.5rem)] max-md:overflow-x-auto max-md:px-3 md:flex-wrap">
           {TABS.map((t) => (
             <NavLink
               key={t.to}
               to={{ pathname: t.to, search }}
               end={t.end}
               className={({ isActive }) =>
-                cx('flex h-9 items-center rounded-control px-3.5 text-sm font-semibold', isActive ? 'bg-primary text-white shadow-md' : 'glass hover:bg-white/80')
+                cx('flex h-9 shrink-0 items-center rounded-control px-3.5 text-sm font-semibold', isActive ? 'bg-primary text-white shadow-md' : 'glass hover:bg-white/80')
               }
             >
               {t.label}
@@ -106,7 +107,7 @@ export function TimesheetsLayout() {
         {canPickEngineer && value && (
           <select
             aria-label="Engineer"
-            className="field ml-auto !h-9 !w-auto !rounded-control !py-0 text-sm"
+            className="field !h-9 !rounded-control !py-0 text-sm max-md:!w-full md:ml-auto md:!w-auto"
             value={value.engineer.id}
             onChange={(e) => setParams((p) => (p.set('eng', e.target.value), p))}
           >

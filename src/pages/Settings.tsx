@@ -196,7 +196,7 @@ function CategoryColorsCard() {
       <ErrorNote error={colors.error ?? projectsQ.error} />
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         {groups.map((g) => (
-          <div key={g.title}>
+          <div key={g.title} className="min-w-0">
             <h3 className="mb-1 text-xs font-semibold uppercase text-muted">{g.title}</h3>
             <ul>
               {g.items.map((it) => (

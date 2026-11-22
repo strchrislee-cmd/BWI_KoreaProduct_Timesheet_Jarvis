@@ -66,3 +66,16 @@ export function useFillToViewport(ref: RefObject<HTMLElement | null>, minWidth =
   }, [ref, minWidth, gap])
   return height
 }
+
+/** True on phone-sized screens (below Tailwind's md breakpoint, 768px). */
+export function useIsMobile(): boolean {
+  const query = typeof window !== 'undefined' ? window.matchMedia?.('(max-width: 767px)') : undefined
+  const [mobile, setMobile] = useState(() => !!query?.matches)
+  useEffect(() => {
+    if (!query) return
+    const on = () => setMobile(query.matches)
+    query.addEventListener('change', on)
+    return () => query.removeEventListener('change', on)
+  }, [query])
+  return mobile
+}

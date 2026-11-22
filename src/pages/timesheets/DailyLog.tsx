@@ -8,13 +8,14 @@ import { useStore, useUser } from '../../data/StoreContext'
 import { isNewProject, isSelectable } from '../../domain/projects'
 import { SLOTS_PER_DAY, SLOT_HOURS, currentSlot, timeToSlot, todayLocal } from '../../domain/time'
 import type { TaskTemplate, TimeSlot } from '../../domain/types'
-import { useAsync, useFillToViewport, useMinuteClock } from '../../lib/hooks'
+import { useAsync, useFillToViewport, useIsMobile, useMinuteClock } from '../../lib/hooks'
 import { moveItem, sortItems } from '../../lib/ordering'
 import { useDragReorder } from '../../lib/useDragReorder'
 import { categoryColor, chipBg, templateColor } from './colors'
 import { DailyGrid, templateCategory, type GridColors, type GridOptionsApi } from './grid/DailyGrid'
 import { applyTemplate, effectiveSlot, type CellChange, type GridContext } from './grid/gridModel'
 import { ImportWizard } from './ImportWizard'
+import { MobileDayLog } from './mobile/MobileDayLog'
 import { displayName } from './projectUi'
 import { useTimesheets } from './TimesheetsLayout'
 import { useColorPrefs } from './useColorPrefs'
@@ -46,6 +47,7 @@ export function DailyLog() {
   const page = useRef<HTMLDivElement>(null)
   const fillHeight = useFillToViewport(page) // wide screens: end where the left navigation ends
   const filled = fillHeight !== undefined
+  const isMobile = useIsMobile() // phones get a tap-friendly list instead of the spreadsheet
   const undoStack = useRef<CellChange[][]>([])
   const colorPrefs = useColorPrefs()
   const { prefs } = colorPrefs
@@ -279,6 +281,17 @@ export function DailyLog() {
         <ErrorNote error={error ?? q.error ?? colorPrefs.error} />
         {q.loading && !q.data ? (
           <Loading />
+        ) : isMobile ? (
+          <MobileDayLog
+            key={`${engineer.id}-${date}`}
+            rows={rows}
+            ctx={ctx}
+            templates={templates}
+            templateColor={colorOfTemplate}
+            now={now}
+            readOnly={!canEdit}
+            onChange={(changes) => void persist(changes)}
+          />
         ) : (
           <div className={cx('min-h-0 flex-1 overflow-auto', !filled && 'max-h-[70vh]')} data-testid="grid-scroll">
             <DailyGrid
@@ -320,7 +333,9 @@ export function DailyLog() {
           </ul>
         </Card>
 
+        {/* phones apply repeated tasks from the entry sheet; managing them stays on the desktop layout */}
         <Card
+          className="max-md:hidden"
           title="반복 업무"
           action={
             canEdit && (

@@ -25,9 +25,10 @@ export function Card({
   children?: ReactNode
 }) {
   return (
-    <section className={cx('rounded-card p-5', TONES[tone], className)}>
+    // min-w-0: a wide table inside must scroll in its card, not widen the whole page grid (phones)
+    <section className={cx('min-w-0 rounded-card p-4 md:p-5', TONES[tone], className)}>
       {(title || action) && (
-        <header className="mb-3 flex items-center justify-between gap-3">
+        <header className="mb-3 flex flex-wrap items-center justify-between gap-3">
           {title && <h2 className="font-display text-lg font-bold">{title}</h2>}
           {action}
         </header>

@@ -135,6 +135,14 @@ body {
   }
 }
 
+/* horizontally scrollable rows (tabs on phones) without a visible scrollbar */
+.no-scrollbar {
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
 /* Spreadsheet-like table used across Timesheets */
 .sheet {
   width: 100%;

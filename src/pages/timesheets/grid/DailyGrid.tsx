@@ -31,7 +31,7 @@ import {
 // A single <input> follows the active cell: it receives every keystroke (so Korean IME
 // composition works), becomes the visible editor while editing, and gets copy/paste events.
 
-const NONWORK_CHOICES = ['점심', '휴식', '퇴근']
+export const NONWORK_CHOICES = ['점심', '휴식', '퇴근']
 const GROUPS: { id: ProjectKind | 'nonwork'; label: string }[] = [
   { id: 'project', label: KIND_LABEL.project },
   { id: 'timelog', label: KIND_LABEL.timelog },
