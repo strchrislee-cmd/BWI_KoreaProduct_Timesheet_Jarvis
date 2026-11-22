@@ -131,7 +131,7 @@ body {
   :root[data-ui='liquid'][data-refraction='on'] .glass,
   :root[data-ui='liquid'][data-refraction='on'] .glass-accent,
   :root[data-ui='liquid'][data-refraction='on'] .glass-dark {
-    backdrop-filter: url(#jarvis-liquid-glass) blur(1px) saturate(180%);
+    backdrop-filter: url(#timecrumbs-liquid-glass) blur(1px) saturate(180%);
   }
 }
 

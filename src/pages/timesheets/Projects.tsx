@@ -179,7 +179,7 @@ export function ProjectsPage() {
               <p>POST the master .xlsx to:</p>
               <code className="block break-all rounded-chip bg-white px-2 py-1 text-xs">{window.location.origin}/api/ingest</code>
               <p>
-                Header <code className="text-xs">x-jarvis-token</code> = <code className="text-xs">INGEST_TOKEN</code>. See README → Power Automate.
+                Header <code className="text-xs">x-timecrumbs-token</code> = <code className="text-xs">INGEST_TOKEN</code>. See README → Power Automate.
               </p>
             </div>
           ) : (

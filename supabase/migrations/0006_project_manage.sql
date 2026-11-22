@@ -1,8 +1,8 @@
--- JARVIS · B5: admins add projects by hand and remove ("hide") projects in Projects → Project mapping.
+-- TimeCrumbs · B5: admins add projects by hand and remove ("hide") projects in Projects → Project mapping.
 --
 -- hidden: removed from lists and dropdowns but kept, so existing logs stay mapped, a master
 --         re-import does not bring it back as NEW, and an admin can restore it.
--- manual: added in JARVIS, not (yet) in the master sheet. Never marked "missing" by an import;
+-- manual: added in the app, not (yet) in the master sheet. Never marked "missing" by an import;
 --         when the master sheet later lists the same name/code it is merged (manual = false) and
 --         not flagged NEW (first_seen_import_id stays null).
 

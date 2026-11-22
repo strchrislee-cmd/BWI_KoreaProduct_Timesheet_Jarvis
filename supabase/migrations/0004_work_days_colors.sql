@@ -1,4 +1,4 @@
--- JARVIS · per-day work hours and user-chosen colors
+-- TimeCrumbs · per-day work hours and user-chosen colors
 
 -- Start/end of a working day (the Daily Log shows these rows). Without a row the
 -- profile's work_start / work_end are used.

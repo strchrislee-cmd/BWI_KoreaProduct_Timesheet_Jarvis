@@ -16,7 +16,7 @@ export interface BackgroundOutput {
   cacheControl: string
 }
 
-const UTM = 'utm_source=jarvis_timesheet&utm_medium=referral'
+const UTM = 'utm_source=timecrumbs&utm_medium=referral'
 
 /** Seconds until the next midnight in Korea (UTC+9, no DST). */
 export function secondsUntilKstMidnight(now: Date): number {

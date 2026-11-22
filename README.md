@@ -76,7 +76,7 @@ npm run dev
 2. SharePoint **Get file content**
 3. **HTTP** 액션(Premium 커넥터):
    - Method `POST`, URI `https://<배포 주소>/api/ingest`
-   - Headers: `x-jarvis-token: <INGEST_TOKEN>`, `Content-Type: application/octet-stream`, `x-file-name: <파일명>`
+   - Headers: `x-timecrumbs-token: <INGEST_TOKEN>`(예전 이름 `x-jarvis-token`도 계속 받음), `Content-Type: application/octet-stream`, `x-file-name: <파일명>`
    - Body: 2번의 File Content
    - 설정에서 **Secure inputs**를 켜서 실행 기록에 토큰이 남지 않게 합니다.
 4. 응답 예: `{"status":"imported","added":1,"added_names":["…"],"missing":0,"rows":28}`. 같은 파일이 다시 오면 `"duplicate"`가 반환되고 아무것도 바뀌지 않습니다.

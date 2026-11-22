@@ -1,5 +1,7 @@
 # JARVIS · UI Concept Design (v0.1)
 
+> **이름 변경 안내 (2026-11-22)**: 앱 이름이 **JARVIS → TimeCrumbs**로 바뀌었습니다. 이 문서는 컨셉 당시의 기록이라 본문의 JARVIS 표기는 그대로 두었습니다. 현재 설명은 저장소 [README](../README.md)를 보세요.
+
 사내 그룹웨어 헬퍼 **JARVIS**의 첫 번째 모듈 **Timesheets**를 위한 UI 컨셉입니다.
 컨셉 이미지는 **Higgsfield** (`gpt_image_2_6`, 1k / medium, 1344×752)로 생성했습니다. 압축된 요구사항 컨텍스트는 [`CONTEXT.md`](./CONTEXT.md)에 있습니다.
 

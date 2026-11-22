@@ -5,7 +5,7 @@ import { todayLocal } from '../domain/time'
 import { LIQUID_FILTER_ID, REFRACTION_MAP, supportsRefraction } from '../lib/liquidGlass'
 import { FlowCanvas } from './FlowCanvas'
 
-export const BACKGROUND_CHANGED = 'jarvis:background'
+export const BACKGROUND_CHANGED = 'timecrumbs:background'
 
 interface Photo {
   url: string

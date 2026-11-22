@@ -1,4 +1,4 @@
--- JARVIS · reference data that every installation needs.
+-- TimeCrumbs · reference data that every installation needs.
 -- MUST match src/domain/seed.ts (checked by tests/seed.test.ts).
 
 insert into public.org_settings (id) values (1) on conflict (id) do nothing;

@@ -2,7 +2,7 @@
 // The bend is an SVG displacement filter used in `backdrop-filter`, which only Chromium
 // (Chrome, Edge) renders; other browsers get the same clear glass without the bend.
 
-export const LIQUID_FILTER_ID = 'jarvis-liquid-glass'
+export const LIQUID_FILTER_ID = 'timecrumbs-liquid-glass'
 
 // Displacement strength at the very edge: 0 at the centre, ±scale/2 of the panel size at the rim.
 const RIM: [number, number][] = [

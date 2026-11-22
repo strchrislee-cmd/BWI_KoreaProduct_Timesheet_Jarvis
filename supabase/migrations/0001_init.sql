@@ -1,4 +1,4 @@
--- JARVIS · initial schema (Supabase / Postgres 15+)
+-- TimeCrumbs · initial schema (Supabase / Postgres 15+)
 -- Apply with the Supabase CLI (`supabase db push`) or paste into the SQL editor.
 
 -- ── Types ────────────────────────────────────────────────────────────────────
@@ -148,7 +148,7 @@ begin
    where lower(email) = lower(new.email) and status = 'pending' limit 1;
 
   if not v_first and v_inv.id is null then
-    raise exception 'JARVIS is invite-only: % has no pending invitation', new.email
+    raise exception 'TimeCrumbs is invite-only: % has no pending invitation', new.email
       using errcode = '42501';
   end if;
 

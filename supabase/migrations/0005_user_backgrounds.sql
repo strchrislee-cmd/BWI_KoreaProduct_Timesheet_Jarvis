@@ -1,4 +1,4 @@
--- JARVIS · personal background image (uploaded photo, stored as a compressed data URL)
+-- TimeCrumbs · personal background image (uploaded photo, stored as a compressed data URL)
 -- Background mode / gradient seed live in profiles.preferences.background.
 
 create table public.user_backgrounds (

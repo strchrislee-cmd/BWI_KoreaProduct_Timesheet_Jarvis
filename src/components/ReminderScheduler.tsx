@@ -36,7 +36,7 @@ export function ReminderScheduler() {
             filled: new Set(slots.map((s) => s.slot_index)),
           })
           if (r && !cancelled) {
-            const n = new Notification('TimeCrumbs · 30분 기록', { body: r.text, tag: 'jarvis-reminder' })
+            const n = new Notification('TimeCrumbs · 30분 기록', { body: r.text, tag: 'timecrumbs-reminder' })
             n.onclick = () => {
               window.focus()
               navigate(`/timesheets?date=${date}`)

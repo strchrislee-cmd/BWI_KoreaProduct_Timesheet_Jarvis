@@ -1,4 +1,4 @@
--- JARVIS · personal "repeated tasks" (Notion-style select options for the Daily Log grid)
+-- TimeCrumbs · personal "repeated tasks" (Notion-style select options for the Daily Log grid)
 
 create table public.task_templates (
   id uuid primary key default gen_random_uuid(),

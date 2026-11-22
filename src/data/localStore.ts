@@ -16,7 +16,10 @@ import type {
 import type { DataStore } from './store'
 
 // Demo mode: same behaviour as the Supabase schema, persisted in localStorage.
-const KEY = 'jarvis-demo-v1'
+const KEY = 'timecrumbs-demo-v1'
+/** Key used before the app was renamed from JARVIS; its data is moved to KEY on first load. */
+const LEGACY_KEY = 'jarvis-demo-v1'
+const DEMO_EMAIL = 'demo@timecrumbs.local'
 
 interface DemoState {
   profiles: Profile[]
@@ -51,7 +54,7 @@ function seed(): DemoState {
     profiles: [
       {
         id: DEMO_USER_ID,
-        email: 'demo@jarvis.local',
+        email: DEMO_EMAIL,
         name: 'Demo User',
         engineer_code: 'DU',
         role: 'admin',
@@ -89,7 +92,8 @@ export class LocalStore implements DataStore {
   private state: DemoState
 
   constructor() {
-    const raw = localStorage.getItem(KEY)
+    const legacy = localStorage.getItem(LEGACY_KEY)
+    const raw = localStorage.getItem(KEY) ?? legacy
     if (raw) {
       const saved = JSON.parse(raw) as Partial<DemoState> & Omit<DemoState, 'templates' | 'workDays' | 'backgrounds'>
       // demo data saved by older versions lacks these collections / fields
@@ -101,11 +105,13 @@ export class LocalStore implements DataStore {
         slots: saved.slots.map((x) => ({ ...x, details: x.details ?? '' })),
         workDays: saved.workDays ?? [],
         backgrounds: saved.backgrounds ?? {},
+        profiles: saved.profiles.map((p) => (p.email === 'demo@jarvis.local' ? { ...p, email: DEMO_EMAIL } : p)),
       }
     } else {
       this.state = seed()
     }
     this.persist()
+    if (legacy !== null) localStorage.removeItem(LEGACY_KEY) // moved to the new key above
   }
 
   private persist() {
@@ -119,6 +125,7 @@ export class LocalStore implements DataStore {
 
   static reset() {
     localStorage.removeItem(KEY)
+    localStorage.removeItem(LEGACY_KEY)
   }
 
   async currentUser() {
