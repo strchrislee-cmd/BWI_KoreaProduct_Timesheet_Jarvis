@@ -1,7 +1,7 @@
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { createContext, useContext, useMemo } from 'react'
 import { NavLink, Outlet, useLocation, useSearchParams } from 'react-router'
-import { PageTitle } from '../../components/Shell'
+import { TITLE_CLASS } from '../../components/Shell'
 import { ErrorNote, Loading, cx } from '../../components/ui'
 import { useStore, useUser } from '../../data/StoreContext'
 import { sortProjects } from '../../domain/projects'
@@ -70,9 +70,10 @@ export function TimesheetsLayout() {
 
   return (
     <div>
-      <PageTitle>Timesheets</PageTitle>
-      <div className="mb-4 flex flex-wrap items-center gap-2">
-        <div className="glass glass-sage flex items-center gap-1 rounded-control px-2 py-1 text-sm font-semibold">
+      {/* title, date and tabs on one line (all controls 36px high) to leave room for the 30-min log */}
+      <div className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-2">
+        <h1 className={TITLE_CLASS}>Timesheets</h1>
+        <div className="glass glass-sage flex h-9 items-center gap-0.5 rounded-control px-1 text-sm font-semibold">
           <button aria-label="Previous day" className="rounded-chip p-1 hover:bg-white" onClick={() => value?.setDate(addDays(date, -1))}>
             <ChevronLeft size={16} />
           </button>
@@ -81,7 +82,7 @@ export function TimesheetsLayout() {
             aria-label="Date"
             value={date}
             onChange={(e) => e.target.value && value?.setDate(e.target.value)}
-            className="bg-transparent px-1 outline-none"
+            className="h-7 bg-transparent px-1 outline-none"
           />
           <span className="pr-1">· {shortLabel(date).slice(0, 3)} · W{week}</span>
           <button aria-label="Next day" className="rounded-chip p-1 hover:bg-white" onClick={() => value?.setDate(addDays(date, 1))}>
@@ -95,7 +96,7 @@ export function TimesheetsLayout() {
               to={{ pathname: t.to, search }}
               end={t.end}
               className={({ isActive }) =>
-                cx('rounded-control px-4 py-2 text-sm font-semibold', isActive ? 'bg-primary text-white shadow-md' : 'glass hover:bg-white/80')
+                cx('flex h-9 items-center rounded-control px-3.5 text-sm font-semibold', isActive ? 'bg-primary text-white shadow-md' : 'glass hover:bg-white/80')
               }
             >
               {t.label}
@@ -105,7 +106,7 @@ export function TimesheetsLayout() {
         {canPickEngineer && value && (
           <select
             aria-label="Engineer"
-            className="field ml-auto !w-auto !rounded-control !py-1.5 text-sm"
+            className="field ml-auto !h-9 !w-auto !rounded-control !py-0 text-sm"
             value={value.engineer.id}
             onChange={(e) => setParams((p) => (p.set('eng', e.target.value), p))}
           >

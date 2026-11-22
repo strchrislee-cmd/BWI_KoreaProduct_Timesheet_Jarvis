@@ -139,7 +139,7 @@ export function DailyGrid({
   const popRef = useRef<HTMLDivElement>(null)
   const cellRefs = useRef(new Map<string, HTMLDivElement>())
   const size = live ?? layout
-  const gridColumns = `${size.timeWidth}px ${size.categoryWidth}px minmax(220px, 1fr) 88px`
+  const gridColumns = `${size.timeWidth}px ${size.categoryWidth}px minmax(180px, 1fr) minmax(200px, 1.4fr)`
 
   // Selection is stored by slot index so it survives rows being added (e.g. pasting past 16:30).
   const pos = (i: number) => {
@@ -478,12 +478,31 @@ export function DailyGrid({
 
   // ── render ────────────────────────────────────────────────────────────────
   const activeEl = cellRefs.current.get(`${activeIndex}:${a.c}`)
+  // Cells sit inside positioned rows (for the "now" line), so add the row's offset to get the
+  // position inside the grid — otherwise the editor and dropdown open over the first row.
+  const row = activeEl?.parentElement
   const box = activeEl
-    ? { top: activeEl.offsetTop, left: activeEl.offsetLeft, width: activeEl.offsetWidth, height: activeEl.offsetHeight }
+    ? {
+        top: (row?.offsetTop ?? 0) + activeEl.offsetTop,
+        left: (row?.offsetLeft ?? 0) + activeEl.offsetLeft,
+        width: activeEl.offsetWidth,
+        height: activeEl.offsetHeight,
+      }
     : { top: 0, left: 0, width: 0, height: 0 }
+  // Open the dropdown upwards when the visible space under the cell is too small (lower rows).
+  const dropUp = (() => {
+    if (!editing || !activeEl) return false
+    let sc: HTMLElement | null = activeEl.parentElement
+    while (sc && !/(auto|scroll)/.test(getComputedStyle(sc).overflowY)) sc = sc.parentElement
+    const r = activeEl.getBoundingClientRect()
+    const limit = sc?.getBoundingClientRect()
+    const below = Math.min(limit?.bottom ?? window.innerHeight, window.innerHeight) - r.bottom
+    const above = r.top - Math.max(limit?.top ?? 0, 0)
+    return below < 340 && above > below
+  })()
 
   function renderCell(col: (typeof COLS)[number], s: TimeSlot | undefined, lunchDefault: boolean) {
-    if (col === 'focus') return s?.focus ? <span className="tracking-widest text-primary">{'●'.repeat(s.focus)}</span> : s?.focus === 0 ? '0' : ''
+    if (col === 'details') return s?.details ? <span title={s.details}>{s.details}</span> : ''
     if (col === 'task') return s?.description ?? ''
     if (!s) return <span className="text-muted/60">—</span>
     const text = cellText(s, 'category', ctx.byId)
@@ -504,7 +523,7 @@ export function DailyGrid({
     <div>
       <div className={cx('relative select-none text-[13px]', readOnly ? 'cursor-default' : 'cursor-cell')} role="grid" aria-label="30-min log">
         <div className="sticky top-0 z-10 grid rounded-t-control bg-sage-light/90 font-semibold backdrop-blur" style={{ gridTemplateColumns: gridColumns }}>
-          {(['Time', 'Category', 'Task', 'Focus'] as const).map((h, k) => (
+          {(['Time', 'Category', 'Task', '업무내용'] as const).map((h, k) => (
             <div key={h} className={cx('relative px-2.5 py-2', k > 0 && 'border-l border-dashed border-black/10')}>
               {h}
               {k < 2 && (
@@ -533,7 +552,7 @@ export function DailyGrid({
               style={{ gridTemplateColumns: gridColumns, backgroundColor: s ? rowBg(ctx.color(s.kind, s.group_project_id)) : undefined }}
             >
               <div
-                className={cx('flex cursor-pointer items-center px-2.5 font-semibold tabular-nums', isNow && 'text-now')}
+                className={cx('flex cursor-pointer items-center px-2.5 font-mono text-[12.5px] font-semibold tabular-nums', isNow && 'text-now')}
                 style={rowStyle}
                 onMouseDown={(e) => onRowDown(e, i)}
                 onMouseEnter={() => onCellEnter(i, COLS.length - 1)}
@@ -564,7 +583,7 @@ export function DailyGrid({
                     onDoubleClick={openEditor}
                   >
                     <span className="relative z-[1] min-w-0 truncate">{renderCell(col, s, lunchDefault)}</span>
-                    {active && !editing && col !== 'focus' && (
+                    {active && !editing && col !== 'details' && (
                       <span className="absolute right-1 top-1/2 flex -translate-y-1/2 items-center gap-1" onMouseDown={(e) => e.stopPropagation()}>
                         {!readOnly && (
                           <button
@@ -592,7 +611,7 @@ export function DailyGrid({
                   style={{ top: `${now!.frac * 100}%`, left: size.timeWidth }}
                 >
                   <span className="absolute -left-1 -top-[5px] h-2 w-2 rounded-full bg-now" />
-                  <span className="absolute -top-[9px] right-1 rounded-chip bg-now px-1.5 text-[10px] font-bold leading-4 text-white">{now!.time}</span>
+                  <span className="absolute -top-[9px] right-1 rounded-chip bg-now px-1.5 font-mono text-[10px] font-bold leading-4 text-white">{now!.time}</span>
                 </div>
               )}
             </div>
@@ -631,7 +650,13 @@ export function DailyGrid({
           <div
             ref={popRef}
             className="glass-strong absolute z-30 rounded-menu p-1"
-            style={{ top: box.top + box.height + 4, left: box.left, width: Math.max(box.width, 340) }}
+            data-drop={dropUp ? 'up' : 'down'}
+            style={{
+              top: dropUp ? box.top - 4 : box.top + box.height + 4,
+              transform: dropUp ? 'translateY(-100%)' : undefined,
+              left: box.left,
+              width: Math.max(box.width, 340),
+            }}
             onMouseDown={(e) => e.preventDefault()}
           >
             <div className="relative flex items-center justify-between px-2 pb-1 pt-1.5 text-[11px] font-semibold text-muted">

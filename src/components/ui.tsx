@@ -28,7 +28,7 @@ export function Card({
     <section className={cx('rounded-card p-5', TONES[tone], className)}>
       {(title || action) && (
         <header className="mb-3 flex items-center justify-between gap-3">
-          {title && <h2 className="text-lg font-bold">{title}</h2>}
+          {title && <h2 className="font-display text-lg font-bold">{title}</h2>}
           {action}
         </header>
       )}
@@ -94,7 +94,7 @@ export function Modal({ title, onClose, children, wide }: { title: string; onClo
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/25 p-4 backdrop-blur-sm" role="dialog" aria-label={title}>
       <div className={cx('glass-strong max-h-[90vh] w-full overflow-auto rounded-menu p-6', wide ? 'max-w-4xl' : 'max-w-lg')}>
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-2xl font-bold">{title}</h2>
+          <h2 className="font-display text-2xl font-bold">{title}</h2>
           <button onClick={onClose} aria-label="Close" className="rounded-control p-1 hover:bg-sage-light">
             <X size={20} />
           </button>

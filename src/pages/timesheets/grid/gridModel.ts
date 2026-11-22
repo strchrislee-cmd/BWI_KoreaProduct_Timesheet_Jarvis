@@ -5,7 +5,7 @@ import { SLOTS_PER_DAY } from '../../../domain/time'
 import type { GroupProject, ProjectAlias, SlotKind, TaskTemplate, TimeSlot } from '../../../domain/types'
 import { displayName, labelFor } from '../projectUi'
 
-export const COLS = ['category', 'task', 'focus'] as const
+export const COLS = ['category', 'task', 'details'] as const
 export type Col = (typeof COLS)[number]
 
 /** Grid coordinate: r = row position in the displayed rows, c = column index. */
@@ -64,10 +64,16 @@ export function isLunchDefault(ctx: GridContext, index: number): boolean {
 export function cellText(slot: TimeSlot | undefined, col: Col, byId: Map<string, GroupProject>): string {
   if (!slot) return ''
   if (col === 'task') return slot.description
-  if (col === 'focus') return slot.focus === null ? '' : String(slot.focus)
+  if (col === 'details') return slot.details
   if (slot.kind === 'nonwork') return slot.label
   const p = slot.group_project_id ? byId.get(slot.group_project_id) : undefined
   return p ? displayName(p) : slot.label
+}
+
+/** A slot with nothing left in it (no category, task or details) is deleted. */
+function orDelete(slot: TimeSlot): TimeSlot | null {
+  const empty = slot.kind === 'work' && !slot.group_project_id && !slot.label && !slot.description && !slot.details
+  return empty ? null : slot
 }
 
 /**
@@ -79,8 +85,7 @@ export function applyText(base: TimeSlot | undefined, index: number, col: Col, t
   if (col === 'category') {
     if (!t) {
       if (!base) return undefined
-      if (!base.description) return null
-      return { ...base, kind: 'work', group_project_id: null, label: '' }
+      return orDelete({ ...base, kind: 'work', group_project_id: null, label: '' })
     }
     const r = resolveLabel(t, ctx.aliases, ctx.projects)!
     const b = base ?? ctx.blank(index)
@@ -91,15 +96,11 @@ export function applyText(base: TimeSlot | undefined, index: number, col: Col, t
   }
   if (col === 'task') {
     if (!base) return t ? { ...ctx.blank(index), description: t } : undefined
-    if (!t && base.kind === 'work' && !base.group_project_id && !base.label) return null
-    return { ...base, description: t }
+    return orDelete({ ...base, description: t })
   }
-  // focus
-  if (!base) return undefined
-  if (!t) return { ...base, focus: null }
-  const n = Number(t)
-  if (!Number.isInteger(n) || n < 0 || n > 3) return undefined
-  return { ...base, focus: n }
+  // details (업무내용): free text
+  if (!base) return t ? { ...ctx.blank(index), details: t } : undefined
+  return orDelete({ ...base, details: t })
 }
 
 export function applyTemplate(base: TimeSlot | undefined, index: number, t: TaskTemplate, ctx: GridContext): TimeSlot {

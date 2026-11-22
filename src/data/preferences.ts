@@ -32,7 +32,8 @@ export interface Prefs extends ColorPrefs {
   uiStyle: UiStyle
 }
 
-export const DEFAULT_GRID: GridPrefs = { timeWidth: 64, categoryWidth: 260, rowHeight: 36 }
+// 좁게 (30px) by default so a whole working day fits on one screen
+export const DEFAULT_GRID: GridPrefs = { timeWidth: 64, categoryWidth: 260, rowHeight: 30 }
 export const GRID_LIMITS = { timeWidth: [52, 160], categoryWidth: [160, 520] } as const
 export const ROW_HEIGHTS = [
   { label: '좁게', value: 30 },
@@ -65,7 +66,7 @@ export function readPrefs(preferences: Profile['preferences']): Prefs {
       mode: bg.mode === 'unsplash' || bg.mode === 'upload' ? bg.mode : 'gradient',
       seed: typeof bg.seed === 'string' ? bg.seed : null,
       animate: bg.animate !== false,
-      speed: FLOW_SPEEDS.some((x) => x.value === bg.speed) ? (bg.speed as FlowSpeed) : 'slow',
+      speed: FLOW_SPEEDS.some((x) => x.value === bg.speed) ? (bg.speed as FlowSpeed) : 'normal',
     },
     uiStyle: p.uiStyle === 'liquid' ? 'liquid' : 'blur',
   }

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useState, type RefObject } from 'react'
 
 /** Run an async loader whenever deps change; `reload()` runs it again. */
 export function useAsync<T>(fn: () => Promise<T>, deps: unknown[]) {
@@ -37,4 +37,32 @@ export function useMinuteClock(): Date {
     return () => window.clearTimeout(t)
   }, [])
   return now
+}
+
+/**
+ * Height that makes an element end where the left navigation ends (viewport bottom − gap),
+ * on screens at least `minWidth` wide; undefined (natural height) on narrower screens.
+ */
+export function useFillToViewport(ref: RefObject<HTMLElement | null>, minWidth = 1280, gap = 16): number | undefined {
+  const [height, setHeight] = useState<number>()
+  useLayoutEffect(() => {
+    const el = ref.current
+    if (!el) return
+    const measure = () => {
+      if (window.innerWidth < minWidth) return setHeight(undefined)
+      const top = el.getBoundingClientRect().top + window.scrollY
+      setHeight(Math.max(320, Math.floor(window.innerHeight - top - gap)))
+    }
+    measure()
+    // what sits above (page header, notices) can change height, e.g. once fonts load
+    const ro = new ResizeObserver(measure)
+    for (const sib of Array.from(el.parentElement?.children ?? [])) if (sib !== el) ro.observe(sib)
+    window.addEventListener('resize', measure)
+    void document.fonts?.ready.then(measure)
+    return () => {
+      ro.disconnect()
+      window.removeEventListener('resize', measure)
+    }
+  }, [ref, minWidth, gap])
+  return height
 }

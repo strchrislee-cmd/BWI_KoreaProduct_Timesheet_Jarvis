@@ -36,7 +36,7 @@ export function Shell() {
         <div className="mb-6 flex items-start gap-2 px-1 pt-1">
           <div className="flex h-8 w-8 items-center justify-center rounded-chip bg-primary text-sm font-bold text-white">J</div>
           <div>
-            <div className="font-extrabold tracking-tight text-primary">JARVIS</div>
+            <div className="font-display font-extrabold tracking-tight text-primary">JARVIS</div>
             <div className="text-[11px] leading-tight text-muted">Internal Groupware Assistant</div>
           </div>
         </div>
@@ -76,10 +76,12 @@ export function Shell() {
   )
 }
 
+export const TITLE_CLASS = 'text-on-glass font-display text-4xl font-extrabold tracking-tight'
+
 export function PageTitle({ children, actions }: { children: ReactNode; actions?: ReactNode }) {
   return (
     <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-      <h1 className="text-on-glass text-4xl font-extrabold tracking-tight">{children}</h1>
+      <h1 className={TITLE_CLASS}>{children}</h1>
       {actions && <div className="flex items-center gap-2">{actions}</div>}
     </div>
   )

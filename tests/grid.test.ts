@@ -65,13 +65,18 @@ describe('cell edits', () => {
     })
   })
 
-  it('task and focus edits', () => {
+  it('task and 업무내용 (details) edits', () => {
     expect(applyText(undefined, 15, 'task', '  메일 ', c)).toMatchObject({ description: '메일', group_project_id: null })
     expect(applyText(slot(D, 15, { description: 'x' }), 15, 'task', '', c)).toBeNull() // nothing left
     expect(applyText(slot(D, 15, { group_project_id: 'wl', description: 'x' }), 15, 'task', '', c)).toMatchObject({ description: '' })
-    expect(applyText(slot(D, 15), 15, 'focus', '3', c)).toMatchObject({ focus: 3 })
-    expect(applyText(slot(D, 15), 15, 'focus', '7', c)).toBeUndefined()
-    expect(applyText(undefined, 15, 'focus', '2', c)).toBeUndefined()
+    expect(applyText(undefined, 15, 'details', ' 고객 견적 회신 ', c)).toMatchObject({ details: '고객 견적 회신', group_project_id: null })
+    expect(applyText(slot(D, 15, { group_project_id: 'wl' }), 15, 'details', '하우징 도면 검토', c)).toMatchObject({ group_project_id: 'wl', details: '하우징 도면 검토' })
+    expect(applyText(slot(D, 15, { details: 'x' }), 15, 'details', '', c)).toBeNull() // nothing left
+    expect(applyText(undefined, 15, 'details', '', c)).toBeUndefined()
+    // a row that still has details is not deleted when its task or category is cleared
+    expect(applyText(slot(D, 15, { description: 'x', details: 'memo' }), 15, 'task', '', c)).toMatchObject({ description: '', details: 'memo' })
+    expect(applyText(slot(D, 15, { group_project_id: 'wl', details: 'memo' }), 15, 'category', '', c)).toMatchObject({ group_project_id: null, details: 'memo' })
+    expect(cellText(slot(D, 15, { details: '메모' }), 'details', c.byId)).toBe('메모')
   })
 
   it('shows display names, so copied text pastes back to the same project', () => {
@@ -112,9 +117,9 @@ describe('paste planning', () => {
     const ops = planPaste([['a', 'b', '1', 'extra'], ['c', 'd', '2', 'extra']], toRange({ r: 1, c: 1 }, { r: 1, c: 1 }), rows)
     expect(ops).toEqual([
       { index: 16, col: 'task', text: 'a' },
-      { index: 16, col: 'focus', text: 'b' },
+      { index: 16, col: 'details', text: 'b' },
       { index: 17, col: 'task', text: 'c' },
-      { index: 17, col: 'focus', text: 'd' },
+      { index: 17, col: 'details', text: 'd' },
     ])
     // rows past the end continue with the next slots, never past 23:30
     const tail = planPaste([['x'], ['y'], ['z']], toRange({ r: 5, c: 1 }, { r: 5, c: 1 }), rows)
@@ -124,24 +129,25 @@ describe('paste planning', () => {
   it('combines several columns of one row into one change', () => {
     const changes = buildChanges(
       [
-        { index: 15, col: 'focus', text: '2' },
+        { index: 15, col: 'details', text: '도면 검토' },
         { index: 15, col: 'category', text: '워크램프' },
         { index: 15, col: 'task', text: '개발 | 하우징' },
       ],
       ctx(),
     )
     expect(changes).toEqual([
-      { index: 15, slot: expect.objectContaining({ group_project_id: 'wl', description: '개발 | 하우징', focus: 2 }) },
+      { index: 15, slot: expect.objectContaining({ group_project_id: 'wl', description: '개발 | 하우징', details: '도면 검토' }) },
     ])
   })
 })
 
 it('templates set category and task together', () => {
   const t: TaskTemplate = { id: 't', user_id: 'u1', kind: 'work', group_project_id: 'meeting', label: '회의', description: 'INT | Daily_Scrum', sort_order: 1, color: null, created_at: '2026-01-01T00:00:00Z' }
-  expect(applyTemplate(slot(D, 15, { focus: 2 }), 15, t, ctx())).toMatchObject({
+  expect(applyTemplate(slot(D, 15, { details: '메모', focus: 2 }), 15, t, ctx())).toMatchObject({
     group_project_id: 'meeting',
     label: '회의',
     description: 'INT | Daily_Scrum',
+    details: '메모', // a template keeps what was written in 업무내용
     focus: 2,
   })
 })

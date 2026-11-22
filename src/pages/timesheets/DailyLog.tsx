@@ -8,7 +8,7 @@ import { useStore, useUser } from '../../data/StoreContext'
 import { isNewProject, isSelectable } from '../../domain/projects'
 import { SLOTS_PER_DAY, SLOT_HOURS, currentSlot, timeToSlot, todayLocal } from '../../domain/time'
 import type { TaskTemplate, TimeSlot } from '../../domain/types'
-import { useAsync, useMinuteClock } from '../../lib/hooks'
+import { useAsync, useFillToViewport, useMinuteClock } from '../../lib/hooks'
 import { moveItem, sortItems } from '../../lib/ordering'
 import { useDragReorder } from '../../lib/useDragReorder'
 import { categoryColor, chipBg, templateColor } from './colors'
@@ -43,6 +43,9 @@ export function DailyLog() {
   const [selection, setSelection] = useState<{ rows: number[]; active: number }>({ rows: [], active: 0 })
   const [chipMenu, setChipMenu] = useState<{ id: string; anchor: DOMRect } | null>(null)
   const chipBox = useRef<HTMLUListElement>(null)
+  const page = useRef<HTMLDivElement>(null)
+  const fillHeight = useFillToViewport(page) // wide screens: end where the left navigation ends
+  const filled = fillHeight !== undefined
   const undoStack = useRef<CellChange[][]>([])
   const colorPrefs = useColorPrefs()
   const { prefs } = colorPrefs
@@ -94,7 +97,7 @@ export function DailyLog() {
       byId,
       saved: slots,
       lunch,
-      blank: (index) => ({ user_id: engineer.id, work_date: date, slot_index: index, kind: 'work', group_project_id: null, label: '', description: '', focus: null }),
+      blank: (index) => ({ user_id: engineer.id, work_date: date, slot_index: index, kind: 'work', group_project_id: null, label: '', description: '', details: '', focus: null }),
       color: (kind, projectId) => categoryColor(kind, projectId ? byId.get(projectId) : undefined, prefs),
     }),
     [projects, aliases, byId, slots, lunch, engineer.id, date, prefs],
@@ -247,8 +250,9 @@ export function DailyLog() {
   const unmappedLabels = [...new Set(work.filter((s) => !s.group_project_id && s.label).map((s) => s.label))]
 
   return (
-    <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_340px]">
+    <div ref={page} className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_340px]" style={filled ? { height: fillHeight } : undefined} data-testid="daily-log-page">
       <Card
+        className={cx('flex min-h-0 flex-col', filled && 'h-full')}
         title="30-min Log"
         action={
           <div className="flex flex-wrap items-center justify-end gap-2">
@@ -276,7 +280,7 @@ export function DailyLog() {
         {q.loading && !q.data ? (
           <Loading />
         ) : (
-          <div className="max-h-[70vh] overflow-auto">
+          <div className={cx('min-h-0 flex-1 overflow-auto', !filled && 'max-h-[70vh]')} data-testid="grid-scroll">
             <DailyGrid
               key={`${engineer.id}-${date}`}
               rows={rows}
@@ -297,9 +301,9 @@ export function DailyLog() {
         )}
       </Card>
 
-      <div className="flex flex-col gap-4">
+      <div className={cx('flex flex-col gap-4', filled && 'min-h-0 overflow-y-auto')}>
         <Card title="Today">
-          <div className="text-5xl font-extrabold text-primary" data-testid="today-total">
+          <div className="font-display text-5xl font-extrabold text-primary" data-testid="today-total">
             {Math.floor(total)}h {total % 1 ? '30m' : '00m'}
           </div>
           <p className="mb-3 text-sm text-muted">target {engineer.daily_target_hours}h</p>

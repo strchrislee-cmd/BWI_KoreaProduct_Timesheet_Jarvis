@@ -28,6 +28,10 @@
   --radius-control: 10px;
   --radius-chip: 6px;
   --font-sans: "Pretendard Variable", Pretendard, Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+  /* titles and big numbers; Hangul falls back to Pretendard */
+  --font-display: "Bricolage Grotesque Variable", "Pretendard Variable", Pretendard, system-ui, sans-serif;
+  /* times (30-min log, time pickers) and codes */
+  --font-mono: "JetBrains Mono Variable", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
 
 html,
@@ -130,70 +134,6 @@ body {
     backdrop-filter: url(#jarvis-liquid-glass) blur(1px) saturate(180%);
   }
 }
-
-/* Flowing gradient background (B4): colour blobs drift like water and the colours slowly shift.
-   --flow-k scales every duration (Settings → 배경 → 속도). Off when the OS asks for reduced motion. */
-.bg-blob {
-  position: absolute;
-  width: 120vmax;
-  height: 120vmax;
-  margin: -60vmax 0 0 -60vmax;
-}
-.bg-flow[data-animated='true'] .bg-flow-hue {
-  animation: bg-hue calc(80s * var(--flow-k)) ease-in-out infinite alternate;
-  will-change: filter;
-}
-.bg-flow[data-animated='true'] .bg-blob {
-  animation: bg-drift-a calc(46s * var(--flow-k)) ease-in-out infinite;
-  will-change: transform;
-}
-.bg-flow[data-animated='true'] .bg-blob:nth-child(2) {
-  animation: bg-drift-b calc(58s * var(--flow-k)) ease-in-out infinite;
-}
-.bg-flow[data-animated='true'] .bg-blob:nth-child(3) {
-  animation: bg-drift-a calc(64s * var(--flow-k)) ease-in-out infinite reverse;
-}
-.bg-flow[data-animated='true'] .bg-blob:nth-child(4) {
-  animation: bg-drift-b calc(52s * var(--flow-k)) ease-in-out infinite reverse;
-}
-.bg-flow[data-paused='true'] * {
-  animation-play-state: paused !important;
-}
-@media (prefers-reduced-motion: reduce) {
-  .bg-flow * {
-    animation: none !important;
-  }
-}
-@keyframes bg-hue {
-  from {
-    filter: hue-rotate(-16deg);
-  }
-  to {
-    filter: hue-rotate(16deg);
-  }
-}
-@keyframes bg-drift-a {
-  0%,
-  100% {
-    transform: translate(0, 0) scale(1);
-  }
-  33% {
-    transform: translate(9vw, -7vh) scale(1.08);
-  }
-  66% {
-    transform: translate(-7vw, 6vh) scale(0.94);
-  }
-}
-@keyframes bg-drift-b {
-  0%,
-  100% {
-    transform: translate(0, 0) scale(1);
-  }
-  50% {
-    transform: translate(-11vw, 8vh) scale(1.12);
-  }
-}
-
 
 /* Spreadsheet-like table used across Timesheets */
 .sheet {

@@ -98,6 +98,7 @@ export class LocalStore implements DataStore {
         ...saved,
         projects: saved.projects.map((p) => ({ ...p, created_at: p.created_at ?? epoch, hidden: p.hidden ?? false, manual: p.manual ?? false })),
         templates: (saved.templates ?? []).map((t) => ({ ...t, color: t.color ?? null, created_at: t.created_at ?? epoch })),
+        slots: saved.slots.map((x) => ({ ...x, details: x.details ?? '' })),
         workDays: saved.workDays ?? [],
         backgrounds: saved.backgrounds ?? {},
       }

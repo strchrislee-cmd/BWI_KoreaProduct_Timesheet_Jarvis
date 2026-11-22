@@ -199,3 +199,12 @@ select pg_temp.check(pg_temp.affected($$update group_projects set hidden = false
 select pg_temp.login('00000000-0000-0000-0000-00000000000c');
 select pg_temp.check(pg_temp.affected($$update group_projects set hidden = false where code = '9001'$$) = 0, 'member cannot restore hidden projects');
 reset role;
+
+-- ── Slot details / 업무내용 (0007) ─────────────────────────────────────────────
+set role authenticated;
+select pg_temp.login('00000000-0000-0000-0000-00000000000c');
+select pg_temp.check(pg_temp.affected($$update time_slots set details = '하우징 도면 검토' where user_id = '00000000-0000-0000-0000-00000000000c' and slot_index = 15$$) = 1, 'member writes 업무내용 on own slot');
+select pg_temp.check((select details from time_slots where slot_index = 15 and user_id = '00000000-0000-0000-0000-00000000000c' and work_date = '2026-11-16') = '하우징 도면 검토', '업무내용 saved');
+select pg_temp.expect_error($$update time_slots set details = repeat('x', 2001) where slot_index = 15$$, '업무내용 is limited to 2000 characters');
+select pg_temp.check((select count(*) from time_slots where details <> '' and user_id <> '00000000-0000-0000-0000-00000000000c') = 0, 'details follow the same row rules (only own slots visible)');
+reset role;

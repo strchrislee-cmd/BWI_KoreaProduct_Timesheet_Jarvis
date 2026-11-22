@@ -2,6 +2,7 @@ import { Bell, ImagePlus, Layers, RefreshCw, Sparkles, X } from 'lucide-react'
 import { useEffect, useState, type ReactNode } from 'react'
 import { BACKGROUND_CHANGED, fetchDailyPhoto } from '../components/BackgroundLayer'
 import { ColorMenu, Swatch } from '../components/ColorMenu'
+import { FlowCanvas } from '../components/FlowCanvas'
 import { PageTitle } from '../components/Shell'
 import { TimeRangePicker } from '../components/TimeRangePicker'
 import { Button, Card, ErrorNote, Field } from '../components/ui'
@@ -12,7 +13,7 @@ import { FLOW_SPEEDS, type BackgroundMode, type Prefs, type UiStyle } from '../d
 import { isSelectable, sortProjects } from '../domain/projects'
 import { todayLocal } from '../domain/time'
 import type { OrgSettings, Profile } from '../domain/types'
-import { gradientBackground } from '../lib/background'
+import { rippleSeconds } from '../lib/flowGradient'
 import { compressImage } from '../lib/files'
 import { supportsRefraction } from '../lib/liquidGlass'
 import { useAsync } from '../lib/hooks'
@@ -370,9 +371,10 @@ function BackgroundCard() {
     }
   }
 
-  const preview = gradientBackground(prefs.background.seed ?? todayLocal())
+  // called as a function, not <Option>: a component defined inside this one would remount its
+  // children (and restart the live preview) on every render
   const Option = ({ value, label, children, disabled }: { value: BackgroundMode; label: string; children?: ReactNode; disabled?: boolean }) => (
-    <div className={`rounded-control border p-3 ${mode === value ? 'border-primary bg-white/60' : 'border-white/60 bg-white/30'} ${disabled ? 'opacity-60' : ''}`}>
+    <div key={value} className={`rounded-control border p-3 ${mode === value ? 'border-primary bg-white/60' : 'border-white/60 bg-white/30'} ${disabled ? 'opacity-60' : ''}`}>
       <label className="flex items-center gap-2 text-sm font-semibold">
         <input type="radio" name="background" aria-label={label} checked={mode === value} disabled={disabled} onChange={() => void setBackground({ mode: value })} />
         {label}
@@ -385,74 +387,107 @@ function BackgroundCard() {
     <Card title={<span className="flex items-center gap-2"><ImagePlus size={18} /> 배경</span>} className="lg:col-span-2">
       <ErrorNote error={err ?? error} />
       <div className="grid gap-3 md:grid-cols-3">
-        <Option value="gradient" label="무작위 그라데이션 패턴">
-          <div className="mt-2 h-16 rounded-control border border-white/60" style={preview} data-testid="gradient-preview" />
-          <p className="mt-1 text-xs text-muted">{prefs.background.seed ? '고정된 패턴' : '매일 새로운 패턴'}</p>
-          <div className="mt-2 flex flex-wrap gap-1.5">
-            <Button variant="outline" className="!px-2.5 !py-1 text-xs" onClick={() => void setBackground({ mode: 'gradient', seed: Math.random().toString(36).slice(2, 10) })}>
-              <RefreshCw size={12} /> 다른 패턴
-            </Button>
-            {prefs.background.seed && (
-              <Button variant="ghost" className="!px-2.5 !py-1 text-xs" onClick={() => void setBackground({ seed: null })}>
-                매일 자동으로
-              </Button>
-            )}
-          </div>
-          <label className="mt-3 flex items-center gap-2 text-xs font-semibold">
-            <input type="checkbox" aria-label="Flowing gradient" checked={prefs.background.animate} onChange={(e) => void setBackground({ animate: e.target.checked })} />
-            물결처럼 흐르기
-          </label>
-          {prefs.background.animate && (
-            <div role="group" aria-label="Flow speed" className="mt-1.5 flex items-center gap-1 text-xs">
-              <span className="mr-1 text-muted">속도</span>
-              {FLOW_SPEEDS.map((sp) => (
-                <button
-                  key={sp.value}
-                  aria-pressed={prefs.background.speed === sp.value}
-                  className={`rounded-chip px-2 py-0.5 ${prefs.background.speed === sp.value ? 'bg-primary text-white' : 'bg-black/5 hover:bg-black/10'}`}
-                  onClick={() => void setBackground({ speed: sp.value })}
-                >
-                  {sp.label}
-                </button>
-              ))}
-            </div>
-          )}
-          {prefs.background.animate && reducedMotion && <p className="mt-1 text-xs text-muted">OS의 ‘동작 줄이기’가 켜져 있어 움직이지 않습니다.</p>}
-        </Option>
-        <Option value="unsplash" label="Unsplash 오늘의 사진" disabled={unsplash !== 'available'}>
-          <p className="mt-2 text-xs text-muted">
-            {unsplash === 'checking'
-              ? '확인 중…'
-              : unsplash === 'available'
-                ? '매일 한 장씩 바뀌는 무료 사진입니다. 화면 오른쪽 아래에 작가가 표시됩니다.'
-                : '사용하려면 Vercel 환경변수 UNSPLASH_ACCESS_KEY가 필요합니다(무료 발급, README 참고). 지금은 그라데이션을 씁니다.'}
-          </p>
-        </Option>
-        <Option value="upload" label="내 사진" disabled={!upload}>
-          {upload && <img src={upload} alt="Uploaded background" className="mt-2 h-16 w-full rounded-control object-cover" />}
-          <div className="mt-2 flex flex-wrap gap-1.5">
-            <label className="inline-flex cursor-pointer items-center gap-1 rounded-control border border-primary bg-white px-2.5 py-1 text-xs font-semibold text-primary hover:bg-sage-light">
-              <ImagePlus size={12} /> {busy ? '올리는 중…' : '사진 업로드'}
-              <input
-                type="file"
-                accept="image/*"
-                aria-label="Background photo"
-                className="hidden"
-                onChange={(e) => {
-                  const f = e.target.files?.[0]
-                  e.target.value = ''
-                  if (f) void onFile(f)
-                }}
+        {Option({
+          value: 'gradient',
+          label: '무작위 그라데이션 패턴',
+          children: (
+            <>
+              {/* live preview: the same flowing gradient at the chosen speed */}
+              <FlowCanvas
+                testId="gradient-preview"
+                className="mt-2 block h-20 w-full rounded-control border border-white/60"
+                seed={prefs.background.seed ?? todayLocal()}
+                speed={prefs.background.speed}
+                animate={prefs.background.animate}
+                scale={1}
               />
-            </label>
-            {upload && (
-              <Button variant="ghost" className="!px-2.5 !py-1 text-xs" onClick={() => void removeUpload()}>
-                삭제
-              </Button>
-            )}
-          </div>
-          <p className="mt-1 text-xs text-muted">긴 변 1920px로 줄여 저장합니다. 나에게만 보입니다.</p>
-        </Option>
+              <p className="mt-1 text-xs text-muted">{prefs.background.seed ? '고정된 패턴' : '매일 새로운 패턴'}</p>
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                <Button variant="outline" className="!px-2.5 !py-1 text-xs" onClick={() => void setBackground({ mode: 'gradient', seed: Math.random().toString(36).slice(2, 10) })}>
+                  <RefreshCw size={12} /> 다른 패턴
+                </Button>
+                {prefs.background.seed && (
+                  <Button variant="ghost" className="!px-2.5 !py-1 text-xs" onClick={() => void setBackground({ seed: null })}>
+                    매일 자동으로
+                  </Button>
+                )}
+              </div>
+              <label className="mt-3 flex items-center gap-2 text-xs font-semibold">
+                <input type="checkbox" aria-label="Flowing gradient" checked={prefs.background.animate} onChange={(e) => void setBackground({ animate: e.target.checked })} />
+                물결처럼 흐르기
+              </label>
+              {prefs.background.animate && (
+                <div role="group" aria-label="Flow speed" className="mt-1.5 flex flex-wrap items-center gap-1 text-xs">
+                  <span className="mr-1 whitespace-nowrap text-muted">속도</span>
+                  {FLOW_SPEEDS.map((sp) => (
+                    <button
+                      key={sp.value}
+                      aria-pressed={prefs.background.speed === sp.value}
+                      className={`whitespace-nowrap rounded-chip px-2 py-0.5 ${prefs.background.speed === sp.value ? 'bg-primary text-white' : 'bg-black/5 hover:bg-black/10'}`}
+                      onClick={() => void setBackground({ speed: sp.value })}
+                    >
+                      {sp.label} <span className="opacity-70">{rippleSeconds(sp.value)}초</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+              {prefs.background.animate && (
+                <p className="mt-1 text-xs text-muted" data-testid="flow-speed-hint">
+                  물결 한 번 약 {rippleSeconds(prefs.background.speed)}초 · 위 미리보기가 이 속도로 흐릅니다
+                </p>
+              )}
+              {prefs.background.animate && reducedMotion && <p className="mt-1 text-xs text-muted">OS의 ‘동작 줄이기’가 켜져 있어 움직이지 않습니다.</p>}
+            </>
+          ),
+        })}
+        {Option({
+          value: 'unsplash',
+          label: 'Unsplash 오늘의 사진',
+          disabled: unsplash !== 'available',
+          children: (
+            <>
+              <p className="mt-2 text-xs text-muted">
+                {unsplash === 'checking'
+                  ? '확인 중…'
+                  : unsplash === 'available'
+                    ? '매일 한 장씩 바뀌는 무료 사진입니다. 화면 오른쪽 아래에 작가가 표시됩니다.'
+                    : '사용하려면 Vercel 환경변수 UNSPLASH_ACCESS_KEY가 필요합니다(무료 발급, README 참고). 지금은 그라데이션을 씁니다.'}
+              </p>
+            </>
+          ),
+        })}
+        {Option({
+          value: 'upload',
+          label: '내 사진',
+          disabled: !upload,
+          children: (
+            <>
+              {upload && <img src={upload} alt="Uploaded background" className="mt-2 h-16 w-full rounded-control object-cover" />}
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                <label className="inline-flex cursor-pointer items-center gap-1 rounded-control border border-primary bg-white px-2.5 py-1 text-xs font-semibold text-primary hover:bg-sage-light">
+                  <ImagePlus size={12} /> {busy ? '올리는 중…' : '사진 업로드'}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    aria-label="Background photo"
+                    className="hidden"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0]
+                      e.target.value = ''
+                      if (f) void onFile(f)
+                    }}
+                  />
+                </label>
+                {upload && (
+                  <Button variant="ghost" className="!px-2.5 !py-1 text-xs" onClick={() => void removeUpload()}>
+                    삭제
+                  </Button>
+                )}
+              </div>
+              <p className="mt-1 text-xs text-muted">긴 변 1920px로 줄여 저장합니다. 나에게만 보입니다.</p>
+            </>
+          ),
+        })}
       </div>
     </Card>
   )

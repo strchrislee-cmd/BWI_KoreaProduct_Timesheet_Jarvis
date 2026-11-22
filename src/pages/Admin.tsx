@@ -51,20 +51,20 @@ export function Admin() {
             <Users className="text-primary" />
             <div>
               <div className="text-sm font-semibold text-muted">Members</div>
-              <div className="text-4xl font-extrabold">{profiles.data?.length ?? '–'}</div>
+              <div className="font-display text-4xl font-extrabold">{profiles.data?.length ?? '–'}</div>
             </div>
           </div>
         </Card>
         <Card className={pending.length ? 'bg-accent-soft' : ''}>
           <div className="text-sm font-semibold text-muted">Pending invites</div>
-          <div className="text-4xl font-extrabold text-accent">{pending.length}</div>
+          <div className="font-display text-4xl font-extrabold text-accent">{pending.length}</div>
         </Card>
         <Card>
           <div className="flex items-center gap-3">
             <Shield className="text-primary" />
             <div>
               <div className="text-sm font-semibold text-muted">Admins</div>
-              <div className="text-4xl font-extrabold">{admins}</div>
+              <div className="font-display text-4xl font-extrabold">{admins}</div>
             </div>
           </div>
         </Card>

@@ -100,7 +100,7 @@ export function WeeklyPlanPage() {
 
       <div className="flex flex-col gap-4">
         <Card title="This week">
-          <div className="text-5xl font-extrabold text-primary">{total.toFixed(1)}h</div>
+          <div className="font-display text-5xl font-extrabold text-primary">{total.toFixed(1)}h</div>
           <div className="mt-4 flex h-32 items-end gap-2">
             {perDay.map((h, i) => (
               <div key={dates[i]} className="flex flex-1 flex-col items-center gap-1">

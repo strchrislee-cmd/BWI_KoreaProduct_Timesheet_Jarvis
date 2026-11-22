@@ -33,7 +33,7 @@ export function TimeRangePicker({
     <div className="flex flex-wrap items-center gap-1.5 text-sm">
       <select
         aria-label="Start time"
-        className="field !w-auto !rounded-control !px-2 !py-1"
+        className="field !w-auto !rounded-control !px-2 !py-1 font-mono text-[13px]"
         value={start}
         disabled={disabled}
         onChange={(e) => onChange({ start: e.target.value, end: defaultEndTime(e.target.value, targetHours, lunchStart, lunchEnd) })}
@@ -45,7 +45,7 @@ export function TimeRangePicker({
       <span className="text-muted">→</span>
       <select
         aria-label="End time"
-        className="field !w-auto !rounded-control !px-2 !py-1"
+        className="field !w-auto !rounded-control !px-2 !py-1 font-mono text-[13px]"
         value={end}
         disabled={disabled}
         onChange={(e) => onChange({ start, end: e.target.value })}

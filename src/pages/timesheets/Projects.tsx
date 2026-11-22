@@ -160,7 +160,7 @@ export function ProjectsPage() {
         </Card>
 
         <Card tone={newOnes.length ? 'accent' : 'white'}>
-          <div className="text-6xl font-extrabold" data-testid="new-count">
+          <div className="font-display text-6xl font-extrabold" data-testid="new-count">
             {newOnes.length}
           </div>
           <p className="font-semibold">New since last import</p>

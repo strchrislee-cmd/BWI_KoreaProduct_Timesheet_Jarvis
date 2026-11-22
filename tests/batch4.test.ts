@@ -4,16 +4,18 @@ import { readPrefs } from '../src/data/preferences'
 import { buildGroupTimesheet } from '../src/domain/aggregate'
 import { diffMaster, isSelectable, manualProjectRow } from '../src/domain/projects'
 import { currentSlot } from '../src/domain/time'
-import { FLOW_FACTOR, gradientBackground, gradientScene } from '../src/lib/background'
+import { gradientBackground, gradientScene } from '../src/lib/background'
+import { FLOW_RATE, hslToRgb, rippleSeconds } from '../src/lib/flowGradient'
 import { REFRACTION_MAP, supportsRefraction } from '../src/lib/liquidGlass'
 import { project, slot } from './helpers'
 
 describe('B2/B4 gradient background', () => {
-  it('never uses a grid pattern', () => {
+  it('never adds an overlay pattern (no grid, dots or stripes — 11-22)', () => {
     for (let i = 0; i < 200; i++) {
-      const { pattern } = gradientScene(`seed-${i}`)
-      // the old grid was two perpendicular 1px line gradients
-      expect(pattern?.image ?? '').not.toMatch(/linear-gradient\(90deg|linear-gradient\(rgba/)
+      const g = gradientBackground(`seed-${i}`)
+      expect(g.backgroundImage).not.toMatch(/repeating-|rgba\(255,\s*255,\s*255/)
+      expect(g.backgroundImage.match(/radial-gradient/g)).toHaveLength(4)
+      expect(Object.keys(gradientScene(`seed-${i}`)).sort()).toEqual(['angle', 'baseHsl', 'blobs'])
     }
   })
 
@@ -24,20 +26,32 @@ describe('B2/B4 gradient background', () => {
     for (const b of a.blobs) expect(gradientBackground('2026-11-20').backgroundImage).toContain(`at ${b.x}% ${b.y}%`)
   })
 
-  it('flow speeds: slow is the longest, fast the shortest', () => {
-    expect(FLOW_FACTOR.slow).toBeGreaterThan(FLOW_FACTOR.normal)
-    expect(FLOW_FACTOR.normal).toBeGreaterThan(FLOW_FACTOR.fast)
+  it('flow speeds: faster setting = shorter ripple; even 느리게 is quicker than the old 46–64 s cycle', () => {
+    expect(FLOW_RATE.slow).toBeLessThan(FLOW_RATE.normal)
+    expect(FLOW_RATE.normal).toBeLessThan(FLOW_RATE.fast)
+    expect(rippleSeconds('slow')).toBeGreaterThan(rippleSeconds('normal'))
+    expect(rippleSeconds('normal')).toBeGreaterThan(rippleSeconds('fast'))
+    expect(rippleSeconds('slow')).toBeLessThan(15)
+    expect([rippleSeconds('slow'), rippleSeconds('normal'), rippleSeconds('fast')]).toEqual([10, 5, 3])
+  })
+
+  it('HSL → RGB for the shader matches CSS', () => {
+    const close = (a: number[], b: number[]) => a.every((v, i) => Math.abs(v - b[i]) < 0.005)
+    expect(close(hslToRgb([0, 100, 50]), [1, 0, 0])).toBe(true)
+    expect(close(hslToRgb([120, 100, 25]), [0, 0.5, 0])).toBe(true)
+    expect(close(hslToRgb([210, 60, 93]), [0.888, 0.93, 0.972])).toBe(true)
   })
 
   it('preferences: flowing on + slow + blur by default, invalid values fall back', () => {
     const p = readPrefs({})
     expect(p.background.animate).toBe(true)
-    expect(p.background.speed).toBe('slow')
+    expect(p.background.speed).toBe('normal')
+    expect(p.grid.rowHeight).toBe(30) // 좁게 by default (11-22)
     expect(p.uiStyle).toBe('blur')
     const q = readPrefs({ background: { animate: false, speed: 'fast' }, uiStyle: 'liquid' })
     expect([q.background.animate, q.background.speed, q.uiStyle]).toEqual([false, 'fast', 'liquid'])
     const r = readPrefs({ background: { animate: 'no', speed: 'warp' }, uiStyle: 'chrome' })
-    expect([r.background.animate, r.background.speed, r.uiStyle]).toEqual([true, 'slow', 'blur'])
+    expect([r.background.animate, r.background.speed, r.uiStyle]).toEqual([true, 'normal', 'blur'])
   })
 })
 

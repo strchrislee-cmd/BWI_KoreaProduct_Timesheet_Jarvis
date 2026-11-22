@@ -26,7 +26,7 @@ function must<T>(res: Result<T>): T {
 
 const PROJECT_COLUMNS =
   'id, code, name, kind, system_key, counts_toward_total, sort_order, status, hidden, manual, first_seen_import_id, last_seen_import_id, created_at'
-const SLOT_COLUMNS = 'user_id, work_date, slot_index, kind, group_project_id, label, description, focus'
+const SLOT_COLUMNS = 'user_id, work_date, slot_index, kind, group_project_id, label, description, details, focus'
 
 export class SupabaseStore implements DataStore {
   readonly mode = 'supabase' as const

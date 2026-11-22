@@ -33,14 +33,14 @@ export function Login() {
           <div className="flex items-center gap-3">
             <div className="flex h-12 w-12 items-center justify-center rounded-control bg-white text-2xl font-extrabold text-primary">J</div>
             <div>
-              <div className="text-2xl font-extrabold">JARVIS</div>
+              <div className="font-display text-2xl font-extrabold">JARVIS</div>
               <div className="text-sm opacity-80">Internal Groupware Assistant</div>
             </div>
           </div>
-          <p className="mt-16 text-4xl font-extrabold leading-tight">Your timesheet, on autopilot.</p>
+          <p className="mt-16 font-display text-4xl font-extrabold leading-tight">Your timesheet, on autopilot.</p>
         </div>
         <form onSubmit={submit} className="glass rounded-card p-8">
-          <h1 className="text-4xl font-extrabold">Sign in</h1>
+          <h1 className="font-display text-4xl font-extrabold">Sign in</h1>
           <p className="mb-6 mt-1 text-muted">Invite-only workspace. Use your work e-mail.</p>
           {sent ? (
             <p className="rounded-control bg-sage px-4 py-3 font-semibold text-primary">Check your inbox — we sent a sign-in link to {email}.</p>

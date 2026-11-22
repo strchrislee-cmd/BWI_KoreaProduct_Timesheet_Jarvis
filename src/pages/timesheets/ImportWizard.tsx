@@ -72,6 +72,7 @@ export function ImportWizard({ onClose, onDone }: { onClose: () => void; onDone:
             group_project_id: r.group_project_id,
             label: e.label,
             description: e.description,
+            details: '',
             focus: e.focus,
           })
         }

@@ -34,6 +34,7 @@ export function slot(date: string, index: number, s: Partial<TimeSlot> = {}): Ti
     group_project_id: s.group_project_id ?? null,
     label: s.label ?? '',
     description: s.description ?? '',
+    details: s.details ?? '',
     focus: s.focus ?? null,
   }
 }

@@ -1,9 +1,9 @@
-import { useEffect, useState, type CSSProperties } from 'react'
+import { useEffect, useState } from 'react'
 import { readPrefs } from '../data/preferences'
 import { useStore } from '../data/StoreContext'
 import { todayLocal } from '../domain/time'
-import { FLOW_FACTOR, gradientScene } from '../lib/background'
 import { LIQUID_FILTER_ID, REFRACTION_MAP, supportsRefraction } from '../lib/liquidGlass'
+import { FlowCanvas } from './FlowCanvas'
 
 export const BACKGROUND_CHANGED = 'jarvis:background'
 
@@ -24,29 +24,6 @@ export async function fetchDailyPhoto(): Promise<Photo | null> {
   } catch {
     return null
   }
-}
-
-/** Gradient background whose colour blobs drift like water and whose colours slowly shift (B4). */
-function FlowingGradient({ seed, animate, factor, paused }: { seed: string; animate: boolean; factor: number; paused: boolean }) {
-  const scene = gradientScene(seed)
-  return (
-    <div
-      aria-hidden
-      data-testid="app-background"
-      data-mode="gradient"
-      data-animated={animate}
-      data-paused={paused}
-      className="bg-flow fixed inset-0 -z-10 overflow-hidden"
-      style={{ '--flow-k': factor } as CSSProperties}
-    >
-      <div className="bg-flow-hue absolute inset-0" style={{ backgroundImage: scene.base }}>
-        {scene.blobs.map((b, i) => (
-          <div key={i} className="bg-blob" style={{ left: `${b.x}%`, top: `${b.y}%`, backgroundImage: `radial-gradient(circle closest-side, ${b.color}, transparent)` }} />
-        ))}
-      </div>
-      {scene.pattern && <div className="absolute inset-0" style={{ backgroundImage: scene.pattern.image, backgroundSize: scene.pattern.size }} />}
-    </div>
-  )
 }
 
 /**
@@ -115,11 +92,14 @@ export function BackgroundLayer() {
           style={{ backgroundImage: `url("${image}")`, backgroundSize: 'cover', backgroundPosition: 'center' }}
         />
       ) : (
-        <FlowingGradient
+        <FlowCanvas
+          testId="app-background"
+          className="fixed inset-0 -z-10 h-full w-full"
           seed={prefs.background.seed ?? todayLocal()}
+          speed={prefs.background.speed}
           animate={!user || prefs.background.animate}
-          factor={FLOW_FACTOR[prefs.background.speed]}
           paused={hidden}
+          scale={0.5}
         />
       )}
       <div aria-hidden className="fixed inset-0 -z-10 bg-white/20" />

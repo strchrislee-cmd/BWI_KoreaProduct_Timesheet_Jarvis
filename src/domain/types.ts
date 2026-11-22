@@ -104,7 +104,10 @@ export interface TimeSlot {
   group_project_id: string | null
   label: string
   description: string
-  focus: number | null // 0..3
+  /** 업무내용: free-text details of what was done (Daily Log's last column) */
+  details: string
+  /** 몰입도 0..3 from the old personal sheet; kept and imported, no longer shown in the grid */
+  focus: number | null
 }
 
 /** A personal "repeated task" (Notion-style select option): category + task text. */
