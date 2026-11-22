@@ -4,6 +4,7 @@
 
 | 날짜 | 주요 작업 | 커밋 |
 |---|---|---|
+| [2026-11-22](./2026-11-22.md) | Vercel CLI 설정·로그인, 데모 모드 첫 배포(https://jarvis-timesheet-bay.vercel.app), 공개 주소만 로그인 없이 열리게 보호 설정 조정 | `Add 2026-11-22 work log: Vercel setup and first deploy` |
 | [2026-11-21](./2026-11-21.md) | 흐르는 배경의 세로 띠(요청에 없던 빛의 띠 레이어) 제거 | `Remove the sweeping light band from the flowing background` |
 | [2026-11-20](./2026-11-20.md) | 업무 리스트 B1–B10(B9 제외): ● 삭제, 격자 배경 삭제, 리퀴드 글래스, 흐르는 그라데이션, 프로젝트 추가·숨김·색상, 현재 시간 선, 회색 안내 삭제, 설정 저장 경로, 작은 R | `Add liquid glass, flowing background, project management and now line` |
 | [2026-11-19](./2026-11-19.md) | 액션 아이템 A1–A8: 시작시간 범위, 노션식 옵션 메뉴·정렬·드래그, 열 너비·행 높이·점선, 30분 알림, 글래스모피즘·배경(그라데이션·업로드·Unsplash) | `Add Notion-style options, reminders, glass UI and backgrounds` |
