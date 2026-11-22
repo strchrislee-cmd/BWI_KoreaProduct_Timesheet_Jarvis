@@ -1,6 +1,6 @@
-# BWI Korea Product · Timesheet JARVIS
+# BWI Korea Product · TimeCrumbs
 
-사내 그룹웨어 헬퍼 웹앱 **JARVIS**의 첫 모듈 **Timesheets**입니다. 30분 단위 업무 기록을 그룹 지정 프로젝트명으로 매핑해 **그룹 timesheet 포맷**과 **업무진행세부계획(주간계획)**을 만들고, 새 그룹 프로젝트가 생기면 알려 줍니다.
+**TimeCrumbs**(시간 부스러기, 이전 이름 JARVIS)는 사내 그룹웨어 헬퍼 웹앱의 첫 모듈 **Timesheets**입니다(데모: https://timecrumbs.vercel.app). 30분 단위 업무 기록을 그룹 지정 프로젝트명으로 매핑해 **그룹 timesheet 포맷**과 **업무진행세부계획(주간계획)**을 만들고, 새 그룹 프로젝트가 생기면 알려 줍니다.
 
 - UI 컨셉과 요구사항: [`concept-design/`](./concept-design/README.md), 압축 컨텍스트: [`concept-design/CONTEXT.md`](./concept-design/CONTEXT.md)
 - 날짜별 작업 기록(작업 내용·결과): [`docs/worklog/`](./docs/worklog/README.md)
@@ -52,7 +52,7 @@ npm run dev
 3. **Authentication → URL Configuration**: Site URL과 Redirect URL에 Vercel 주소를 넣습니다.
 4. **Authentication → SMTP Settings**: **외부 SMTP를 반드시 연결**하세요. 기본 발송기는 시간당 2통, 그것도 Supabase 팀 멤버에게만 보냅니다. 회사 SMTP나 Resend·Brevo 등을 쓰면 됩니다.
 5. (권장) Authentication → Providers → Email에서 공개 가입(Allow new users to sign up)을 끕니다. 이걸 켜 두더라도 DB 트리거가 **초대받지 않은 가입을 거부**합니다.
-6. **첫 관리자 만들기**: Authentication → Users → **Invite user**로 본인 이메일을 초대합니다. **처음 생성되는 계정은 자동으로 Admin**이 되고, 이후 사용자는 JARVIS Admin 화면에서 초대합니다.
+6. **첫 관리자 만들기**: Authentication → Users → **Invite user**로 본인 이메일을 초대합니다. **처음 생성되는 계정은 자동으로 Admin**이 되고, 이후 사용자는 TimeCrumbs Admin 화면에서 초대합니다.
 
 > 무료 플랜: DB 500 MB, 일주일간 접속이 없으면 프로젝트 일시정지, 자동 백업 없음. 시범 운영은 무료로 하고 정식 운영 때 Pro로 올리길 권합니다.
 
@@ -102,7 +102,7 @@ npm run dev
 | 현재 시간 | 오늘 날짜를 보면 지금 시각 위치에 빨간 선과 `10:17` 같은 시각이 표시되고 1분마다 움직임 |
 | 근무 시간 | 30-min Log 위의 **시작 → 종료**를 날짜별로 고름. 시작은 07:00–10:00(30분 단위). 시작을 바꾸면 종료는 **시작 + 근무 8h + 점심 1h**(점심이 그 사이에 있을 때)로 맞춰지고, 그 뒤로 늘릴 수 있음(“+1h 연장” 표시). 새 날짜의 기본값은 Settings → Work hours |
 | 색상 | 드롭다운 옵션·반복 업무 칩의 `…`, Projects → Project mapping의 색상 칸, 또는 Settings → **카테고리 색상**(모두 같은 개인 색상). **랜덤 / 랜덤 (파스텔)**, 노션 9색, RGB/Hex/색상환으로 직접 지정. **프리셋에 저장**한 색은 “내 색상”에 보관. **기본**으로 되돌리기. 개인별 설정 |
-| 알림 | Settings → **알림**에서 켜고 브라우저 권한 허용. 근무시간 중 :00·:30마다 직전 칸이 비어 있으면 알림(점심·주말 제외). JARVIS 탭이 열려 있어야 함 |
+| 알림 | Settings → **알림**에서 켜고 브라우저 권한 허용. 근무시간 중 :00·:30마다 직전 칸이 비어 있으면 알림(점심·주말 제외). TimeCrumbs 탭이 열려 있어야 함 |
 | 화면 스타일 | Settings → **화면 스타일**: 블러(기본) / 리퀴드 글래스 |
 | 배경 | Settings → **배경**: 무작위 그라데이션(매일 자동 또는 고정, 점·줄무늬 같은 덧무늬 없음, **물결처럼 흐르기** 켜짐·속도 느리게 10초/보통 5초(기본)/빠르게 3초 = 물결 한 번이 지나가는 시간, 미리보기에 바로 반영), 내 사진 업로드, Unsplash 오늘의 사진(키 설정 시). 다른 탭을 보는 동안과 OS ‘동작 줄이기’가 켜져 있으면 멈춤 |
 | 프로젝트 추가·삭제 | Projects → Project mapping(관리자). 이름과 종류를 넣고 **추가**. 🗑 → 마스터 시트에서 온 항목은 **숨김**(기존 기록 유지, 다시 올려도 NEW 안 뜸, **숨긴 항목 보기 → 되돌리기**), 직접 추가한 항목은 확인 후 삭제(이미 쓰였으면 숨김). 기본 항목(휴가·회의 등)은 삭제 불가 |

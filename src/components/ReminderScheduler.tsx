@@ -8,7 +8,7 @@ import { timeToSlot, todayLocal } from '../domain/time'
 /**
  * Browser notification every :00 / :30 asking to log the half hour that just ended
  * (weekdays, inside the day's working hours, not lunch, not already logged).
- * Works while a JARVIS tab is open (it may be minimised or in the background).
+ * Works while a TimeCrumbs tab is open (it may be minimised or in the background).
  */
 export function ReminderScheduler() {
   const { store } = useStore()
@@ -36,7 +36,7 @@ export function ReminderScheduler() {
             filled: new Set(slots.map((s) => s.slot_index)),
           })
           if (r && !cancelled) {
-            const n = new Notification('JARVIS · 30분 기록', { body: r.text, tag: 'jarvis-reminder' })
+            const n = new Notification('TimeCrumbs · 30분 기록', { body: r.text, tag: 'jarvis-reminder' })
             n.onclick = () => {
               window.focus()
               navigate(`/timesheets?date=${date}`)

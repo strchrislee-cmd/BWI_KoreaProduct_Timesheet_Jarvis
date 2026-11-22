@@ -53,7 +53,7 @@ export interface GroupProject {
   status: ProjectStatus
   /** removed by an admin: not offered anywhere, kept for existing logs, restorable */
   hidden: boolean
-  /** added by hand in JARVIS (not from the master sheet) */
+  /** added by hand in the app (not from the master sheet) */
   manual: boolean
   first_seen_import_id: string | null
   last_seen_import_id: string | null

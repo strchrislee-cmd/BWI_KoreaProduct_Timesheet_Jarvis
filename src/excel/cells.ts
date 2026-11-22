@@ -13,7 +13,7 @@ export async function loadWorkbook(data: ArrayBuffer | Uint8Array): Promise<Work
 
 export function newWorkbook(): Workbook {
   const wb = new ExcelJS.Workbook()
-  wb.creator = 'JARVIS'
+  wb.creator = 'TimeCrumbs'
   return wb
 }
 

@@ -278,13 +278,13 @@ function NotificationsCard() {
         30분마다 기록 알림
       </label>
       <p className="mt-2 text-xs text-muted">매시 정각·30분에, 방금 끝난 30분이 비어 있으면 알려 드립니다. 평일 근무시간에만, 점심은 제외합니다.</p>
-      <p className="mt-1 text-xs text-muted">JARVIS 탭이 열려 있어야 합니다(최소화·다른 탭은 괜찮음).</p>
+      <p className="mt-1 text-xs text-muted">TimeCrumbs 탭이 열려 있어야 합니다(최소화·다른 탭은 괜찮음).</p>
       <p className="mt-2 text-sm">
         브라우저 권한: <strong data-testid="notification-permission">{status}</strong>
       </p>
       <ErrorNote error={error ?? (msg || null)} />
       {supported && permission === 'granted' && (
-        <Button variant="outline" className="mt-2" onClick={() => new Notification('JARVIS · 테스트 알림', { body: '알림이 정상적으로 동작합니다.' })}>
+        <Button variant="outline" className="mt-2" onClick={() => new Notification('TimeCrumbs · 테스트 알림', { body: '알림이 정상적으로 동작합니다.' })}>
           테스트 알림
         </Button>
       )}

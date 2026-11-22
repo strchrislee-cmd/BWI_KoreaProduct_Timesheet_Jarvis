@@ -31,9 +31,9 @@ export function Login() {
       <div className="grid w-full max-w-4xl gap-5 md:grid-cols-[1.1fr_1fr]">
         <div className="glass-dark flex flex-col justify-between rounded-card p-8 text-white">
           <div className="flex items-center gap-3">
-            <div className="flex h-12 w-12 items-center justify-center rounded-control bg-white text-2xl font-extrabold text-primary">J</div>
+            <div className="flex h-12 w-12 items-center justify-center rounded-control bg-white text-2xl font-extrabold text-primary">T</div>
             <div>
-              <div className="font-display text-2xl font-extrabold">JARVIS</div>
+              <div className="font-display text-2xl font-extrabold">TimeCrumbs</div>
               <div className="text-sm opacity-80">Internal Groupware Assistant</div>
             </div>
           </div>
