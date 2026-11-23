@@ -416,10 +416,15 @@ export class LocalStore implements DataStore {
   async invite(input: { email: string; role: Profile['role']; can_export: boolean }) {
     const email = input.email.trim().toLowerCase()
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) throw new Error('Invalid e-mail address')
-    if (this.state.invitations.some((i) => i.email === email)) throw new Error('Already invited')
-    this.mutate((s) =>
-      s.invitations.push({ id: uid(), email, role: input.role, can_export: input.can_export, status: 'pending', created_at: new Date().toISOString() }),
-    )
+    // demo: no e-mail is sent; inviting again (also "다시 보내기") replaces the earlier invitation
+    this.mutate((s) => {
+      s.invitations = s.invitations.filter((i) => i.email !== email)
+      s.invitations.push({ id: uid(), email, role: input.role, can_export: input.can_export, status: 'pending', created_at: new Date().toISOString() })
+    })
+    return { sent: 'invite' as const }
+  }
+  async deleteInvitation(id: string) {
+    this.mutate((s) => (s.invitations = s.invitations.filter((i) => i.id !== id)))
   }
   async revokeInvitation(id: string) {
     this.mutate((s) => {

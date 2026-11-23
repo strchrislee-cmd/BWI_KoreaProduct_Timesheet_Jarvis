@@ -28,12 +28,15 @@ export function Admin() {
     }
   }
 
-  const invite = () =>
+  const invite = (input = form) =>
     run(async () => {
-      await store.invite(form)
-      setForm({ ...form, email: '' })
+      const { sent } = await store.invite(input)
+      if (input === form) setForm({ ...form, email: '' })
       invitations.reload()
-    }, `Invitation sent to ${form.email}`)
+      profiles.reload()
+      // an address that already has an account gets a sign-in link instead (see api/_lib/inviteCore.ts)
+      setNotice(sent === 'login_link' ? `${input.email}: 이미 계정이 있는 주소라 로그인 링크를 다시 보냈습니다.` : `Invitation sent to ${input.email}`)
+    })
 
   const update = (id: string, patch: { role?: Role; can_export?: boolean }) =>
     run(async () => {
@@ -132,11 +135,27 @@ export function Admin() {
                     <Pill tone={i.status === 'pending' ? 'orange' : i.status === 'accepted' ? 'green' : 'grey'}>{i.status}</Pill>
                   </td>
                   <td>
-                    {i.status === 'pending' && (
-                      <Button variant="ghost" onClick={() => void run(async () => (await store.revokeInvitation(i.id), invitations.reload()))}>
-                        Revoke
-                      </Button>
-                    )}
+                    <span className="flex justify-end gap-1">
+                      {i.status === 'pending' && (
+                        <Button variant="ghost" className="!px-2.5 !py-1 text-xs" onClick={() => void invite({ email: i.email, role: i.role, can_export: i.can_export })}>
+                          다시 보내기
+                        </Button>
+                      )}
+                      {i.status === 'pending' ? (
+                        <Button variant="ghost" className="!px-2.5 !py-1 text-xs" onClick={() => void run(async () => (await store.revokeInvitation(i.id), invitations.reload()))}>
+                          Revoke
+                        </Button>
+                      ) : (
+                        <Button
+                          variant="ghost"
+                          className="!px-2.5 !py-1 text-xs"
+                          aria-label={`Delete invitation ${i.email}`}
+                          onClick={() => void run(async () => (await store.deleteInvitation(i.id), invitations.reload()))}
+                        >
+                          삭제
+                        </Button>
+                      )}
+                    </span>
                   </td>
                 </tr>
               ))}

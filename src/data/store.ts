@@ -76,6 +76,8 @@ export interface DataStore {
   deleteLeave(id: string): Promise<void>
 
   listInvitations(): Promise<Invitation[]>
-  invite(input: { email: string; role: Role; can_export: boolean }): Promise<void>
+  invite(input: { email: string; role: Role; can_export: boolean }): Promise<{ sent: 'invite' | 'login_link' }>
   revokeInvitation(id: string): Promise<void>
+  /** remove an invitation row (revoked / accepted ones; the account itself stays) */
+  deleteInvitation(id: string): Promise<void>
 }

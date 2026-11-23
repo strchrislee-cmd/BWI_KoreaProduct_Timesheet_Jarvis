@@ -217,16 +217,21 @@ export class SupabaseStore implements DataStore {
       await this.sb.from('invitations').select('id, email, role, can_export, status, created_at').order('created_at', { ascending: false }),
     )
   }
-  async invite(input: { email: string; role: Role; can_export: boolean }) {
+  async invite(input: { email: string; role: Role; can_export: boolean }): Promise<{ sent: 'invite' | 'login_link' }> {
     const { data } = await this.sb.auth.getSession()
     const res = await fetch('/api/admin/invite', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${data.session?.access_token ?? ''}` },
       body: JSON.stringify(input),
     })
-    if (!res.ok) throw new Error(((await res.json().catch(() => ({}))) as { error?: string }).error ?? `Invite failed (${res.status})`)
+    const body = (await res.json().catch(() => ({}))) as { error?: string; sent?: 'invite' | 'login_link' }
+    if (!res.ok) throw new Error(body.error ?? `Invite failed (${res.status})`)
+    return { sent: body.sent ?? 'invite' }
   }
   async revokeInvitation(id: string) {
     must(await this.sb.from('invitations').update({ status: 'revoked' }).eq('id', id))
+  }
+  async deleteInvitation(id: string) {
+    must(await this.sb.from('invitations').delete().eq('id', id))
   }
 }
