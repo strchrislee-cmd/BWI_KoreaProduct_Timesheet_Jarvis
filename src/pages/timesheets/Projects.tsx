@@ -12,6 +12,8 @@ import { KIND_LABEL } from './projectUi'
 import { useTimesheets } from './TimesheetsLayout'
 import { useColorPrefs } from './useColorPrefs'
 
+const KINDS = ['project', 'timelog', 'local_section'] as const
+
 interface Preview {
   fileName: string
   hash: string
@@ -42,6 +44,9 @@ export function ProjectsPage() {
   const newOnes = projects.filter((p) => !p.hidden && isNewProject(p, latestImport))
   const hiddenCount = projects.filter((p) => p.hidden).length
   const shown = projects.filter((p) => (showHidden || !p.hidden) && (filter === 'all' || p.kind === filter))
+  // No: one running number over all listed projects in table order (대분류, then master-sheet order),
+  // the same whichever filter is on; hidden rows get none
+  const noOf = new Map(KINDS.flatMap((k) => projects.filter((p) => p.kind === k && !p.hidden)).map((p, i) => [p.id, i + 1]))
 
   async function onFile(file: File) {
     setError(null)
@@ -282,6 +287,7 @@ export function ProjectsPage() {
             <thead>
               <tr>
                 <th className="w-10">Color</th>
+                <th className="num w-12">No</th>
                 <th>Group Project</th>
                 <th>Local aliases</th>
                 <th>Status</th>
@@ -289,7 +295,7 @@ export function ProjectsPage() {
               </tr>
             </thead>
             <tbody>
-              {(['project', 'timelog', 'local_section'] as const).map((kind) => {
+              {KINDS.map((kind) => {
                 const rows = shown.filter((p) => p.kind === kind)
                 if (!rows.length) return null
                 const visible = rows.filter((p) => !p.hidden)
@@ -297,7 +303,7 @@ export function ProjectsPage() {
                   <Fragment key={kind}>
                     {/* 대분류 header: common colour / random colours for every 소분류 below */}
                     <tr data-testid={`group-${kind}`} className="bg-black/[0.03]">
-                      <td colSpan={isAdmin ? 5 : 4} className="!py-1.5">
+                      <td colSpan={isAdmin ? 6 : 5} className="!py-1.5">
                         <div className="flex flex-wrap items-center gap-2">
                           <GroupColorControl
                             label={KIND_LABEL[kind]}
@@ -317,6 +323,7 @@ export function ProjectsPage() {
                             <Swatch color={categoryColor('work', p, colors.prefs)} label={`Color of ${p.name}`} />
                           </span>
                         </td>
+                        <td className="num font-mono text-xs text-muted">{noOf.get(p.id) ?? '–'}</td>
                         <td className="font-semibold">
                           {renaming?.id === p.id ? (
                             <form
