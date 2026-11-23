@@ -16,7 +16,7 @@ import type { ProjectAlias, TaskTemplate, TimeSlot } from '../src/domain/types'
 import { project, seededProjects, slot } from './helpers'
 
 const projects = [...seededProjects(), project({ id: 'wl', name: '2041--Utility Work Lamps' })]
-const aliases: ProjectAlias[] = [{ id: 'a1', alias: '워크램프', group_project_id: 'wl', created_by: null }]
+const aliases: ProjectAlias[] = [{ id: 'a1', alias: '워크램프', group_project_id: 'wl', created_by: null, user_id: null }]
 const D = '2026-11-16'
 
 function ctx(saved: TimeSlot[] = []): GridContext {

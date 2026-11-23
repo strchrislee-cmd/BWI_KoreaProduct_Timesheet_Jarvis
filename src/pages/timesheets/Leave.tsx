@@ -31,7 +31,7 @@ export function LeavePage() {
   const { store } = useStore()
   const user = useUser()
   const { date, engineer, setDate } = useTimesheets()
-  const canEdit = user.role !== 'viewer' && (engineer.id === user.id || user.role === 'admin')
+  const canEdit = engineer.id === user.id || user.role === 'admin'
   const grid = monthGrid(date)
   const month = date.slice(0, 7)
 

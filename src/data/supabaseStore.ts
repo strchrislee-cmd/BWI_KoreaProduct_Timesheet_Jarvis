@@ -15,7 +15,7 @@ import type {
   TimeSlot,
   WorkDay,
 } from '../domain/types'
-import { projectNameKey } from '../domain/projects'
+import { aliasConflict, projectNameKey } from '../domain/projects'
 import type { DataStore } from './store'
 import type { ProjectImportPlan } from '../domain/projectFile'
 
@@ -81,11 +81,14 @@ export class SupabaseStore implements DataStore {
     return must<GroupProject[]>(await this.sb.from('group_projects').select(PROJECT_COLUMNS))
   }
   async listAliases() {
-    return must<ProjectAlias[]>(await this.sb.from('project_aliases').select('id, group_project_id, alias, created_by'))
+    return must<ProjectAlias[]>(await this.sb.from('project_aliases').select('id, group_project_id, alias, created_by, user_id'))
   }
-  async addAlias(groupProjectId: string, alias: string) {
+  async addAlias(groupProjectId: string, alias: string, personal: boolean) {
     const created_by = await this.userId()
-    must(await this.sb.from('project_aliases').insert({ group_project_id: groupProjectId, alias: alias.trim(), created_by }))
+    const user_id = personal ? created_by : null
+    // the unique indexes cover team aliases and each user's own; a personal alias must not shadow a team one either
+    aliasConflict(await this.listAliases(), alias.trim(), user_id)
+    must(await this.sb.from('project_aliases').insert({ group_project_id: groupProjectId, alias: alias.trim(), created_by, user_id }))
   }
   async deleteAlias(id: string) {
     must(await this.sb.from('project_aliases').delete().eq('id', id))

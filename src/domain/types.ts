@@ -2,7 +2,8 @@
 // NOTE: files in src/domain, src/excel are also imported by Vercel functions (Node ESM),
 // so relative imports there must keep the ".js" extension.
 
-export type Role = 'admin' | 'member' | 'viewer'
+/** admin, or the user levels L1 / L2 / L3 (see roles.ts) */
+export type Role = 'admin' | 'l1' | 'l2' | 'l3'
 export type ProjectKind = 'project' | 'timelog' | 'local_section'
 export type ProjectStatus = 'active' | 'missing'
 export type SlotKind = 'work' | 'nonwork'
@@ -67,6 +68,8 @@ export interface ProjectAlias {
   group_project_id: string
   alias: string
   created_by: string | null
+  /** null: team alias (admins manage it, everyone uses it); set: that user's personal alias */
+  user_id: string | null
 }
 
 export interface MasterImport {

@@ -12,7 +12,7 @@ function current(): GroupProject[] {
     project({ id: 'm', name: '금형 Support', kind: 'local_section', system_key: 'mold_support', sort_order: 201 }),
   ]
 }
-const aliases: ProjectAlias[] = [{ id: 'al1', group_project_id: 'a', alias: '램프', created_by: null }]
+const aliases: ProjectAlias[] = [{ id: 'al1', group_project_id: 'a', alias: '램프', created_by: null, user_id: null }]
 
 describe('TimeCrumbs project list file', () => {
   it('saves every row in table order with its No, sheet name and aliases, and reads it back', () => {

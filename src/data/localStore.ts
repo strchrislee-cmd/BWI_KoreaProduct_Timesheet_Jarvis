@@ -1,4 +1,5 @@
-import { diffMaster, projectNameKey, sheetNameAfterRename } from '../domain/projects'
+import { aliasConflict, diffMaster, projectNameKey, sheetNameAfterRename } from '../domain/projects'
+import { normalizeRole } from '../domain/roles'
 import { SEED_ALIASES, SEED_PROJECTS } from '../domain/seed'
 import type {
   GroupProject,
@@ -9,6 +10,7 @@ import type {
   Profile,
   ProjectAlias,
   ProjectKind,
+  Role,
   TaskTemplate,
   TimeSlot,
   WorkDay,
@@ -78,6 +80,7 @@ function seed(): DemoState {
       alias: a.alias,
       group_project_id: projects.find((p) => p.system_key === a.system_key)!.id,
       created_by: null,
+      user_id: null,
     })),
     imports: [],
     slots: [],
@@ -107,7 +110,9 @@ export class LocalStore implements DataStore {
         slots: saved.slots.map((x) => ({ ...x, details: x.details ?? '' })),
         workDays: saved.workDays ?? [],
         backgrounds: saved.backgrounds ?? {},
-        profiles: saved.profiles.map((p) => (p.email === 'demo@jarvis.local' ? { ...p, email: DEMO_EMAIL } : p)),
+        profiles: saved.profiles.map((p) => ({ ...p, email: p.email === 'demo@jarvis.local' ? DEMO_EMAIL : p.email, role: normalizeRole(p.role) })),
+        invitations: saved.invitations.map((i) => ({ ...i, role: normalizeRole(i.role) })),
+        aliases: saved.aliases.map((a) => ({ ...a, user_id: a.user_id ?? null })),
       }
     } else {
       this.state = seed()
@@ -152,6 +157,13 @@ export class LocalStore implements DataStore {
       Object.assign(p, patch)
     })
   }
+  /** Demo only: preview another level as the single demo user (skips the last-admin rule). */
+  async setDemoRole(role: Role) {
+    this.mutate((s) => {
+      const p = s.profiles.find((x) => x.id === DEMO_USER_ID)
+      if (p) p.role = role
+    })
+  }
   async getOrgSettings() {
     return { ...this.state.org }
   }
@@ -165,12 +177,11 @@ export class LocalStore implements DataStore {
   async listAliases() {
     return this.state.aliases.map((a) => ({ ...a }))
   }
-  async addAlias(groupProjectId: string, alias: string) {
+  async addAlias(groupProjectId: string, alias: string, personal: boolean) {
     const text = alias.trim()
     if (!text) throw new Error('Alias is empty')
-    if (this.state.aliases.some((a) => a.alias.trim().toLowerCase() === text.toLowerCase()))
-      throw new Error(`Alias "${text}" already exists`)
-    this.mutate((s) => s.aliases.push({ id: uid(), group_project_id: groupProjectId, alias: text, created_by: DEMO_USER_ID }))
+    aliasConflict(this.state.aliases, text, personal ? DEMO_USER_ID : null)
+    this.mutate((s) => s.aliases.push({ id: uid(), group_project_id: groupProjectId, alias: text, created_by: DEMO_USER_ID, user_id: personal ? DEMO_USER_ID : null }))
   }
   async deleteAlias(id: string) {
     this.mutate((s) => (s.aliases = s.aliases.filter((a) => a.id !== id)))
@@ -243,9 +254,9 @@ export class LocalStore implements DataStore {
         const { aliases, ...row } = ins
         const id = uid()
         s.projects.push({ ...row, id, system_key: null, counts_toward_total: true, status: 'active', first_seen_import_id: null, last_seen_import_id: null, created_at: now })
-        for (const alias of aliases) s.aliases.push({ id: uid(), group_project_id: id, alias, created_by: DEMO_USER_ID })
+        for (const alias of aliases) s.aliases.push({ id: uid(), group_project_id: id, alias, created_by: DEMO_USER_ID, user_id: null })
       }
-      for (const a of plan.aliasInserts) s.aliases.push({ id: uid(), group_project_id: a.projectId, alias: a.alias, created_by: DEMO_USER_ID })
+      for (const a of plan.aliasInserts) s.aliases.push({ id: uid(), group_project_id: a.projectId, alias: a.alias, created_by: DEMO_USER_ID, user_id: null })
     })
   }
   async restoreProject(id: string) {

@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { adminClient } from '../_lib/server.js'
 
-const ROLES = ['admin', 'member', 'viewer']
+const ROLES = ['admin', 'l1', 'l2', 'l3']
 
 /**
  * POST /api/admin/invite { email, role, can_export } with "Authorization: Bearer <access token>".
@@ -21,7 +21,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const body = (req.body ?? {}) as { email?: string; role?: string; can_export?: boolean }
     const email = String(body.email ?? '').trim().toLowerCase()
-    const role = ROLES.includes(String(body.role)) ? String(body.role) : 'member'
+    const role = ROLES.includes(String(body.role)) ? String(body.role) : 'l1'
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return res.status(400).json({ error: 'Invalid e-mail address' })
 
     const { error: invError } = await sb

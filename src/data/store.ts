@@ -36,7 +36,8 @@ export interface DataStore {
 
   listProjects(): Promise<GroupProject[]>
   listAliases(): Promise<ProjectAlias[]>
-  addAlias(groupProjectId: string, alias: string): Promise<void>
+  /** personal: only for the signed-in user's own time (L1–L3); otherwise a team alias (admins) */
+  addAlias(groupProjectId: string, alias: string, personal: boolean): Promise<void>
   deleteAlias(id: string): Promise<void>
   /** Admins: add a project by hand (see manualProjectRow for name/code). */
   addProject(input: { name: string; code: string | null; kind: ProjectKind }): Promise<void>

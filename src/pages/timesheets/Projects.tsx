@@ -1,4 +1,4 @@
-import { Download, Eye, EyeOff, FolderOpen, Pencil, Plus, RotateCcw, Trash2, Upload, X } from 'lucide-react'
+import { Download, Eye, EyeOff, FolderOpen, Lock, Pencil, Plus, RotateCcw, Trash2, Upload, X } from 'lucide-react'
 import { Fragment, useState } from 'react'
 import { ColorMenu, Swatch } from '../../components/ColorMenu'
 import { Button, Card, ErrorNote, Modal, Pill, cx } from '../../components/ui'
@@ -30,7 +30,6 @@ export function ProjectsPage() {
   const user = useUser()
   const { projects, aliases, latestImport, reloadMaster } = useTimesheets()
   const isAdmin = user.role === 'admin'
-  const canAlias = user.role !== 'viewer'
   const [preview, setPreview] = useState<Preview | null>(null)
   const [result, setResult] = useState<MasterImportResult | null>(null)
   const [filter, setFilter] = useState<'all' | ProjectKind>('all')
@@ -52,6 +51,9 @@ export function ProjectsPage() {
   const shown = projects.filter((p) => (showHidden || !p.hidden) && (filter === 'all' || p.kind === filter))
   // No: the same whichever filter is on; hidden rows get none
   const noOf = projectNumbers(projects)
+  // the list file holds the team (admin) aliases; personal ones stay with each user
+  const teamAliases = aliases.filter((a) => !a.user_id)
+  const locked = () => setNote('🔒 관리자 설정이라 수정할 수 없습니다. 색과 내 별칭은 개인 설정으로 바꿀 수 있습니다.')
 
   async function onFile(file: File) {
     setError(null)
@@ -85,7 +87,7 @@ export function ProjectsPage() {
     const text = (drafts[projectId] ?? '').trim()
     if (!text) return
     try {
-      await store.addAlias(projectId, text)
+      await store.addAlias(projectId, text, !isAdmin) // L1–L3: personal alias, admins: team alias
       setDrafts({ ...drafts, [projectId]: '' })
       reloadMaster()
     } catch (e) {
@@ -163,7 +165,7 @@ export function ProjectsPage() {
 
   /** 목록 저장: the whole list as a TimeCrumbs file (.json) */
   function saveList() {
-    const file = buildProjectFile(projects, aliases)
+    const file = buildProjectFile(projects, teamAliases)
     downloadBlob(new Blob([JSON.stringify(file, null, 2)], { type: 'application/json' }), `timecrumbs-projects-${todayLocal()}.json`)
     setNote(`프로젝트 목록 ${file.projects.length}개를 저장했습니다 · 목록 불러오기로 다시 읽을 수 있습니다.`)
   }
@@ -172,7 +174,7 @@ export function ProjectsPage() {
     setError(null)
     try {
       const parsed = parseProjectFile(await file.text())
-      setListImport({ fileName: file.name, count: parsed.projects.length, plan: planProjectImport(projects, aliases, parsed) })
+      setListImport({ fileName: file.name, count: parsed.projects.length, plan: planProjectImport(projects, teamAliases, parsed) })
     } catch (e) {
       setError(e as Error)
     }
@@ -227,7 +229,9 @@ export function ProjectsPage() {
               />
             </label>
           ) : (
-            <p className="text-sm text-muted">Admins upload the group master sheet. You can add local aliases below.</p>
+            <p className="flex items-start gap-1.5 text-sm text-muted">
+              <Lock size={14} className="mt-0.5 shrink-0" /> 관리자 설정 · 마스터 시트는 관리자가 올립니다. 아래 표에서 내 별칭을 추가할 수 있습니다.
+            </p>
           )}
           <p className="mt-2 text-xs text-muted">
             {latestImport ? `Last import: ${latestImport.created_at.slice(0, 10)} · ${latestImport.file_name} (${latestImport.source})` : 'No import yet.'}
@@ -335,6 +339,15 @@ export function ProjectsPage() {
             </span>
           </form>
         )}
+        {!isAdmin && (
+          <p className="mb-3 flex items-start gap-2 rounded-control bg-black/[0.04] px-3 py-2 text-sm text-muted" data-testid="admin-lock-note">
+            <Lock size={15} className="mt-0.5 shrink-0" />
+            <span>
+              <b className="text-ink">관리자 설정</b> · 프로젝트 목록(No·이름·대분류·상태)과 🔒 팀 별칭은 관리자만 바꿀 수 있습니다. 색과 <b className="text-ink">내 별칭</b>은
+              나에게만 적용되는 개인 설정으로 바꾸고 추가할 수 있습니다.
+            </span>
+          </p>
+        )}
         {note && (
           <p className="mb-3 rounded-control bg-sage px-3 py-1.5 text-sm font-semibold text-primary" role="status">
             {note}
@@ -367,7 +380,12 @@ export function ProjectsPage() {
               <tr>
                 <th className="w-10">{tr('Color')}</th>
                 <th className="num w-12">No</th>
-                <th>{tr('Group Project')}</th>
+                <th>
+                  <span className="inline-flex items-center gap-1">
+                    {tr('Group Project')}
+                    {!isAdmin && <Lock size={12} className="text-muted" aria-label="관리자 설정" />}
+                  </span>
+                </th>
                 <th>{tr('Local aliases')}</th>
                 <th>{tr('Status')}</th>
                 {isAdmin && <th className="w-28" />}
@@ -404,8 +422,8 @@ export function ProjectsPage() {
                         </td>
                         <td
                           className={cx('num font-mono text-xs text-muted', isAdmin && !p.hidden && 'cursor-text')}
-                          title={isAdmin && !p.hidden ? '더블클릭해서 번호 바꾸기' : undefined}
-                          onDoubleClick={() => isAdmin && !p.hidden && setEditingNo({ id: p.id, value: String(noOf.get(p.id)) })}
+                          title={isAdmin ? (p.hidden ? undefined : '더블클릭해서 번호 바꾸기') : '관리자 설정 · 수정 불가'}
+                          onDoubleClick={() => (isAdmin ? !p.hidden && setEditingNo({ id: p.id, value: String(noOf.get(p.id)) }) : locked())}
                         >
                           {editingNo?.id === p.id ? (
                             <input
@@ -451,7 +469,8 @@ export function ProjectsPage() {
                           ) : (
                             <span
                               className="inline-flex items-center gap-1.5"
-                              onDoubleClick={() => isAdmin && !p.hidden && setRenaming({ id: p.id, name: p.name })}
+                              title={isAdmin ? undefined : '관리자 설정 · 수정 불가'}
+                              onDoubleClick={() => (isAdmin ? !p.hidden && setRenaming({ id: p.id, name: p.name }) : locked())}
                             >
                               <span>
                                 {p.name}
@@ -478,22 +497,38 @@ export function ProjectsPage() {
                           <div className="flex flex-wrap items-center gap-1">
                             {aliases
                               .filter((a) => a.group_project_id === p.id)
-                              .map((a) => (
-                                <Pill key={a.id} tone="blue">
-                                  {a.alias}
-                                  {(isAdmin || a.created_by === user.id) && (
+                              .map((a) =>
+                                a.user_id ? (
+                                  // personal alias: applies only to that person's own time
+                                  <Pill key={a.id} tone="green" className="border border-dashed border-primary/40">
+                                    <span title="내 별칭 · 나에게만 적용 (개인 설정)">
+                                      <span className="mr-1 text-[10px] font-bold opacity-70">{a.user_id === user.id ? '내' : '개인'}</span>
+                                      {a.alias}
+                                    </span>
                                     <button aria-label={`Remove alias ${a.alias}`} className="ml-1" onClick={() => void removeAlias(a.id)}>
                                       <X size={12} />
                                     </button>
-                                  )}
-                                </Pill>
-                              ))}
-                            {canAlias && (
+                                  </Pill>
+                                ) : (
+                                  <Pill key={a.id} tone="blue">
+                                    <span title={isAdmin ? '팀 별칭 · 모두에게 적용' : '관리자 설정 · 수정 불가'} className="inline-flex items-center">
+                                      {!isAdmin && <Lock size={10} className="mr-1" aria-label="관리자 설정" />}
+                                      {a.alias}
+                                    </span>
+                                    {isAdmin && (
+                                      <button aria-label={`Remove alias ${a.alias}`} className="ml-1" onClick={() => void removeAlias(a.id)}>
+                                        <X size={12} />
+                                      </button>
+                                    )}
+                                  </Pill>
+                                ),
+                              )}
+                            {!p.hidden && (
                               <span className="flex items-center">
                                 <input
                                   aria-label={`Add alias for ${p.name}`}
                                   className="cell-input !w-28 text-xs"
-                                  placeholder="+ alias"
+                                  placeholder={isAdmin ? '+ alias' : '+ 내 별칭'}
                                   value={drafts[p.id] ?? ''}
                                   onChange={(e) => setDrafts({ ...drafts, [p.id]: e.target.value })}
                                   onKeyDown={(e) => e.key === 'Enter' && void addAlias(p.id)}

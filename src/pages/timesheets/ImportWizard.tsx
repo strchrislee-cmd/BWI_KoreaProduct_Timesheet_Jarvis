@@ -56,8 +56,9 @@ export function ImportWizard({ onClose, onDone }: { onClose: () => void; onDone:
     try {
       const missingDate = selected.find((d) => !d.dateValue)
       if (missingDate) throw new Error(`Pick a date for sheet "${missingDate.sheetName}".`)
-      for (const [label, projectId] of Object.entries(mapping)) if (projectId) await store.addAlias(projectId, label)
-      const allAliases = await store.listAliases()
+      // L1–L3 save mappings as personal aliases, admins as team aliases
+      for (const [label, projectId] of Object.entries(mapping)) if (projectId) await store.addAlias(projectId, label, user.role !== 'admin')
+      const allAliases = (await store.listAliases()).filter((a) => !a.user_id || a.user_id === engineerId)
 
       let total = 0
       for (const d of selected) {

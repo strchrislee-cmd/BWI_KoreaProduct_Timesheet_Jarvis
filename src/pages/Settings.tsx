@@ -12,7 +12,8 @@ import { usePreferences } from '../data/usePreferences'
 import { FLOW_SPEEDS, type BackgroundMode, type Prefs, type UiStyle } from '../data/preferences'
 import { isSelectable, sortProjects } from '../domain/projects'
 import { todayLocal } from '../domain/time'
-import type { OrgSettings, Profile } from '../domain/types'
+import { ROLES } from '../domain/roles'
+import type { OrgSettings, Profile, Role } from '../domain/types'
 import { crossSeconds } from '../lib/flowGradient'
 import { compressImage } from '../lib/files'
 import { FONT_CHOICES, loadFont } from '../lib/fonts'
@@ -155,6 +156,28 @@ export function Settings() {
             <p className="text-sm">
               Mode: <strong>{store.mode === 'demo' ? 'Demo (this browser only)' : 'Supabase'}</strong>
             </p>
+            {store.mode === 'demo' && (
+              // demo only: preview what an L1–L3 user sees (with Supabase, admins set levels in Admin)
+              <label className="mt-3 block text-sm">
+                <span className="mb-1 block font-semibold text-muted">데모: 등급 바꿔 보기</span>
+                <select
+                  aria-label="Demo role"
+                  className="field"
+                  value={user.role}
+                  onChange={async (e) => {
+                    if (!(store instanceof LocalStore)) return
+                    await store.setDemoRole(e.target.value as Role)
+                    await refreshUser()
+                  }}
+                >
+                  {ROLES.map((r) => (
+                    <option key={r.value} value={r.value}>
+                      {r.label} — {r.desc}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
             {store.mode === 'demo' && (
               <Button
                 variant="outline"

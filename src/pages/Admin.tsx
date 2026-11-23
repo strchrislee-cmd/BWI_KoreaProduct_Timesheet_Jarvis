@@ -6,6 +6,7 @@ import { useStore, useUser } from '../data/StoreContext'
 import type { Role } from '../domain/types'
 import { useAsync } from '../lib/hooks'
 import { useT } from '../lib/i18n'
+import { ROLES, roleLabel } from '../domain/roles'
 
 export function Admin() {
   const tr = useT()
@@ -13,7 +14,7 @@ export function Admin() {
   const me = useUser()
   const profiles = useAsync(() => store.listProfiles(), [store])
   const invitations = useAsync(() => store.listInvitations(), [store])
-  const [form, setForm] = useState({ email: '', role: 'member' as Role, can_export: true })
+  const [form, setForm] = useState({ email: '', role: 'l1' as Role, can_export: true })
   const [error, setError] = useState<Error | null>(null)
   const [notice, setNotice] = useState('')
 
@@ -97,9 +98,11 @@ export function Admin() {
                   <td>{p.email}</td>
                   <td>
                     <select aria-label={`Role of ${p.email}`} className="cell-input" value={p.role} onChange={(e) => void update(p.id, { role: e.target.value as Role })}>
-                      <option value="admin">Admin</option>
-                      <option value="member">Member</option>
-                      <option value="viewer">Viewer</option>
+                      {ROLES.map((r) => (
+                        <option key={r.value} value={r.value}>
+                          {r.label}
+                        </option>
+                      ))}
                     </select>
                   </td>
                   <td>
@@ -124,7 +127,7 @@ export function Admin() {
               {(invitations.data ?? []).map((i) => (
                 <tr key={i.id}>
                   <td>{i.email}</td>
-                  <td>{i.role}</td>
+                  <td>{roleLabel(i.role)}</td>
                   <td>
                     <Pill tone={i.status === 'pending' ? 'orange' : i.status === 'accepted' ? 'green' : 'grey'}>{i.status}</Pill>
                   </td>
@@ -161,9 +164,11 @@ export function Admin() {
             </Field>
             <Field label="Role">
               <select className="field" value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value as Role })}>
-                <option value="member">Member — logs own time</option>
-                <option value="viewer">Viewer — read-only</option>
-                <option value="admin">Admin — manages users & master</option>
+                {ROLES.map((r) => (
+                  <option key={r.value} value={r.value}>
+                    {r.label} — {r.desc}
+                  </option>
+                ))}
               </select>
             </Field>
             <label className="flex items-center gap-2 text-sm">

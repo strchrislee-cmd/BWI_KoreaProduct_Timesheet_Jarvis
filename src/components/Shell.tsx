@@ -2,6 +2,7 @@ import { Clock, House, LogOut, Settings, Shield } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { NavLink, Outlet } from 'react-router'
 import { useStore, useUser } from '../data/StoreContext'
+import { roleLabel } from '../domain/roles'
 import { useT } from '../lib/i18n'
 import { BackgroundLayer } from './BackgroundLayer'
 import { ReminderScheduler } from './ReminderScheduler'
@@ -92,7 +93,7 @@ export function Shell() {
           </div>
           <div className="min-w-0 flex-1">
             <div className="truncate text-sm font-semibold">{user.name}</div>
-            <div className="truncate text-[11px] text-muted">{user.role}</div>
+            <div className="truncate text-[11px] text-muted">{roleLabel(user.role)}</div>
           </div>
           {store.mode === 'supabase' && (
             <button onClick={() => void store.signOut()} aria-label="Sign out" className="rounded-control p-1 text-muted hover:bg-sage-light">

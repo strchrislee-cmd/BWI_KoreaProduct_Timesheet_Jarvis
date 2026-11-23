@@ -17,10 +17,10 @@
 | **Import 마법사** | 개인 30분 로그 .xlsx(시트 1개 = 하루, `날짜` 행이나 시트명에서 날짜 인식) → 담당자 지정 → 로컬 카테고리 매핑 → 일괄 저장 |
 | **Weekly Plan** | 연속된 같은 업무를 1행으로 병합. 기존 주간계획 9개 열 + Group Project 열로 .xlsx 내보내기 |
 | **Group Timesheet** | 그룹 시트와 같은 행 구성(프로젝트 → 00.Timelog → 일반업무·회의… → Individual Sum). 일별 검증(목표시간, 미입력, 미매핑). .xlsx 내보내기 |
-| **Projects** | 그룹 마스터 시트 업로드 → 미리보기(신규, 일치, 빠진 항목) → 반영. **첫 업로드는 기준선**이라 NEW로 표시하지 않음. 같은 파일을 다시 올리면 무시. 로컬 별칭(팀 공용) 관리. **관리자는 프로젝트를 직접 추가·삭제(숨김)·되돌리기**, 누구나 **개인 색상** 지정(Daily Log와 연동) |
+| **Projects** | 그룹 마스터 시트 업로드 → 미리보기(신규, 일치, 빠진 항목) → 반영. **첫 업로드는 기준선**이라 NEW로 표시하지 않음. 같은 파일을 다시 올리면 무시. 별칭: 관리자가 넣은 **팀 별칭**(모두에게 적용, L1–L3에는 🔒 수정 불가)과 각자 넣는 **내 별칭**(나에게만 적용). L1–L3에게는 프로젝트 목록이 '관리자 설정 · 수정 불가'로 보임. **관리자는 프로젝트를 직접 추가·삭제(숨김)·되돌리기**, 누구나 **개인 색상** 지정(Daily Log와 연동) |
 | **Leave** | 월간 캘린더와 휴가 신청. 연차·반차·병가는 `00.Timelog--Leave`, 회사지정휴가와 출장은 각자의 행에 자동 반영 |
 | **Settings** | 프로필, 엔지니어 코드, 근무시간, 목표시간, 템플릿 스타일, 조직 AI 설정(관리자) |
-| **Admin** | 사용자 초대(이메일), 역할(Admin/Member/Viewer), 내보내기 권한, 초대 취소 |
+| **Admin** | 사용자 초대(이메일), 등급(Admin / L1 / L2 / L3), 내보내기 권한, 초대 취소 |
 | **Home** | 요청대로 위젯 자리만 있음(내용 미정) |
 | **`/api/ingest`** | Power Automate가 마스터 .xlsx를 POST하면 자동으로 반영(토큰 인증, 중복 파일 무시) |
 
@@ -48,7 +48,7 @@ npm run dev
 
 ### 1. Supabase
 1. [supabase.com](https://supabase.com)에서 프로젝트를 만듭니다(리전: Seoul `ap-northeast-2` 권장).
-2. **SQL Editor**에서 `supabase/migrations/`의 SQL 파일(`0001_init.sql` → `0002_seed.sql` → `0003_task_templates.sql` → `0004_work_days_colors.sql` → `0005_user_backgrounds.sql` → `0006_project_manage.sql` → `0007_slot_details.sql` → `0008_project_edit.sql`)을 **번호 순서대로** 실행합니다. Supabase CLI를 쓴다면 `supabase db push`도 됩니다. 이미 앞 파일을 실행했다면 새로 추가된 파일만 실행하면 됩니다.
+2. **SQL Editor**에서 `supabase/migrations/`의 SQL 파일(`0001_init.sql` → `0002_seed.sql` → `0003_task_templates.sql` → `0004_work_days_colors.sql` → `0005_user_backgrounds.sql` → `0006_project_manage.sql` → `0007_slot_details.sql` → `0008_project_edit.sql` → `0009_levels_personal_aliases.sql`)을 **번호 순서대로** 실행합니다. Supabase CLI를 쓴다면 `supabase db push`도 됩니다. 이미 앞 파일을 실행했다면 새로 추가된 파일만 실행하면 됩니다.
 3. **Authentication → URL Configuration**: Site URL과 Redirect URL에 Vercel 주소를 넣습니다.
 4. **Authentication → SMTP Settings**: **외부 SMTP를 반드시 연결**하세요. 기본 발송기는 시간당 2통, 그것도 Supabase 팀 멤버에게만 보냅니다. 회사 SMTP나 Resend·Brevo 등을 쓰면 됩니다.
 5. (권장) Authentication → Providers → Email에서 공개 가입(Allow new users to sign up)을 끕니다. 이걸 켜 두더라도 DB 트리거가 **초대받지 않은 가입을 거부**합니다.
@@ -113,9 +113,10 @@ Mac에서는 Ctrl 대신 ⌘를 씁니다.
 
 | 역할 | 할 수 있는 일 |
 |---|---|
-| Admin | 전원 기록 조회·수정, 마스터 업로드, 사용자 초대와 역할 변경, 조직 설정. 마지막 Admin은 강등할 수 없음 |
-| Member | 본인 기록과 휴가, 팀 공용 별칭 추가(본인이 만든 것만 삭제) |
-| Viewer | 전원 기록 읽기 전용 |
+| Admin | 모든 화면과 자료 조회·수정: 전원 기록, 마스터 업로드, 프로젝트 목록(No·이름·추가·숨김), 팀 별칭, 사용자 초대와 등급 변경, 조직 설정. 마지막 Admin은 강등할 수 없음 |
+| L1 · L2 · L3 | **지금은 셋 다 같은 권한**: 본인 기록·휴가·근무시간·반복 업무, 프로젝트 목록과 팀 별칭은 읽기만(🔒 관리자 설정), **내 별칭**(본인 기록에만 적용)과 색·정렬 등 개인 설정. 등급별 차이(예: L2가 자기 그룹의 L1 기록 보기)는 다음 단계 |
+
+예전 Member는 L1, Viewer는 L2가 됩니다(`0009_levels_personal_aliases.sql`). 데모 모드에서는 Settings → Data → **데모: 등급 바꿔 보기**로 L1–L3 화면을 미리 볼 수 있습니다.
 
 모든 권한은 Postgres RLS로 강제되며, `tests/db/rls.sql`에서 검증합니다.
 

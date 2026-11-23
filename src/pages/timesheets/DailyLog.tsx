@@ -27,7 +27,7 @@ export function DailyLog() {
   const user = useUser()
   const { search } = useLocation()
   const { date, engineer, projects, aliases, latestImport, reloadMaster } = useTimesheets()
-  const canEdit = user.role !== 'viewer' && (engineer.id === user.id || user.role === 'admin')
+  const canEdit = engineer.id === user.id || user.role === 'admin'
 
   const q = useAsync(() => store.listSlots(engineer.id, date, date), [store, engineer.id, date])
   const templatesQ = useAsync(() => store.listTemplates(user.id), [store, user.id])
@@ -231,7 +231,7 @@ export function DailyLog() {
 
   async function mapLabel(label: string, groupProjectId: string) {
     try {
-      await store.addAlias(groupProjectId, label)
+      await store.addAlias(groupProjectId, label, user.role !== 'admin') // L1–L3: personal alias
       await persist(
         [...slots.values()]
           .filter((s) => s.kind === 'work' && !s.group_project_id && s.label === label)
@@ -431,7 +431,11 @@ export function DailyLog() {
 
         {unmappedLabels.length > 0 && (
           <Card tone="sage" title={<span className="flex items-center gap-2"><CircleAlert size={18} /> {tr('Unmapped categories')}</span>}>
-            <p className="mb-2 text-sm text-muted">These hours are not in any group project yet. Pick one to save an alias for everyone.</p>
+            <p className="mb-2 text-sm text-muted">
+              {user.role === 'admin'
+                ? 'These hours are not in any group project yet. Pick one to save an alias for everyone.'
+                : '아직 그룹 프로젝트에 연결되지 않은 시간입니다. 하나를 고르면 내 별칭(나에게만 적용)으로 저장됩니다.'}
+            </p>
             <ul className="space-y-2">
               {unmappedLabels.map((label) => (
                 <li key={label} className="flex items-center gap-2">

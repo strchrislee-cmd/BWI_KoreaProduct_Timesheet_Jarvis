@@ -1,4 +1,4 @@
-import type { GroupProject, MasterImport, MasterRow, ProjectKind } from './types.js'
+import type { GroupProject, MasterImport, MasterRow, ProjectAlias, ProjectKind } from './types.js'
 
 const KIND_ORDER: Record<ProjectKind, number> = { project: 0, timelog: 1, local_section: 2 }
 
@@ -115,6 +115,17 @@ export function moveProjectTo(
   const before = new Map(group.map((x) => [x.id, x.sort_order]))
   const updates = rest.map((x, i) => ({ id: x.id, sort_order: i + 1 })).filter((u) => before.get(u.id) !== u.sort_order)
   return { updates, no, clamped }
+}
+
+/**
+ * Throws when a new alias would clash: a team alias (owner null) with another team alias, a
+ * personal alias with the owner's own aliases or with a team alias (which already applies to them).
+ */
+export function aliasConflict(aliases: ProjectAlias[], text: string, owner: string | null): void {
+  const key = projectNameKey(text)
+  const same = aliases.filter((a) => projectNameKey(a.alias) === key)
+  if (same.some((a) => !a.user_id)) throw new Error(`“${text}”은(는) 이미 팀 별칭입니다.`)
+  if (owner && same.some((a) => a.user_id === owner)) throw new Error(`“${text}”은(는) 이미 내 별칭에 있습니다.`)
 }
 
 /** Offered in dropdowns and pickers: listed in the master sheet (or added by hand) and not hidden. */

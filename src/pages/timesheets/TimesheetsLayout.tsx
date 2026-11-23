@@ -13,7 +13,7 @@ import { useT, type TextKey } from '../../lib/i18n'
 interface TimesheetsValue {
   date: string
   setDate: (d: string) => void
-  /** The engineer being viewed (yourself unless an admin/viewer picked someone). */
+  /** The engineer being viewed (yourself unless an admin picked someone). */
   engineer: Profile
   profiles: Profile[]
   projects: GroupProject[]
@@ -45,7 +45,8 @@ export function TimesheetsLayout() {
   const [params, setParams] = useSearchParams()
   const { search } = useLocation()
   const date = params.get('date') ?? todayLocal()
-  const canPickEngineer = user.role === 'admin' || user.role === 'viewer'
+  // L1–L3 see their own time for now (an L2/L3 reading their group comes later)
+  const canPickEngineer = user.role === 'admin'
 
   const master = useAsync(
     () => Promise.all([store.listProjects(), store.listAliases(), store.latestImport(), store.listProfiles()]),
@@ -62,7 +63,8 @@ export function TimesheetsLayout() {
       engineer: profiles.find((p) => p.id === engineerId) ?? user,
       profiles,
       projects: sortProjects(projects),
-      aliases,
+      // team aliases + the viewed person's personal ones (theirs decide how their own labels map)
+      aliases: aliases.filter((a) => !a.user_id || a.user_id === engineerId),
       latestImport,
       reloadMaster: master.reload,
     }

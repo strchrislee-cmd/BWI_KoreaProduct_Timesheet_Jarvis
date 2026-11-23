@@ -15,7 +15,8 @@ export interface ResolvedLabel {
 
 /**
  * Resolve a free-text category label to a group project.
- * Order: non-work words → alias → project name / short name / code → unmapped work.
+ * Order: non-work words → personal alias → team alias → project name / short name / code → unmapped work.
+ * `aliases` are the ones that apply to the person whose time it is (team + their own).
  */
 export function resolveLabel(
   label: string,
@@ -27,7 +28,8 @@ export function resolveLabel(
   if (NONWORK.has(text.replace(/\s+/g, ''))) return { kind: 'nonwork', group_project_id: null }
 
   const key = projectNameKey(text)
-  const alias = aliases.find((a) => projectNameKey(a.alias) === key)
+  // a personal alias (your own setting) wins over a team alias with the same text
+  const alias = aliases.find((a) => a.user_id && projectNameKey(a.alias) === key) ?? aliases.find((a) => projectNameKey(a.alias) === key)
   if (alias) return { kind: 'work', group_project_id: alias.group_project_id }
 
   const project = projects.find(

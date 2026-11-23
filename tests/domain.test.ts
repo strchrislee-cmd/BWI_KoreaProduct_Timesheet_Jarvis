@@ -88,8 +88,8 @@ describe('diffMaster', () => {
 describe('resolveLabel', () => {
   const projects = [...seededProjects(), project({ id: 'wl', name: '2041--Utility Work Lamps', code: '2041' })]
   const aliases: ProjectAlias[] = [
-    { id: '1', alias: '워크램프', group_project_id: 'wl', created_by: null },
-    { id: '2', alias: '일반', group_project_id: 'general', created_by: null },
+    { id: '1', alias: '워크램프', group_project_id: 'wl', created_by: null, user_id: null },
+    { id: '2', alias: '일반', group_project_id: 'general', created_by: null, user_id: null },
   ]
 
   it('resolves non-work, alias, name/code and unmapped labels', () => {

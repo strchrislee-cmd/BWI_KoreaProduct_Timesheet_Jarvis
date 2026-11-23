@@ -1,5 +1,5 @@
 -- Behaviour tests for 0001_init.sql / 0002_seed.sql. Run via scripts/test-db.sh.
--- Users: a = admin (first user), c = member, d = viewer, e = member2
+-- Users: a = admin (first user), c = L1 ("member"), d = L2 ("viewer" before 0009), e = L1 ("member2")
 
 -- ── Seed ─────────────────────────────────────────────────────────────────────
 select pg_temp.check((select count(*) from group_projects where kind = 'timelog') = 7, 'seed: 7 timelog rows');
@@ -16,13 +16,13 @@ select pg_temp.expect_error(
   'uninvited sign-up is rejected');
 
 insert into invitations (email, role) values
-  ('member@example.com', 'member'), ('viewer@example.com', 'viewer'), ('member2@example.com', 'member');
+  ('member@example.com', 'l1'), ('viewer@example.com', 'l2'), ('member2@example.com', 'l1');
 select pg_temp.expect_error($$insert into invitations (email) values ('Mixed@Example.com')$$, 'invitation e-mails must be lower-case');
 insert into auth.users (id, email, raw_user_meta_data) values
   ('00000000-0000-0000-0000-00000000000c', 'member@example.com', '{"name":"Min"}'),
   ('00000000-0000-0000-0000-00000000000d', 'Viewer@Example.com', '{}'),
   ('00000000-0000-0000-0000-00000000000e', 'member2@example.com', '{}');
-select pg_temp.check((select role from profiles where lower(email) = 'viewer@example.com') = 'viewer', 'invited role applied (case-insensitive e-mail)');
+select pg_temp.check((select role from profiles where lower(email) = 'viewer@example.com') = 'l2', 'invited role applied (case-insensitive e-mail)');
 select pg_temp.check((select name from profiles where email = 'member@example.com') = 'Min', 'name taken from metadata');
 select pg_temp.check((select name from profiles where email = 'member2@example.com') = 'member2', 'name falls back to e-mail local part');
 select pg_temp.check((select count(*) from invitations where status = 'accepted') = 3, 'invitations marked accepted');
@@ -44,10 +44,12 @@ select pg_temp.expect_error($$insert into group_projects (name, kind) values ('X
 select pg_temp.expect_error($$select apply_master_import('m.xlsx', 'manual', 'h0', '[]'::jsonb)$$, 'member cannot import master');
 select pg_temp.check(pg_temp.affected($$update org_settings set ai_enabled = true where id = 1$$) = 0, 'member cannot change org settings');
 
-insert into project_aliases (group_project_id, alias, created_by)
-  select id, '워크램프', '00000000-0000-0000-0000-00000000000c' from group_projects where system_key = 'general';
-select pg_temp.expect_error($$insert into project_aliases (group_project_id, alias, created_by) select id, 'x', '00000000-0000-0000-0000-00000000000a' from group_projects where system_key = 'general'$$, 'member cannot add alias as someone else');
-select pg_temp.expect_error($$insert into project_aliases (group_project_id, alias, created_by) select id, ' 워크램프', '00000000-0000-0000-0000-00000000000c' from group_projects where system_key = 'meeting'$$, 'duplicate alias (same name key) rejected');
+-- L1: personal aliases only (0009)
+insert into project_aliases (group_project_id, alias, created_by, user_id)
+  select id, '워크램프', '00000000-0000-0000-0000-00000000000c', '00000000-0000-0000-0000-00000000000c' from group_projects where system_key = 'general';
+select pg_temp.expect_error($$insert into project_aliases (group_project_id, alias, created_by) select id, '팀별칭', '00000000-0000-0000-0000-00000000000c' from group_projects where system_key = 'general'$$, 'L1 cannot add a team alias');
+select pg_temp.expect_error($$insert into project_aliases (group_project_id, alias, created_by, user_id) select id, 'x', '00000000-0000-0000-0000-00000000000a', '00000000-0000-0000-0000-00000000000a' from group_projects where system_key = 'general'$$, 'L1 cannot add an alias as someone else');
+select pg_temp.expect_error($$insert into project_aliases (group_project_id, alias, created_by, user_id) select id, ' 워크램프', '00000000-0000-0000-0000-00000000000c', '00000000-0000-0000-0000-00000000000c' from group_projects where system_key = 'meeting'$$, 'duplicate personal alias (same name key) rejected');
 select pg_temp.check(pg_temp.affected($$delete from project_aliases where alias = '일반'$$) = 0, 'member cannot delete seeded alias');
 select pg_temp.check((select count(*) from invitations) = 0, 'member cannot read invitations');
 
@@ -60,20 +62,29 @@ select pg_temp.login('00000000-0000-0000-0000-00000000000c');
 select pg_temp.check((select count(*) from time_slots) = 1, 'member only sees own slots');
 select pg_temp.check((select count(*) from leave_requests) = 1, 'member sees own leave');
 
--- ── Viewer ───────────────────────────────────────────────────────────────────
+-- ── L2 (same rights as L1 for now, 0009) ───────────────────────────────────────
 select pg_temp.login('00000000-0000-0000-0000-00000000000d');
-select pg_temp.check((select count(*) from time_slots) = 2, 'viewer reads all slots');
-select pg_temp.expect_error($$insert into time_slots (user_id, work_date, slot_index) values ('00000000-0000-0000-0000-00000000000d', '2026-11-16', 15)$$, 'viewer cannot write slots');
-select pg_temp.expect_error($$insert into project_aliases (group_project_id, alias, created_by) select id, 'v', '00000000-0000-0000-0000-00000000000d' from group_projects where system_key = 'general'$$, 'viewer cannot add aliases');
+select pg_temp.check((select count(*) from time_slots) = 0, 'L2 sees only own slots (none yet)');
+insert into time_slots (user_id, work_date, slot_index, label) values ('00000000-0000-0000-0000-00000000000d', '2026-11-16', 15, '지원');
+select pg_temp.check((select count(*) from time_slots) = 1, 'L2 logs own time');
+select pg_temp.check(not exists (select 1 from project_aliases where alias = '워크램프'), 'L2 cannot see an L1''s personal alias');
+select pg_temp.check((select count(*) from project_aliases where user_id is null) = 4, 'L2 sees the team aliases');
+insert into project_aliases (group_project_id, alias, created_by, user_id)
+  select id, '워크램프', '00000000-0000-0000-0000-00000000000d', '00000000-0000-0000-0000-00000000000d' from group_projects where system_key = 'meeting';
+select pg_temp.check(exists (select 1 from project_aliases where alias = '워크램프' and user_id = '00000000-0000-0000-0000-00000000000d'), 'the same personal alias text is fine for another user');
+select pg_temp.check(pg_temp.affected($$delete from project_aliases where alias = '회의'$$) = 0, 'L2 cannot delete a team alias');
 
 -- ── Admin ────────────────────────────────────────────────────────────────────
 select pg_temp.login('00000000-0000-0000-0000-00000000000a');
-select pg_temp.check((select count(*) from time_slots) = 2, 'admin reads all slots');
+select pg_temp.check((select count(*) from time_slots) = 3, 'admin reads all slots');
+select pg_temp.check((select count(*) from project_aliases where user_id is not null) = 2, 'admin sees personal aliases (to read everyone''s time)');
 select pg_temp.check(pg_temp.affected($$update time_slots set description = 'fixed' where user_id = '00000000-0000-0000-0000-00000000000c'$$) = 1, 'admin can fix others'' slots');
-select pg_temp.check(pg_temp.affected($$update profiles set role = 'viewer', can_export = false where id = '00000000-0000-0000-0000-00000000000e'$$) = 1, 'admin changes roles');
-select pg_temp.expect_error($$update profiles set role = 'member' where id = '00000000-0000-0000-0000-00000000000a'$$, 'last admin cannot be demoted');
+select pg_temp.check(pg_temp.affected($$update profiles set role = 'l3', can_export = false where id = '00000000-0000-0000-0000-00000000000e'$$) = 1, 'admin changes levels (L3)');
+select pg_temp.expect_error($$update profiles set role = 'l1' where id = '00000000-0000-0000-0000-00000000000a'$$, 'last admin cannot be demoted');
 select pg_temp.check(pg_temp.affected($$update org_settings set ai_enabled = true where id = 1$$) = 1, 'admin changes org settings');
-select pg_temp.check(pg_temp.affected($$delete from project_aliases where alias = '워크램프'$$) = 1, 'admin deletes any alias');
+select pg_temp.check(pg_temp.affected($$delete from project_aliases where alias = '워크램프'$$) = 2, 'admin deletes any alias (personal ones too)');
+insert into project_aliases (group_project_id, alias, created_by) select id, '팀램프', '00000000-0000-0000-0000-00000000000a' from group_projects where system_key = 'general';
+select pg_temp.check(exists (select 1 from project_aliases where alias = '팀램프' and user_id is null), 'admin adds a team alias');
 
 -- master import: baseline
 select pg_temp.check(
@@ -124,10 +135,11 @@ select pg_temp.check((select count(*) from task_templates) = 0, 'templates are p
 select pg_temp.check(pg_temp.affected($$delete from task_templates$$) = 0, 'others cannot delete your templates');
 
 select pg_temp.login('00000000-0000-0000-0000-00000000000d');
-select pg_temp.expect_error($$insert into task_templates (user_id, description) values ('00000000-0000-0000-0000-00000000000d', 'x')$$, 'viewer cannot create templates');
+insert into task_templates (user_id, description) values ('00000000-0000-0000-0000-00000000000d', 'L2 업무');
+select pg_temp.check((select count(*) from task_templates) = 1, 'L2 creates own templates (0009: same rights as L1)');
 
 select pg_temp.login('00000000-0000-0000-0000-00000000000c');
-select pg_temp.check(pg_temp.affected($$delete from task_templates$$) = 1, 'member deletes own template');
+select pg_temp.check(pg_temp.affected($$delete from task_templates$$) = 1, 'member deletes own template (not the L2''s)');
 reset role;
 
 -- ── Work days & colors (0004) ────────────────────────────────────────────────
@@ -143,8 +155,8 @@ select pg_temp.expect_error($$insert into task_templates (user_id, description, 
 select pg_temp.check(pg_temp.affected($$update profiles set preferences = '{"palette":["#123456"],"categoryColors":{"nonwork":"#cccccc"}}' where id = '00000000-0000-0000-0000-00000000000c'$$) = 1, 'member saves own color preferences');
 
 select pg_temp.login('00000000-0000-0000-0000-00000000000d');
-select pg_temp.check((select count(*) from work_days) = 1, 'viewer reads work hours');
-select pg_temp.expect_error($$insert into work_days (user_id, work_date, start_time, end_time) values ('00000000-0000-0000-0000-00000000000d', '2026-11-16', '08:00', '17:00')$$, 'viewer cannot set work hours');
+select pg_temp.check((select count(*) from work_days) = 0, 'L2 does not see others'' work hours (0009)');
+select pg_temp.check(pg_temp.affected($$insert into work_days (user_id, work_date, start_time, end_time) values ('00000000-0000-0000-0000-00000000000d', '2026-11-16', '08:00', '17:00')$$) = 1, 'L2 sets own work hours');
 
 select pg_temp.login('00000000-0000-0000-0000-00000000000a');
 select pg_temp.check(pg_temp.affected($$update work_days set start_time = '07:30' where user_id = '00000000-0000-0000-0000-00000000000c'$$) = 1, 'admin can fix others'' work hours');
