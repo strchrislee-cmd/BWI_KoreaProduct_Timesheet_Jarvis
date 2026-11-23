@@ -6,6 +6,7 @@ import { useStore, useUser } from '../../data/StoreContext'
 import { diffMaster, isNewProject, manualProjectRow, type MasterDiff } from '../../domain/projects'
 import type { GroupProject, MasterImportResult, MasterRow, ProjectKind } from '../../domain/types'
 import { loadExcel, sha256Hex } from '../../lib/files'
+import { useT } from '../../lib/i18n'
 import { categoryColor } from './colors'
 import { GroupColorControl } from './GroupColor'
 import { KIND_LABEL } from './projectUi'
@@ -22,6 +23,7 @@ interface Preview {
 }
 
 export function ProjectsPage() {
+  const tr = useT()
   const { store } = useStore()
   const user = useUser()
   const { projects, aliases, latestImport, reloadMaster } = useTimesheets()
@@ -154,7 +156,7 @@ export function ProjectsPage() {
   return (
     <div className="space-y-4">
       <div className="grid gap-4 lg:grid-cols-3">
-        <Card title="Group master sheet">
+        <Card title={tr('Group master sheet')}>
           {isAdmin ? (
             <label className="flex cursor-pointer flex-col items-center gap-2 rounded-control border-2 border-dashed border-line px-4 py-6 text-center hover:bg-sage-light">
               <Upload className="text-primary" />
@@ -183,7 +185,7 @@ export function ProjectsPage() {
           <div className="font-display text-6xl font-extrabold" data-testid="new-count">
             {newOnes.length}
           </div>
-          <p className="font-semibold">New since last import</p>
+          <p className="font-semibold">{tr('New since last import')}</p>
           <ul className="mt-2 space-y-1 text-sm">
             {newOnes.map((p) => (
               <li key={p.id} className="truncate">
@@ -193,7 +195,7 @@ export function ProjectsPage() {
           </ul>
         </Card>
 
-        <Card tone="sage" title="Automatic sync (Power Automate)">
+        <Card tone="sage" title={tr('Automatic sync (Power Automate)')}>
           {isAdmin ? (
             <div className="space-y-1 text-sm">
               <p>POST the master .xlsx to:</p>
@@ -218,7 +220,7 @@ export function ProjectsPage() {
       )}
 
       <Card
-        title="Project mapping"
+        title={tr('Project mapping')}
         action={
           <div className="flex flex-wrap items-center justify-end gap-1">
             {(['all', 'project', 'timelog', 'local_section'] as const).map((k) => (
@@ -227,7 +229,7 @@ export function ProjectsPage() {
                 onClick={() => setFilter(k)}
                 className={cx('rounded-control px-3 py-1 text-sm font-semibold', filter === k ? 'bg-primary text-white' : 'bg-sage-light')}
               >
-                {k === 'all' ? 'All' : KIND_LABEL[k]}
+                {k === 'all' ? tr('All') : KIND_LABEL[k]}
               </button>
             ))}
             {isAdmin && hiddenCount > 0 && (
@@ -286,11 +288,11 @@ export function ProjectsPage() {
           <table className="sheet">
             <thead>
               <tr>
-                <th className="w-10">Color</th>
+                <th className="w-10">{tr('Color')}</th>
                 <th className="num w-12">No</th>
-                <th>Group Project</th>
-                <th>Local aliases</th>
-                <th>Status</th>
+                <th>{tr('Group Project')}</th>
+                <th>{tr('Local aliases')}</th>
+                <th>{tr('Status')}</th>
                 {isAdmin && <th className="w-28" />}
               </tr>
             </thead>
@@ -402,9 +404,9 @@ export function ProjectsPage() {
                             ) : isNewProject(p, latestImport) ? (
                               <Pill tone="orange">NEW</Pill>
                             ) : p.status === 'missing' ? (
-                              <Pill>Not in sheet</Pill>
+                              <Pill>{tr('Not in sheet')}</Pill>
                             ) : (
-                              <Pill tone="green">Active</Pill>
+                              <Pill tone="green">{tr('Active')}</Pill>
                             )}
                             {p.manual && <Pill tone="blue">직접 추가</Pill>}
                           </span>

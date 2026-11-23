@@ -16,6 +16,7 @@ import type { OrgSettings, Profile } from '../domain/types'
 import { crossSeconds } from '../lib/flowGradient'
 import { compressImage } from '../lib/files'
 import { FONT_CHOICES, loadFont } from '../lib/fonts'
+import { LANG_CHOICES, useT } from '../lib/i18n'
 import { supportsRefraction } from '../lib/liquidGlass'
 import { PANEL_OPACITY_DEFAULT, PANEL_OPACITY_MIN, applyPanelOpacity } from '../lib/panelOpacity'
 import { useAsync } from '../lib/hooks'
@@ -30,6 +31,7 @@ type ProfileForm = Pick<
 >
 
 export function Settings() {
+  const tr = useT()
   const { store, refreshUser } = useStore()
   const user = useUser()
   const isAdmin = user.role === 'admin'
@@ -70,7 +72,7 @@ export function Settings() {
 
   return (
     <div>
-      <PageTitle>Settings</PageTitle>
+      <PageTitle>{tr('Settings')}</PageTitle>
       <div className="mb-4 space-y-2">
         <ErrorNote error={error ?? org.error} />
         {saved && <p className="rounded-control bg-sage px-4 py-2 text-sm font-semibold text-primary" role="status">{saved}</p>}
@@ -356,6 +358,21 @@ function UiStyleCard() {
               30분 기록 · 회의 08:30
             </span>
             <span className="text-xs text-muted">{f.desc}</span>
+          </label>
+        ))}
+      </div>
+      <h3 className="mb-1.5 mt-4 text-sm font-semibold text-muted">언어 · Language</h3>
+      <div className="grid gap-2 sm:grid-cols-2" role="radiogroup" aria-label="Language">
+        {LANG_CHOICES.map((l) => (
+          <label
+            key={l.value}
+            className={`flex cursor-pointer flex-col gap-0.5 rounded-control border p-3 ${prefs.language === l.value ? 'border-primary bg-white/60' : 'border-white/60 bg-white/30'}`}
+          >
+            <span className="flex items-center gap-2 text-sm font-semibold">
+              <input type="radio" name="language" aria-label={l.label} checked={prefs.language === l.value} onChange={() => void update((p) => ({ ...p, language: l.value }))} />
+              {l.label}
+            </span>
+            <span className="text-xs text-muted">{l.desc}</span>
           </label>
         ))}
       </div>

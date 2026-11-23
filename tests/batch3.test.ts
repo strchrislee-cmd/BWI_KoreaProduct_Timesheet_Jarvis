@@ -44,6 +44,9 @@ describe('A5/A6 ordering', () => {
     expect(keys(sortItems(items, 'created_desc', get))).toBe('acb')
     expect(keys(sortItems(items, 'manual', get, ['c', 'a']))).toBe('cab') // unlisted keep fallback order after
     expect(keys(sortItems(items, 'manual', get))).toBe('abc')
+    const no = { a: 3, b: 1, c: 2 } as Record<string, number>
+    expect(keys(sortItems(items, 'number', { ...get, number: (t) => no[get.key(t)] }))).toBe('bca') // 타임시트 번호순
+    expect(keys(sortItems(items, 'number', get))).toBe('abc') // no numbers (반복 업무): keeps its order
   })
 
   it('moves an item', () => {

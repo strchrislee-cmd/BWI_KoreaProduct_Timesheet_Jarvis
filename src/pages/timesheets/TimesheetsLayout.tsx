@@ -8,6 +8,7 @@ import { sortProjects } from '../../domain/projects'
 import { addDays, isoWeek, shortLabel, todayLocal } from '../../domain/time'
 import type { GroupProject, MasterImport, Profile, ProjectAlias } from '../../domain/types'
 import { useAsync } from '../../lib/hooks'
+import { useT, type TextKey } from '../../lib/i18n'
 
 interface TimesheetsValue {
   date: string
@@ -29,7 +30,7 @@ export function useTimesheets(): TimesheetsValue {
   return v
 }
 
-const TABS = [
+const TABS: { to: string; label: TextKey; end?: boolean }[] = [
   { to: '/timesheets', label: 'Daily Log', end: true },
   { to: '/timesheets/weekly', label: 'Weekly Plan' },
   { to: '/timesheets/group', label: 'Group Timesheet' },
@@ -38,6 +39,7 @@ const TABS = [
 ]
 
 export function TimesheetsLayout() {
+  const tr = useT()
   const { store } = useStore()
   const user = useUser()
   const [params, setParams] = useSearchParams()
@@ -91,16 +93,16 @@ export function TimesheetsLayout() {
         </div>
         {/* phones: one row of tabs you can swipe sideways */}
         <nav className="no-scrollbar flex gap-1 max-md:-mx-3 max-md:w-[calc(100%+1.5rem)] max-md:overflow-x-auto max-md:px-3 md:flex-wrap">
-          {TABS.map((t) => (
+          {TABS.map((tab) => (
             <NavLink
-              key={t.to}
-              to={{ pathname: t.to, search }}
-              end={t.end}
+              key={tab.to}
+              to={{ pathname: tab.to, search }}
+              end={tab.end}
               className={({ isActive }) =>
                 cx('flex h-9 shrink-0 items-center rounded-control px-3.5 text-sm font-semibold', isActive ? 'bg-primary text-white shadow-md' : 'glass hover:bg-white/80')
               }
             >
-              {t.label}
+              {tr(tab.label)}
             </NavLink>
           ))}
         </nav>

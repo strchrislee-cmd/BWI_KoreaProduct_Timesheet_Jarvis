@@ -11,6 +11,7 @@ import { chipBg, rowBg } from '../colors'
 import { NONWORK_CHOICES, templateCategory } from '../grid/DailyGrid'
 import { buildChanges, cellText, effectiveSlot, isLunchDefault, type CellChange, type CellOp, type GridContext } from '../grid/gridModel'
 import { KIND_LABEL, displayName } from '../projectUi'
+import { useT } from '../../../lib/i18n'
 
 interface Draft {
   category: string
@@ -121,6 +122,7 @@ function SlotSheet({
   onClose: () => void
   onSave: (changes: CellChange[], next: number | null) => void
 }) {
+  const tr = useT()
   const current = effectiveSlot(ctx, index)
   const [draft, setDraft] = useState<Draft>({
     category: current ? cellText(current, 'category', ctx.byId) : '',
@@ -141,7 +143,7 @@ function SlotSheet({
         .filter((p) => hit(displayName(p), p.name, ...ctx.aliases.filter((a) => a.group_project_id === p.id).map((a) => a.alias)))
         .map((p) => ({ key: p.id, text: displayName(p), color: ctx.color('work', p.id) })),
     }))
-    const nonwork = { label: 'Non-work', items: NONWORK_CHOICES.filter((l) => hit(l)).map((l) => ({ key: `nw:${l}`, text: l, color: ctx.color('nonwork', null) })) }
+    const nonwork = { label: tr('Non-work'), items: NONWORK_CHOICES.filter((l) => hit(l)).map((l) => ({ key: `nw:${l}`, text: l, color: ctx.color('nonwork', null) })) }
     return [...projectGroups, nonwork].filter((g) => g.items.length)
   }, [query, ctx])
   const exact = groups.some((g) => g.items.some((o) => o.text.toLowerCase() === query.trim().toLowerCase()))
@@ -236,7 +238,7 @@ function SlotSheet({
         </section>
 
         <label className="mb-3 block">
-          <span className="mb-1.5 block text-xs font-semibold text-muted">Task</span>
+          <span className="mb-1.5 block text-xs font-semibold text-muted">{tr('Task')}</span>
           <input className="field !py-2 text-[16px]" aria-label="Task" value={draft.task} onChange={(e) => set({ task: e.target.value })} placeholder="예: INT | Daily_Scrum" />
         </label>
         <label className="mb-3 block">

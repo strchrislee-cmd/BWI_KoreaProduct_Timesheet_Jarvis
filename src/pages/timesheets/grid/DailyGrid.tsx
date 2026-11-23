@@ -3,9 +3,10 @@ import { useEffect, useRef, useState, type ClipboardEvent, type FocusEvent, type
 import { ColorMenu } from '../../../components/ColorMenu'
 import { cx } from '../../../components/ui'
 import { DEFAULT_GRID, GRID_LIMITS, ROW_HEIGHTS, type GridPrefs } from '../../../data/preferences'
-import { isSelectable } from '../../../domain/projects'
+import { isSelectable, sortProjects } from '../../../domain/projects'
 import { slotToTime } from '../../../domain/time'
 import type { ProjectKind, TaskTemplate, TimeSlot } from '../../../domain/types'
+import { useT } from '../../../lib/i18n'
 import { SORT_LABELS, moveItem, sortItems, type SortMode } from '../../../lib/ordering'
 import { useDragReorder } from '../../../lib/useDragReorder'
 import { NONWORK_KEY, chipBg, rowBg } from '../colors'
@@ -125,6 +126,7 @@ export function DailyGrid({
   onCreateTemplate,
   onSelectionChange,
 }: DailyGridProps) {
+  const tr = useT()
   const [anchor, setAnchor] = useState<Sel>({ i: rows[0], c: 0 })
   const [focus, setFocus] = useState<Sel>({ i: rows[0], c: 0 })
   const [editing, setEditing] = useState<Editing | null>(null)
@@ -195,7 +197,7 @@ export function DailyGrid({
             ? NONWORK_CHOICES.filter((l) => match(l)).map((l) => ({
                 key: `nw:${l}`,
                 group: g.id,
-                groupLabel: g.label,
+                groupLabel: g.id === 'nonwork' ? tr('Non-work') : g.label,
                 label: l,
                 color: ctx.color('nonwork', null),
                 value: l,
@@ -208,7 +210,7 @@ export function DailyGrid({
                 .map(({ p, aliases }) => ({
                   key: p.id,
                   group: g.id,
-                  groupLabel: g.label,
+                  groupLabel: g.id === 'nonwork' ? tr('Non-work') : g.label,
                   label: displayName(p),
                   hint: aliases.join(', '),
                   color: ctx.color('work', p.id),
@@ -216,7 +218,16 @@ export function DailyGrid({
                   colorKey: p.id,
                 }))
         const created = new Map(ctx.projects.map((p) => [p.id, p.created_at]))
-        list.push(...sortItems(items, api.sort.category, { key: (o) => o.key, name: (o) => o.label, created: (o) => created.get(o.key) ?? '' }, api.categoryOrder))
+        // the order of the No column in Projects → Project mapping
+        const no = new Map(sortProjects(ctx.projects).map((p, i) => [p.id, i]))
+        list.push(
+          ...sortItems(
+            items,
+            api.sort.category,
+            { key: (o) => o.key, name: (o) => o.label, created: (o) => created.get(o.key) ?? '', number: (o) => no.get(o.key) ?? 0 },
+            api.categoryOrder,
+          ),
+        )
       }
       if (text && !list.some((o) => o.label.toLowerCase() === q))
         list.push({ key: 'create', group: 'create', groupLabel: '', label: `+ “${text}” 생성`, hint: '미매핑 — 나중에 프로젝트에 연결', value: text, create: 'category' })
@@ -525,7 +536,7 @@ export function DailyGrid({
         <div className="sticky top-0 z-10 grid rounded-t-control bg-sage-light/90 font-semibold backdrop-blur" style={{ gridTemplateColumns: gridColumns }}>
           {(['Time', 'Category', 'Task', '업무내용'] as const).map((h, k) => (
             <div key={h} className={cx('relative px-2.5 py-2', k > 0 && 'border-l border-dashed border-black/10')}>
-              {h}
+              {h === '업무내용' ? h : tr(h)}
               {k < 2 && (
                 <div
                   role="separator"
@@ -672,7 +683,7 @@ export function DailyGrid({
               {sortOpen && (
                 <div role="menu" aria-label="Sort menu" className="glass-strong absolute right-1 top-7 z-40 w-52 rounded-menu p-1 text-[13px] font-normal text-ink">
                   <div className="px-2 py-1 text-[11px] font-semibold text-muted">정렬</div>
-                  {(Object.keys(SORT_LABELS) as SortMode[]).map((m) => (
+                  {(Object.keys(SORT_LABELS) as SortMode[]).filter((m) => m !== 'number' || listKind === 'category').map((m) => (
                     <button
                       key={m}
                       role="menuitemradio"

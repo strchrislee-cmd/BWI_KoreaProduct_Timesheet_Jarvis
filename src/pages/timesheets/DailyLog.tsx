@@ -9,6 +9,7 @@ import { isNewProject, isSelectable } from '../../domain/projects'
 import { SLOTS_PER_DAY, SLOT_HOURS, currentSlot, timeToSlot, todayLocal } from '../../domain/time'
 import type { TaskTemplate, TimeSlot } from '../../domain/types'
 import { useAsync, useFillToViewport, useIsMobile, useMinuteClock } from '../../lib/hooks'
+import { useT } from '../../lib/i18n'
 import { moveItem, sortItems } from '../../lib/ordering'
 import { useDragReorder } from '../../lib/useDragReorder'
 import { categoryColor, chipBg, templateColor } from './colors'
@@ -21,6 +22,7 @@ import { useTimesheets } from './TimesheetsLayout'
 import { useColorPrefs } from './useColorPrefs'
 
 export function DailyLog() {
+  const tr = useT()
   const { store } = useStore()
   const user = useUser()
   const { search } = useLocation()
@@ -255,7 +257,7 @@ export function DailyLog() {
     <div ref={page} className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_340px]" style={filled ? { height: fillHeight } : undefined} data-testid="daily-log-page">
       <Card
         className={cx('flex min-h-0 flex-col', filled && 'h-full')}
-        title="30-min Log"
+        title={tr('30-min Log')}
         action={
           <div className="flex flex-wrap items-center justify-end gap-2">
             <TimeRangePicker
@@ -315,11 +317,11 @@ export function DailyLog() {
       </Card>
 
       <div className={cx('flex flex-col gap-4', filled && 'min-h-0 overflow-y-auto')}>
-        <Card title="Today">
+        <Card title={tr('Today')}>
           <div className="font-display text-5xl font-extrabold text-primary" data-testid="today-total">
             {Math.floor(total)}h {total % 1 ? '30m' : '00m'}
           </div>
-          <p className="mb-3 text-sm text-muted">target {engineer.daily_target_hours}h</p>
+          <p className="mb-3 text-sm text-muted">{tr('target')} {engineer.daily_target_hours}h</p>
           <ul className="space-y-1.5 text-sm">
             {[...breakdown.entries()]
               .sort((a, b) => b[1].hours - a[1].hours)
@@ -347,7 +349,7 @@ export function DailyLog() {
         >
           {templates.length === 0 ? (
             <p className="text-sm text-muted">
-              자주 하는 업무를 등록해 두세요. 행을 고르고 <strong>선택한 행 저장</strong>을 누르거나, Task 칸에 입력한 뒤 <strong>+ 반복 업무로 등록</strong>을 고르면 됩니다.
+              자주 하는 업무를 등록해 두세요. 행을 고르고 <strong>선택한 행 저장</strong>을 누르거나, {tr('Task')} 칸에 입력한 뒤 <strong>+ 반복 업무로 등록</strong>을 고르면 됩니다.
             </p>
           ) : (
             <ul ref={chipBox} className="flex flex-wrap gap-2" data-testid="templates">
@@ -428,7 +430,7 @@ export function DailyLog() {
         )}
 
         {unmappedLabels.length > 0 && (
-          <Card tone="sage" title={<span className="flex items-center gap-2"><CircleAlert size={18} /> Unmapped categories</span>}>
+          <Card tone="sage" title={<span className="flex items-center gap-2"><CircleAlert size={18} /> {tr('Unmapped categories')}</span>}>
             <p className="mb-2 text-sm text-muted">These hours are not in any group project yet. Pick one to save an alias for everyone.</p>
             <ul className="space-y-2">
               {unmappedLabels.map((label) => (

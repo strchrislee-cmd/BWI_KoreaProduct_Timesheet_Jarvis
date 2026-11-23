@@ -6,6 +6,7 @@ import { DEFAULT_LEAVE_HOURS } from '../../domain/aggregate'
 import { WEEKDAY_SHORT, monthGrid } from '../../domain/time'
 import type { LeaveType } from '../../domain/types'
 import { useAsync } from '../../lib/hooks'
+import { useT } from '../../lib/i18n'
 import { useTimesheets } from './TimesheetsLayout'
 
 export const LEAVE_LABEL: Record<LeaveType, string> = {
@@ -26,6 +27,7 @@ const LEAVE_COLOR: Record<LeaveType, string> = {
 }
 
 export function LeavePage() {
+  const tr = useT()
   const { store } = useStore()
   const user = useUser()
   const { date, engineer, setDate } = useTimesheets()
@@ -88,7 +90,7 @@ export function LeavePage() {
       </Card>
 
       <div className="flex flex-col gap-4">
-        <Card title="Request leave">
+        <Card title={tr('Request leave')}>
           <div className="space-y-3">
             <Field label="Type">
               <select
@@ -129,9 +131,9 @@ export function LeavePage() {
           </div>
         </Card>
 
-        <Card title="This month">
+        <Card title={tr('This month')}>
           <ul className="space-y-2 text-sm">
-            {leaves.length === 0 && <li className="text-muted">No leave.</li>}
+            {leaves.length === 0 && <li className="text-muted">{tr('No leave.')}</li>}
             {leaves.map((l) => (
               <li key={l.id} className="flex items-center gap-2">
                 <span className="flex-1">

@@ -3,6 +3,7 @@
 import type { Profile } from '../domain/types'
 import { isSortMode, type SortMode } from '../lib/ordering'
 import { isFontChoice, type FontChoice } from '../lib/fonts'
+import type { Lang } from '../lib/i18n'
 import { PANEL_OPACITY_DEFAULT, PANEL_OPACITY_MIN } from '../lib/panelOpacity'
 import { readColorPrefs, type ColorPrefs } from '../pages/timesheets/colors'
 
@@ -36,6 +37,8 @@ export interface Prefs extends ColorPrefs {
   panelOpacity: Record<UiStyle, number>
   /** body font (Settings → 화면 스타일 → 글꼴) */
   font: FontChoice
+  /** screen language for menus, tabs, titles and table headers */
+  language: Lang
 }
 
 // 좁게 (30px) by default so a whole working day fits on one screen
@@ -81,5 +84,6 @@ export function readPrefs(preferences: Profile['preferences']): Prefs {
       liquid: num(opacity.liquid, PANEL_OPACITY_MIN, 100, PANEL_OPACITY_DEFAULT.liquid),
     },
     font: isFontChoice(p.font) ? p.font : 'pretendard',
+    language: p.language === 'ko' ? 'ko' : 'en',
   }
 }

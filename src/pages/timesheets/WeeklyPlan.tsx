@@ -6,9 +6,11 @@ import { buildWeeklyPlan } from '../../domain/aggregate'
 import { WEEKDAY_SHORT, isoWeek, slotToTime, weekDates } from '../../domain/time'
 import { downloadWorkbook, loadExcel } from '../../lib/files'
 import { useAsync } from '../../lib/hooks'
+import { useT } from '../../lib/i18n'
 import { useTimesheets } from './TimesheetsLayout'
 
 export function WeeklyPlanPage() {
+  const tr = useT()
   const { store } = useStore()
   const user = useUser()
   const { date, engineer, projects } = useTimesheets()
@@ -41,7 +43,7 @@ export function WeeklyPlanPage() {
   return (
     <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
       <Card
-        title="Weekly Task Plan"
+        title={tr('Weekly Task Plan')}
         action={
           <div className="flex items-center gap-2">
             <Pill tone="green">
@@ -65,14 +67,14 @@ export function WeeklyPlanPage() {
             <table className="sheet">
               <thead>
                 <tr>
-                  <th>Week</th>
-                  <th>Date</th>
-                  <th>Time</th>
-                  <th>Local Project</th>
-                  <th>Group Project</th>
-                  <th>Work</th>
-                  <th>Item</th>
-                  <th className="num">Hours</th>
+                  <th>{tr('Week')}</th>
+                  <th>{tr('Date')}</th>
+                  <th>{tr('Time')}</th>
+                  <th>{tr('Local Project')}</th>
+                  <th>{tr('Group Project')}</th>
+                  <th>{tr('Work')}</th>
+                  <th>{tr('Item')}</th>
+                  <th className="num">{tr('Hours')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -86,7 +88,7 @@ export function WeeklyPlanPage() {
                     <td>
                       <Pill tone="blue">{r.localProject || '—'}</Pill>
                     </td>
-                    <td className="max-w-[260px] truncate">{r.groupProjectName ? r.groupProjectName : <Pill tone="orange">Unmapped</Pill>}</td>
+                    <td className="max-w-[260px] truncate">{r.groupProjectName ? r.groupProjectName : <Pill tone="orange">{tr('Unmapped')}</Pill>}</td>
                     <td>{r.work === '회의' ? <Pill tone="yellow">회의</Pill> : <Pill>기타</Pill>}</td>
                     <td>{r.item}</td>
                     <td className="num font-semibold">{r.hours.toFixed(1)}</td>
@@ -99,7 +101,7 @@ export function WeeklyPlanPage() {
       </Card>
 
       <div className="flex flex-col gap-4">
-        <Card title="This week">
+        <Card title={tr('This week')}>
           <div className="font-display text-5xl font-extrabold text-primary">{total.toFixed(1)}h</div>
           <div className="mt-4 flex h-32 items-end gap-2">
             {perDay.map((h, i) => (
@@ -111,7 +113,7 @@ export function WeeklyPlanPage() {
             ))}
           </div>
         </Card>
-        <Card title="Top projects">
+        <Card title={tr('Top projects')}>
           {top.length === 0 && <p className="text-sm text-muted">—</p>}
           <ul className="space-y-2">
             {top.map(([name, h]) => (

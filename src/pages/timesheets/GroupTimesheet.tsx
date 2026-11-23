@@ -7,6 +7,7 @@ import { isNewProject } from '../../domain/projects'
 import { isWeekend, isoWeek, shortLabel, weekDates } from '../../domain/time'
 import { downloadWorkbook, loadExcel } from '../../lib/files'
 import { useAsync } from '../../lib/hooks'
+import { useT } from '../../lib/i18n'
 import { useTimesheets } from './TimesheetsLayout'
 
 const ISSUE_TEXT: Record<DayIssue['type'], (h: number) => string> = {
@@ -19,6 +20,7 @@ const ISSUE_TEXT: Record<DayIssue['type'], (h: number) => string> = {
 const fmt = (v: number) => (v ? v.toFixed(2) : '')
 
 export function GroupTimesheetPage() {
+  const tr = useT()
   const { store } = useStore()
   const user = useUser()
   const { date, engineer, projects, latestImport } = useTimesheets()
@@ -89,20 +91,20 @@ export function GroupTimesheetPage() {
 
   return (
     <div className="grid gap-4 2xl:grid-cols-[minmax(0,1fr)_300px]">
-      <Card title={`Group format preview · ${engineer.name}`}>
+      <Card title={`${tr('Group format preview')} · ${engineer.name}`}>
         <ErrorNote error={error} />
         <div className="overflow-auto">
           <table className="sheet" data-testid="group-table">
             <thead>
               <tr>
                 <th className="w-10">No.</th>
-                <th>Group Project</th>
+                <th>{tr('Group Project')}</th>
                 {gt.dates.map((d) => (
                   <th key={d} className="num">
                     {shortLabel(d)}
                   </th>
                 ))}
-                <th className="num">Total</th>
+                <th className="num">{tr('Total')}</th>
               </tr>
             </thead>
             <tbody>
@@ -114,11 +116,11 @@ export function GroupTimesheetPage() {
                   tone={r.project.kind === 'timelog' ? (r.project.system_key === 'leave' ? 'bg-band-local' : 'bg-cat-timelog') : ''}
                 />
               ))}
-              <SumRow label="Project subtotal" values={gt.projectSubtotal} />
+              <SumRow label={tr('Project subtotal')} values={gt.projectSubtotal} />
               {counted.map((r) => (
                 <Row key={r.project.id} r={r} tone="bg-band-local" />
               ))}
-              {gt.unmapped.some((v) => v > 0) && <SumRow label="⚠ Unmapped" values={gt.unmapped} className="bg-accent-soft text-[#9a3a0e]" />}
+              {gt.unmapped.some((v) => v > 0) && <SumRow label={`⚠ ${tr('Unmapped')}`} values={gt.unmapped} className="bg-accent-soft text-[#9a3a0e]" />}
               <SumRow label="Individual Sum" values={gt.daily} className="bg-sage" />
               {extra.map((r) => (
                 <Row key={r.project.id} r={r} tone="" />
@@ -129,7 +131,7 @@ export function GroupTimesheetPage() {
       </Card>
 
       {/* above the table on narrower screens so the week columns get the full width */}
-      <Card title="Validation" className="order-first 2xl:order-none">
+      <Card title={tr('Validation')} className="order-first 2xl:order-none">
         {gt.issues.length === 0 ? (
           <p className="flex items-center gap-2 rounded-control bg-sage px-3 py-2 font-semibold text-primary">
             <CircleCheck size={18} /> Every day = {engineer.daily_target_hours}h, nothing unmapped

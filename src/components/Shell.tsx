@@ -2,6 +2,7 @@ import { Clock, House, LogOut, Settings, Shield } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { NavLink, Outlet } from 'react-router'
 import { useStore, useUser } from '../data/StoreContext'
+import { useT } from '../lib/i18n'
 import { BackgroundLayer } from './BackgroundLayer'
 import { ReminderScheduler } from './ReminderScheduler'
 import { cx } from './ui'
@@ -26,11 +27,12 @@ function NavItem({ to, icon, label, end }: { to: string; icon: ReactNode; label:
 
 /** Phones: the left navigation moves to a tab bar at the bottom of the screen. */
 function MobileTabBar({ isAdmin }: { isAdmin: boolean }) {
+  const tr = useT()
   const items = [
-    { to: '/', end: true, icon: <House size={20} />, label: 'Home' },
+    { to: '/', end: true, icon: <House size={20} />, label: tr('Home') },
     { to: '/timesheets', icon: <Clock size={20} />, label: 'Timesheets' },
-    ...(isAdmin ? [{ to: '/admin', icon: <Shield size={20} />, label: 'Admin' }] : []),
-    { to: '/settings', icon: <Settings size={20} />, label: 'Settings' },
+    ...(isAdmin ? [{ to: '/admin', icon: <Shield size={20} />, label: tr('Admin') }] : []),
+    { to: '/settings', icon: <Settings size={20} />, label: tr('Settings') },
   ]
   return (
     <nav
@@ -61,6 +63,7 @@ function MobileTabBar({ isAdmin }: { isAdmin: boolean }) {
 export function Shell() {
   const { store } = useStore()
   const user = useUser()
+  const tr = useT()
   const initials = (user.engineer_code || user.name).slice(0, 2).toUpperCase()
 
   return (
@@ -76,12 +79,12 @@ export function Shell() {
           </div>
         </div>
         <div className="flex flex-col gap-1">
-          <NavItem to="/" end icon={<House size={18} />} label="Home" />
+          <NavItem to="/" end icon={<House size={18} />} label={tr('Home')} />
           <NavItem to="/timesheets" icon={<Clock size={18} />} label="Timesheets" />
         </div>
         <div className="mt-auto flex flex-col gap-1 border-t border-dashed border-black/10 pt-3">
-          {user.role === 'admin' && <NavItem to="/admin" icon={<Shield size={18} />} label="Admin" />}
-          <NavItem to="/settings" icon={<Settings size={18} />} label="Settings" />
+          {user.role === 'admin' && <NavItem to="/admin" icon={<Shield size={18} />} label={tr('Admin')} />}
+          <NavItem to="/settings" icon={<Settings size={18} />} label={tr('Settings')} />
         </div>
         <div className="mt-3 flex items-center gap-2 border-t border-dashed border-black/10 px-1 pt-3">
           <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-sage text-xs font-bold text-primary">

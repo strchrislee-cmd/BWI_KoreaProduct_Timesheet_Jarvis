@@ -1,6 +1,6 @@
 // Sorting / manual ordering for Notion-like option lists.
 
-export type SortMode = 'manual' | 'name' | 'name_desc' | 'created' | 'created_desc'
+export type SortMode = 'manual' | 'name' | 'name_desc' | 'created' | 'created_desc' | 'number'
 
 export const SORT_LABELS: Record<SortMode, string> = {
   manual: '수동 (드래그 순서)',
@@ -8,6 +8,7 @@ export const SORT_LABELS: Record<SortMode, string> = {
   name_desc: '이름 역순 (하→가)',
   created: '생성일순 (오래된 것부터)',
   created_desc: '최신순 (최근 것부터)',
+  number: '타임시트 번호순 (No)',
 }
 
 export function isSortMode(v: unknown): v is SortMode {
@@ -21,7 +22,8 @@ export function isSortMode(v: unknown): v is SortMode {
 export function sortItems<T>(
   items: T[],
   mode: SortMode,
-  get: { key: (t: T) => string; name: (t: T) => string; created: (t: T) => string },
+  /** number: the item's No in Projects → Project mapping (items without one keep their order) */
+  get: { key: (t: T) => string; name: (t: T) => string; created: (t: T) => string; number?: (t: T) => number },
   manualOrder: string[] = [],
 ): T[] {
   const indexed = items.map((item, i) => ({ item, i }))
@@ -34,6 +36,7 @@ export function sortItems<T>(
     name_desc: (a, b) => byName(b.item, a.item) || a.i - b.i,
     created: (a, b) => byCreated(a.item, b.item) || a.i - b.i,
     created_desc: (a, b) => byCreated(b.item, a.item) || a.i - b.i,
+    number: (a, b) => (get.number?.(a.item) ?? 0) - (get.number?.(b.item) ?? 0) || a.i - b.i,
   }
   return indexed.sort(cmp[mode]).map((x) => x.item)
 }

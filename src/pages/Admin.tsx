@@ -5,8 +5,10 @@ import { Button, Card, ErrorNote, Field, Pill } from '../components/ui'
 import { useStore, useUser } from '../data/StoreContext'
 import type { Role } from '../domain/types'
 import { useAsync } from '../lib/hooks'
+import { useT } from '../lib/i18n'
 
 export function Admin() {
+  const tr = useT()
   const { store, refreshUser } = useStore()
   const me = useUser()
   const profiles = useAsync(() => store.listProfiles(), [store])
@@ -44,7 +46,7 @@ export function Admin() {
 
   return (
     <div>
-      <PageTitle>Admin</PageTitle>
+      <PageTitle>{tr('Admin')}</PageTitle>
       <div className="mb-4 grid gap-4 md:grid-cols-3">
         <Card>
           <div className="flex items-center gap-3">
