@@ -52,7 +52,7 @@ npm run dev
 3. **Authentication → URL Configuration**: Site URL과 Redirect URL에 Vercel 주소를 넣습니다.
 4. **Authentication → SMTP Settings**: **외부 SMTP를 반드시 연결**하세요. 기본 발송기는 시간당 2통, 그것도 Supabase 팀 멤버에게만 보냅니다. 회사 SMTP나 Resend·Brevo 등을 쓰면 됩니다.
 5. (권장) Authentication → Providers → Email에서 공개 가입(Allow new users to sign up)을 끕니다. 이걸 켜 두더라도 DB 트리거가 **초대받지 않은 가입을 거부**합니다.
-6. **첫 관리자 만들기**: Authentication → Users → **Invite user**로 본인 이메일을 초대합니다. **처음 생성되는 계정은 자동으로 Admin**이 되고, 이후 사용자는 TimeCrumbs Admin 화면에서 초대합니다.
+6. **첫 관리자 만들기**: Authentication → Users → **Add user → Send invitation**(또는 Create new user)으로 본인 계정을 만듭니다. 로그인은 사이트에서 이메일을 넣고 받는 **매직 링크**로 합니다. **처음 생성되는 계정은 자동으로 Admin**이 되고, 이후 사용자는 TimeCrumbs Admin 화면에서 초대합니다.
 
 > 무료 플랜: DB 500 MB, 일주일간 접속이 없으면 프로젝트 일시정지, 자동 백업 없음. 시범 운영은 무료로 하고 정식 운영 때 Pro로 올리길 권합니다.
 
