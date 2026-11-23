@@ -4,7 +4,7 @@ import { ChevronRight, Minus, Plus, X } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { cx } from '../../../components/ui'
-import { isSelectable } from '../../../domain/projects'
+import { isSelectable, projectNumbers } from '../../../domain/projects'
 import { SLOTS_PER_DAY, slotToTime } from '../../../domain/time'
 import type { TaskTemplate } from '../../../domain/types'
 import { chipBg, rowBg } from '../colors'
@@ -136,14 +136,15 @@ function SlotSheet({
   const groups = useMemo(() => {
     const q = query.trim().toLowerCase()
     const hit = (...xs: string[]) => !q || xs.some((x) => x.toLowerCase().includes(q))
+    const numbers = projectNumbers(ctx.projects)
     const projectGroups = (['project', 'timelog', 'local_section'] as const).map((kind) => ({
       label: KIND_LABEL[kind],
       items: ctx.projects
         .filter((p) => isSelectable(p) && p.kind === kind)
         .filter((p) => hit(displayName(p), p.name, ...ctx.aliases.filter((a) => a.group_project_id === p.id).map((a) => a.alias)))
-        .map((p) => ({ key: p.id, text: displayName(p), color: ctx.color('work', p.id) })),
+        .map((p) => ({ key: p.id, text: displayName(p), color: ctx.color('work', p.id), no: numbers.get(p.id) })),
     }))
-    const nonwork = { label: tr('Non-work'), items: NONWORK_CHOICES.filter((l) => hit(l)).map((l) => ({ key: `nw:${l}`, text: l, color: ctx.color('nonwork', null) })) }
+    const nonwork = { label: tr('Non-work'), items: NONWORK_CHOICES.filter((l) => hit(l)).map((l) => ({ key: `nw:${l}`, text: l, color: ctx.color('nonwork', null), no: undefined })) }
     return [...projectGroups, nonwork].filter((g) => g.items.length)
   }, [query, ctx])
   const exact = groups.some((g) => g.items.some((o) => o.text.toLowerCase() === query.trim().toLowerCase()))
@@ -222,6 +223,7 @@ function SlotSheet({
                       className={cx('max-w-full truncate rounded-chip px-2 py-1 text-left text-[13px] font-medium', draft.category === o.text && 'ring-2 ring-primary')}
                       style={{ backgroundColor: chipBg(o.color) }}
                     >
+                      {o.no !== undefined && <span className="mr-1 font-mono text-[11px] text-ink/50">{o.no}</span>}
                       {o.text}
                     </button>
                   ))}
@@ -238,11 +240,11 @@ function SlotSheet({
         </section>
 
         <label className="mb-3 block">
-          <span className="mb-1.5 block text-xs font-semibold text-muted">{tr('Task')}</span>
+          <span className="mb-1.5 block text-xs font-semibold text-muted">{tr('Sub Category')}</span>
           <input className="field !py-2 text-[16px]" aria-label="Task" value={draft.task} onChange={(e) => set({ task: e.target.value })} placeholder="예: INT | Daily_Scrum" />
         </label>
         <label className="mb-3 block">
-          <span className="mb-1.5 block text-xs font-semibold text-muted">업무내용</span>
+          <span className="mb-1.5 block text-xs font-semibold text-muted">{tr('Content')}</span>
           <textarea className="field min-h-[72px] !py-2 text-[16px]" aria-label="업무내용" value={draft.details} onChange={(e) => set({ details: e.target.value })} placeholder="이 30분 동안 한 일" maxLength={2000} />
         </label>
 

@@ -1,11 +1,13 @@
-import { Eye, EyeOff, Pencil, Plus, RotateCcw, Trash2, Upload, X } from 'lucide-react'
+import { Download, Eye, EyeOff, FolderOpen, Pencil, Plus, RotateCcw, Trash2, Upload, X } from 'lucide-react'
 import { Fragment, useState } from 'react'
 import { ColorMenu, Swatch } from '../../components/ColorMenu'
 import { Button, Card, ErrorNote, Modal, Pill, cx } from '../../components/ui'
 import { useStore, useUser } from '../../data/StoreContext'
-import { diffMaster, isNewProject, manualProjectRow, type MasterDiff } from '../../domain/projects'
+import { buildProjectFile, parseProjectFile, planProjectImport, type ProjectImportPlan } from '../../domain/projectFile'
+import { diffMaster, isNewProject, manualProjectRow, moveProjectTo, projectNumbers, type MasterDiff } from '../../domain/projects'
 import type { GroupProject, MasterImportResult, MasterRow, ProjectKind } from '../../domain/types'
-import { loadExcel, sha256Hex } from '../../lib/files'
+import { todayLocal } from '../../domain/time'
+import { downloadBlob, loadExcel, sha256Hex } from '../../lib/files'
 import { useT } from '../../lib/i18n'
 import { categoryColor } from './colors'
 import { GroupColorControl } from './GroupColor'
@@ -41,14 +43,15 @@ export function ProjectsPage() {
   const [confirmDelete, setConfirmDelete] = useState<GroupProject | null>(null)
   const [colorOf, setColorOf] = useState<{ project: GroupProject; anchor: DOMRect } | null>(null)
   const [renaming, setRenaming] = useState<{ id: string; name: string } | null>(null)
+  const [editingNo, setEditingNo] = useState<{ id: string; value: string } | null>(null)
+  const [listImport, setListImport] = useState<{ fileName: string; count: number; plan: ProjectImportPlan } | null>(null)
   const colors = useColorPrefs()
 
   const newOnes = projects.filter((p) => !p.hidden && isNewProject(p, latestImport))
   const hiddenCount = projects.filter((p) => p.hidden).length
   const shown = projects.filter((p) => (showHidden || !p.hidden) && (filter === 'all' || p.kind === filter))
-  // No: one running number over all listed projects in table order (대분류, then master-sheet order),
-  // the same whichever filter is on; hidden rows get none
-  const noOf = new Map(KINDS.flatMap((k) => projects.filter((p) => p.kind === k && !p.hidden)).map((p, i) => [p.id, i + 1]))
+  // No: the same whichever filter is on; hidden rows get none
+  const noOf = projectNumbers(projects)
 
   async function onFile(file: File) {
     setError(null)
@@ -139,6 +142,56 @@ export function ProjectsPage() {
       reloadMaster()
     } catch (e) {
       setError(e as Error)
+    }
+  }
+
+  /** Give a project another No: it moves there inside its 대분류 (see moveProjectTo). */
+  async function changeNo(p: GroupProject) {
+    const target = Number(editingNo?.value)
+    setEditingNo(null)
+    const move = editingNo?.value.trim() ? moveProjectTo(projects, p.id, target) : null
+    if (!move || (!move.updates.length && !move.clamped)) return
+    setError(null)
+    try {
+      if (move.updates.length) await store.reorderProjects(move.updates)
+      setNote(`‘${p.name}’ → No ${move.no}${move.clamped ? ` (${KIND_LABEL[p.kind]} 안에서만 옮길 수 있습니다)` : ''}`)
+      reloadMaster()
+    } catch (e) {
+      setError(e as Error)
+    }
+  }
+
+  /** 목록 저장: the whole list as a TimeCrumbs file (.json) */
+  function saveList() {
+    const file = buildProjectFile(projects, aliases)
+    downloadBlob(new Blob([JSON.stringify(file, null, 2)], { type: 'application/json' }), `timecrumbs-projects-${todayLocal()}.json`)
+    setNote(`프로젝트 목록 ${file.projects.length}개를 저장했습니다 · 목록 불러오기로 다시 읽을 수 있습니다.`)
+  }
+
+  async function onListFile(file: File) {
+    setError(null)
+    try {
+      const parsed = parseProjectFile(await file.text())
+      setListImport({ fileName: file.name, count: parsed.projects.length, plan: planProjectImport(projects, aliases, parsed) })
+    } catch (e) {
+      setError(e as Error)
+    }
+  }
+
+  async function applyList() {
+    if (!listImport) return
+    const { plan } = listImport
+    setBusy(true)
+    setError(null)
+    try {
+      await store.importProjectList(plan)
+      setListImport(null)
+      setNote(`목록을 불러왔습니다 · 이름 변경 ${plan.renamed.length} · 추가 ${plan.inserts.length} · 순서 변경 ${plan.moved}`)
+      reloadMaster()
+    } catch (e) {
+      setError(e as Error)
+    } finally {
+      setBusy(false)
     }
   }
 
@@ -277,6 +330,9 @@ export function ProjectsPage() {
             <span className="w-full text-xs text-muted">
               직접 추가한 항목은 나중에 마스터 시트에 같은 이름으로 들어오면 자동으로 합쳐집니다(NEW 표시 없음). Timelog는 이름 앞에 <code>00.Timelog--</code>가 붙습니다.
             </span>
+            <span className="w-full text-xs text-muted">
+              <b>No</b>와 <b>이름</b>은 더블클릭해서 고칠 수 있습니다. No를 바꾸면 같은 대분류 안에서 그 자리로 옮겨집니다. 마스터 시트에서 온 이름을 바꿔도 원래 시트 이름을 기억해, 예전 시트를 다시 올려도 같은 항목으로 맞춰집니다.
+            </span>
           </form>
         )}
         {note && (
@@ -284,6 +340,27 @@ export function ProjectsPage() {
             {note}
           </p>
         )}
+        <div className="mb-2 flex flex-wrap items-center justify-end gap-2">
+          <Button variant="outline" className="!px-3 !py-1.5" onClick={saveList}>
+            <Download size={15} /> 목록 저장 (.json)
+          </Button>
+          {isAdmin && (
+            <label className="inline-flex cursor-pointer items-center gap-2 rounded-control border border-primary bg-white/70 px-3 py-1.5 text-sm font-semibold text-primary hover:bg-white">
+              <FolderOpen size={15} /> 목록 불러오기
+              <input
+                type="file"
+                accept=".json,application/json"
+                className="hidden"
+                aria-label="Project list file"
+                onChange={(e) => {
+                  const file = e.target.files?.[0]
+                  e.target.value = ''
+                  if (file) void onListFile(file)
+                }}
+              />
+            </label>
+          )}
+        </div>
         <div className="overflow-auto">
           <table className="sheet">
             <thead>
@@ -325,7 +402,31 @@ export function ProjectsPage() {
                             <Swatch color={categoryColor('work', p, colors.prefs)} label={`Color of ${p.name}`} />
                           </span>
                         </td>
-                        <td className="num font-mono text-xs text-muted">{noOf.get(p.id) ?? '–'}</td>
+                        <td
+                          className={cx('num font-mono text-xs text-muted', isAdmin && !p.hidden && 'cursor-text')}
+                          title={isAdmin && !p.hidden ? '더블클릭해서 번호 바꾸기' : undefined}
+                          onDoubleClick={() => isAdmin && !p.hidden && setEditingNo({ id: p.id, value: String(noOf.get(p.id)) })}
+                        >
+                          {editingNo?.id === p.id ? (
+                            <input
+                              aria-label={`No of ${p.name}`}
+                              type="number"
+                              min={1}
+                              autoFocus
+                              className="field !w-14 !px-1.5 !py-0.5 text-right font-mono text-xs"
+                              value={editingNo.value}
+                              onChange={(e) => setEditingNo({ id: p.id, value: e.target.value })}
+                              onFocus={(e) => e.target.select()}
+                              onBlur={() => void changeNo(p)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') e.currentTarget.blur()
+                                if (e.key === 'Escape') setEditingNo(null)
+                              }}
+                            />
+                          ) : (
+                            (noOf.get(p.id) ?? '–')
+                          )}
+                        </td>
                         <td className="font-semibold">
                           {renaming?.id === p.id ? (
                             <form
@@ -348,10 +449,19 @@ export function ProjectsPage() {
                               </Button>
                             </form>
                           ) : (
-                            <span className="inline-flex items-center gap-1.5">
-                              {p.name}
-                              {/* Sections and hand-added rows can be renamed; master-sheet names come from the sheet */}
-                              {isAdmin && !p.hidden && (p.kind === 'local_section' || p.manual) && (
+                            <span
+                              className="inline-flex items-center gap-1.5"
+                              onDoubleClick={() => isAdmin && !p.hidden && setRenaming({ id: p.id, name: p.name })}
+                            >
+                              <span>
+                                {p.name}
+                                {p.sheet_name && (
+                                  <span className="block text-[11px] font-normal text-muted" title="마스터 시트에 적힌 이름 (다시 올려도 이 항목으로 맞춰짐)">
+                                    시트 이름: {p.sheet_name}
+                                  </span>
+                                )}
+                              </span>
+                              {isAdmin && !p.hidden && (
                                 <button
                                   aria-label={`Rename ${p.name}`}
                                   title="이름 바꾸기"
@@ -475,6 +585,8 @@ export function ProjectsPage() {
         </Modal>
       )}
 
+      {listImport && <ListImportReview {...listImport} busy={busy} onCancel={() => setListImport(null)} onApply={() => void applyList()} />}
+
       {preview && (
         <Modal title="Review master import" onClose={() => setPreview(null)} wide>
           <p className="mb-3 text-sm text-muted">
@@ -510,5 +622,65 @@ export function ProjectsPage() {
         </Modal>
       )}
     </div>
+  )
+}
+
+/** Preview of loading a TimeCrumbs project list file (what changes before anything is saved). */
+function ListImportReview({
+  fileName,
+  count,
+  plan,
+  busy,
+  onCancel,
+  onApply,
+}: {
+  fileName: string
+  count: number
+  plan: ProjectImportPlan
+  busy: boolean
+  onCancel: () => void
+  onApply: () => void
+}) {
+  const sections: { title: string; items: string[] }[] = [
+    { title: '이름 변경', items: plan.renamed.map((r) => `${r.from} → ${r.to}`) },
+    { title: '추가', items: plan.inserts.map((i) => `+ ${i.name}`) },
+    { title: '다시 표시', items: plan.shown },
+    { title: '숨김', items: plan.hiddenNow },
+    { title: '별칭 추가', items: [...plan.inserts.flatMap((i) => i.aliases), ...plan.aliasInserts.map((a) => a.alias)] },
+    { title: '건너뜀', items: plan.skipped.map((s) => `${s.name} (${s.reason})`) },
+    { title: '파일에 없어 그대로 둠', items: plan.untouched },
+  ].filter((s) => s.items.length)
+  const changes = plan.updates.length + plan.inserts.length + plan.aliasInserts.length
+  return (
+    <Modal title="Review project list" onClose={onCancel} wide>
+      <p className="mb-3 text-sm text-muted">
+        {fileName} · {count}개 항목{plan.moved > 0 && ` · 순서(No)가 바뀌는 항목 ${plan.moved}개`}
+      </p>
+      {changes === 0 && <p className="mb-3 rounded-control bg-sage px-3 py-2 text-sm font-semibold text-primary">지금 목록과 같아서 바뀌는 내용이 없습니다.</p>}
+      <div className="grid gap-4 md:grid-cols-2">
+        {sections.map((s) => (
+          <div key={s.title} className="min-w-0">
+            <h3 className="mb-1 font-bold">
+              {s.title} ({s.items.length})
+            </h3>
+            <ul className="space-y-0.5 text-sm text-muted">
+              {s.items.map((it, i) => (
+                <li key={i} className="break-words">
+                  {it}
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))}
+      </div>
+      <div className="mt-5 flex justify-end gap-2">
+        <Button variant="outline" onClick={onCancel}>
+          취소
+        </Button>
+        <Button onClick={onApply} disabled={busy || changes === 0}>
+          {busy ? '불러오는 중…' : '불러오기 적용'}
+        </Button>
+      </div>
+    </Modal>
   )
 }

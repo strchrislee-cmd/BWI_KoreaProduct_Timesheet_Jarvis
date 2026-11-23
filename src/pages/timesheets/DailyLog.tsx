@@ -349,7 +349,7 @@ export function DailyLog() {
         >
           {templates.length === 0 ? (
             <p className="text-sm text-muted">
-              자주 하는 업무를 등록해 두세요. 행을 고르고 <strong>선택한 행 저장</strong>을 누르거나, {tr('Task')} 칸에 입력한 뒤 <strong>+ 반복 업무로 등록</strong>을 고르면 됩니다.
+              자주 하는 업무를 등록해 두세요. 행을 고르고 <strong>선택한 행 저장</strong>을 누르거나, {tr('Sub Category')} 칸에 입력한 뒤 <strong>+ 반복 업무로 등록</strong>을 고르면 됩니다.
             </p>
           ) : (
             <ul ref={chipBox} className="flex flex-wrap gap-2" data-testid="templates">

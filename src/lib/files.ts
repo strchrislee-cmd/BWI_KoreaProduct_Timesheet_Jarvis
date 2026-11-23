@@ -10,6 +10,10 @@ export async function downloadWorkbook(wb: Workbook, fileName: string) {
   const blob = new Blob([buf as ArrayBuffer], {
     type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
   })
+  downloadBlob(blob, fileName)
+}
+
+export function downloadBlob(blob: Blob, fileName: string) {
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url

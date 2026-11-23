@@ -217,3 +217,30 @@ select pg_temp.check((select name_key from group_projects where system_key = 'mo
 select pg_temp.login('00000000-0000-0000-0000-00000000000c');
 select pg_temp.check(pg_temp.affected($$update group_projects set name = 'x' where system_key = 'mold_support'$$) = 0, 'member cannot rename projects');
 reset role;
+
+-- ── Editing No / names, sheet name memory (0008) ──────────────────────────────
+set role authenticated;
+select pg_temp.login('00000000-0000-0000-0000-00000000000a');
+-- rename a master-sheet row (no code, so only the name can match it)
+select pg_temp.check(pg_temp.affected($$update group_projects set name = '00.Timelog--Training (교육)' where name = '00.Timelog--Training & Self Development 교육 및 자기계발'$$) = 1, 'admin renames a master-sheet row');
+select pg_temp.check((select sheet_name = '00.Timelog--Training & Self Development 교육 및 자기계발' from group_projects where name = '00.Timelog--Training (교육)'), 'the sheet name is remembered on the first rename');
+select pg_temp.check(pg_temp.affected($$update group_projects set name = '00.Timelog--Training (사내 교육)' where name = '00.Timelog--Training (교육)'$$) = 1, 'renamed again');
+select pg_temp.check((select sheet_name = '00.Timelog--Training & Self Development 교육 및 자기계발' from group_projects where name = '00.Timelog--Training (사내 교육)'), 'a second rename keeps the original sheet name');
+select pg_temp.check(
+  (select (r ->> 'added')::int = 0 from (select apply_master_import('m5.xlsx', 'manual', 'hash5',
+     '[{"name":"00.Timelog--Training & Self Development 교육 및 자기계발","code":null,"kind":"timelog"},{"name":"2041--Utility Work Lamp Series","code":"2041","kind":"project"}]'::jsonb) as r) x),
+  'importing the original sheet finds the renamed row by its sheet name (nothing new)');
+select pg_temp.check((select status = 'active' and sheet_name is not null from group_projects where name = '00.Timelog--Training (사내 교육)'), 'the renamed row keeps its app name and stays active');
+select pg_temp.check(pg_temp.affected($$update group_projects set name = '2041--Work Lamp Series (renamed)' where code = '2041'$$) = 1, 'admin renames a coded master row');
+select apply_master_import('m6.xlsx', 'manual', 'hash6', '[{"name":"2041--Utility Work Lamp Series V2","code":"2041","kind":"project"}]'::jsonb);
+select pg_temp.check((select name = '2041--Work Lamp Series (renamed)' and sheet_name = '2041--Utility Work Lamp Series V2' from group_projects where code = '2041'), 'matched by code: app name kept, the sheet''s new spelling remembered');
+select pg_temp.check(pg_temp.affected($$update group_projects set name = '2041--utility work lamp series v2' where code = '2041'$$) = 1, 'renamed back to the sheet name');
+select pg_temp.check((select sheet_name is null from group_projects where code = '2041'), 'the sheet name is forgotten once the names match again');
+select pg_temp.check((select sheet_name is null from group_projects where system_key = 'mold_support'), 'Sections never get a sheet name');
+select pg_temp.check(pg_temp.affected($$update group_projects set name = '9004--Only Manual (v2)' where code = '9004'$$) = 1 and (select sheet_name is null from group_projects where code = '9004'), 'hand-added rows never get a sheet name');
+-- order (No)
+select pg_temp.check(pg_temp.affected($$update group_projects set sort_order = 1 where code = '3001'$$) = 1, 'admin changes the order (No)');
+select pg_temp.login('00000000-0000-0000-0000-00000000000c');
+select pg_temp.check(pg_temp.affected($$update group_projects set sort_order = 99 where code = '3001'$$) = 0, 'member cannot change the order');
+select pg_temp.check(pg_temp.affected($$update group_projects set sheet_name = 'x' where code = '3001'$$) = 0, 'member cannot set sheet names');
+reset role;

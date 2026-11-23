@@ -10,7 +10,7 @@ describe('screen language', () => {
   })
 
   it('translates the Daily Log labels the way they were asked for', () => {
-    expect(['30-min Log', 'Time', 'Category', 'Task'].map((k) => translate('ko', k as never))).toEqual(['30분 간격 기록', '시간', '대분류', '업무분류'])
+    expect(['30-min Log', 'Time', 'Category', 'Sub Category', 'Content'].map((k) => translate('ko', k as never))).toEqual(['30분 간격 기록', '시간', '대분류', '업무분류', '업무내용'])
     expect(translate('ko', 'Daily Log')).toBe('일일 기록')
     expect(translate('en', 'Daily Log')).toBe('Daily Log')
   })

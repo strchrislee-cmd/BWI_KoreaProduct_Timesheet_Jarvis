@@ -1,4 +1,4 @@
-import { diffMaster, projectNameKey } from '../domain/projects'
+import { diffMaster, projectNameKey, sheetNameAfterRename } from '../domain/projects'
 import { SEED_ALIASES, SEED_PROJECTS } from '../domain/seed'
 import type {
   GroupProject,
@@ -14,6 +14,7 @@ import type {
   WorkDay,
 } from '../domain/types'
 import type { DataStore } from './store'
+import type { ProjectImportPlan } from '../domain/projectFile'
 
 // Demo mode: same behaviour as the Supabase schema, persisted in localStorage.
 const KEY = 'timecrumbs-demo-v1'
@@ -46,6 +47,7 @@ function seed(): DemoState {
     status: 'active',
     hidden: false,
     manual: false,
+    sheet_name: null,
     first_seen_import_id: null,
     last_seen_import_id: null,
     created_at: new Date().toISOString(),
@@ -100,7 +102,7 @@ export class LocalStore implements DataStore {
       const epoch = '2026-01-01T00:00:00.000Z'
       this.state = {
         ...saved,
-        projects: saved.projects.map((p) => ({ ...p, created_at: p.created_at ?? epoch, hidden: p.hidden ?? false, manual: p.manual ?? false })),
+        projects: saved.projects.map((p) => ({ ...p, created_at: p.created_at ?? epoch, hidden: p.hidden ?? false, manual: p.manual ?? false, sheet_name: p.sheet_name ?? null })),
         templates: (saved.templates ?? []).map((t) => ({ ...t, color: t.color ?? null, created_at: t.created_at ?? epoch })),
         slots: saved.slots.map((x) => ({ ...x, details: x.details ?? '' })),
         workDays: saved.workDays ?? [],
@@ -191,6 +193,7 @@ export class LocalStore implements DataStore {
         status: 'active',
         hidden: false,
         manual: true,
+        sheet_name: null,
         first_seen_import_id: null,
         last_seen_import_id: null,
         created_at: new Date().toISOString(),
@@ -218,7 +221,31 @@ export class LocalStore implements DataStore {
     if (this.state.projects.some((p) => p.id !== id && projectNameKey(p.name) === projectNameKey(clean))) throw new Error(`이미 있는 프로젝트입니다: ${clean}`)
     this.mutate((s) => {
       const p = s.projects.find((x) => x.id === id)
-      if (p) p.name = clean
+      if (p) Object.assign(p, { sheet_name: sheetNameAfterRename(p, clean), name: clean })
+    })
+  }
+  async reorderProjects(updates: { id: string; sort_order: number }[]) {
+    this.mutate((s) => {
+      for (const u of updates) {
+        const p = s.projects.find((x) => x.id === u.id)
+        if (p) p.sort_order = u.sort_order
+      }
+    })
+  }
+  async importProjectList(plan: ProjectImportPlan) {
+    const now = new Date().toISOString()
+    this.mutate((s) => {
+      for (const u of plan.updates) {
+        const p = s.projects.find((x) => x.id === u.id)
+        if (p) Object.assign(p, u)
+      }
+      for (const ins of plan.inserts) {
+        const { aliases, ...row } = ins
+        const id = uid()
+        s.projects.push({ ...row, id, system_key: null, counts_toward_total: true, status: 'active', first_seen_import_id: null, last_seen_import_id: null, created_at: now })
+        for (const alias of aliases) s.aliases.push({ id: uid(), group_project_id: id, alias, created_by: DEMO_USER_ID })
+      }
+      for (const a of plan.aliasInserts) s.aliases.push({ id: uid(), group_project_id: a.projectId, alias: a.alias, created_by: DEMO_USER_ID })
     })
   }
   async restoreProject(id: string) {
@@ -252,7 +279,17 @@ export class LocalStore implements DataStore {
       s.imports.push(imp)
       for (const m of diff.matched) {
         const p = s.projects.find((x) => x.id === m.project.id)!
-        Object.assign(p, { name: m.row.name, code: m.row.code ?? p.code, sort_order: m.order, status: 'active', manual: false, last_seen_import_id: imp.id })
+        // renamed in the app: keep the app's name, remember the sheet's current spelling
+        const renamed = !!p.sheet_name
+        Object.assign(p, {
+          name: renamed ? p.name : m.row.name,
+          sheet_name: renamed && projectNameKey(m.row.name) !== projectNameKey(p.name) ? m.row.name : null,
+          code: m.row.code ?? p.code,
+          sort_order: m.order,
+          status: 'active',
+          manual: false,
+          last_seen_import_id: imp.id,
+        })
       }
       for (const a of diff.added) {
         s.projects.push({
@@ -266,6 +303,7 @@ export class LocalStore implements DataStore {
           status: 'active',
           hidden: false,
           manual: false,
+          sheet_name: null,
           first_seen_import_id: imp.id,
           last_seen_import_id: imp.id,
           created_at: imp.created_at,

@@ -55,6 +55,8 @@ export interface GroupProject {
   hidden: boolean
   /** added by hand in the app (not from the master sheet) */
   manual: boolean
+  /** the master sheet's name for a row an admin renamed in the app (null: same as name) */
+  sheet_name: string | null
   first_seen_import_id: string | null
   last_seen_import_id: string | null
   created_at: string

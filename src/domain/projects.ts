@@ -49,7 +49,17 @@ export interface MasterDiff {
   missing: GroupProject[]
 }
 
-/** Same matching rules as SQL public.apply_master_import(): code first, then name key. */
+/**
+ * sheet_name after renaming a project to `next`: a master-sheet row remembers the name the sheet
+ * uses, so importing the original sheet again still finds it; forgotten once the names match
+ * again. Same rules as the SQL trigger remember_sheet_name() (0008).
+ */
+export function sheetNameAfterRename(p: Pick<GroupProject, 'kind' | 'manual' | 'name' | 'sheet_name'>, next: string): string | null {
+  const sheet = p.sheet_name ?? (p.kind !== 'local_section' && !p.manual && projectNameKey(next) !== projectNameKey(p.name) ? p.name : null)
+  return sheet && projectNameKey(sheet) === projectNameKey(next) ? null : sheet
+}
+
+/** Same matching rules as SQL public.apply_master_import(): code first, then name key, then sheet name. */
 export function diffMaster(existing: GroupProject[], rows: MasterRow[]): MasterDiff {
   const pool = existing.filter((p) => p.kind !== 'local_section')
   const seen = new Set<string>()
@@ -63,6 +73,8 @@ export function diffMaster(existing: GroupProject[], rows: MasterRow[]): MasterD
     if (!match) {
       const key = projectNameKey(row.name)
       match = pool.find((p) => free(p) && projectNameKey(p.name) === key)
+      // renamed in the app: still found by the sheet's name
+      if (!match) match = pool.find((p) => free(p) && !!p.sheet_name && projectNameKey(p.sheet_name) === key)
     }
     if (match) {
       seen.add(match.id)
@@ -74,6 +86,35 @@ export function diffMaster(existing: GroupProject[], rows: MasterRow[]): MasterD
   // projects added by hand are not expected in the master sheet, so they are never "missing"
   diff.missing = pool.filter((p) => !seen.has(p.id) && p.status !== 'missing' && !p.manual)
   return diff
+}
+
+/**
+ * Give a project another No (admins, Projects → Project mapping): it moves to that place and the
+ * rows in between shift by one. It stays inside its 대분류, so a number outside the group's range
+ * is clamped to the group's first / last No (hidden rows keep their place). Returns the changed
+ * sort orders of that 대분류, the No it ends up with, and whether the number was clamped.
+ */
+export function moveProjectTo(
+  projects: GroupProject[],
+  id: string,
+  target: number,
+): { updates: { id: string; sort_order: number }[]; no: number; clamped: boolean } | null {
+  const p = projects.find((x) => x.id === id)
+  if (!p || p.hidden || !Number.isFinite(target)) return null
+  const numbers = projectNumbers(projects)
+  const group = sortProjects(projects.filter((x) => x.kind === p.kind))
+  const visible = group.filter((x) => !x.hidden)
+  const first = numbers.get(visible[0].id)!
+  const no = Math.min(first + visible.length - 1, Math.max(first, Math.round(target)))
+  const clamped = no !== Math.round(target)
+  if (no === numbers.get(id)) return { updates: [], no, clamped }
+  const rest = group.filter((x) => x.id !== id)
+  const restVisible = visible.filter((x) => x.id !== id)
+  const anchor = restVisible[no - first] // the row now at that No moves down one
+  rest.splice(anchor ? rest.indexOf(anchor) : rest.indexOf(restVisible[restVisible.length - 1]) + 1, 0, p)
+  const before = new Map(group.map((x) => [x.id, x.sort_order]))
+  const updates = rest.map((x, i) => ({ id: x.id, sort_order: i + 1 })).filter((u) => before.get(u.id) !== u.sort_order)
+  return { updates, no, clamped }
 }
 
 /** Offered in dropdowns and pickers: listed in the master sheet (or added by hand) and not hidden. */
@@ -90,4 +131,12 @@ export function sortProjects(projects: GroupProject[]): GroupProject[] {
   return [...projects].sort(
     (a, b) => KIND_ORDER[a.kind] - KIND_ORDER[b.kind] || a.sort_order - b.sort_order || a.name.localeCompare(b.name),
   )
+}
+
+/**
+ * "No" of every listed project (Projects → Project mapping, Daily Log dropdown): one running
+ * number in table order (대분류, then sort order); hidden projects get none.
+ */
+export function projectNumbers(projects: GroupProject[]): Map<string, number> {
+  return new Map(sortProjects(projects.filter((p) => !p.hidden)).map((p, i) => [p.id, i + 1]))
 }

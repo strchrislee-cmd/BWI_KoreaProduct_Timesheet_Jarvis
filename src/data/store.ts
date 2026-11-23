@@ -14,6 +14,7 @@ import type {
   TimeSlot,
   WorkDay,
 } from '../domain/types'
+import type { ProjectImportPlan } from '../domain/projectFile'
 
 /**
  * Everything the UI needs from persistence. Two implementations:
@@ -42,8 +43,12 @@ export interface DataStore {
   /** Admins: delete a hand-added project nobody has used yet, otherwise hide it. */
   removeProject(id: string): Promise<'deleted' | 'hidden'>
   restoreProject(id: string): Promise<void>
-  /** Admins: rename a Section or a hand-added project (master-sheet names come from the sheet). */
+  /** Admins: rename any project (a master-sheet row remembers the sheet's name, see sheetNameAfterRename). */
   renameProject(id: string, name: string): Promise<void>
+  /** new sort orders (No) of projects; admins */
+  reorderProjects(updates: { id: string; sort_order: number }[]): Promise<void>
+  /** Admins: apply a loaded project list file (see planProjectImport). */
+  importProjectList(plan: ProjectImportPlan): Promise<void>
   latestImport(): Promise<MasterImport | null>
   applyMasterImport(input: { fileName: string; contentHash: string; rows: MasterRow[] }): Promise<MasterImportResult>
 

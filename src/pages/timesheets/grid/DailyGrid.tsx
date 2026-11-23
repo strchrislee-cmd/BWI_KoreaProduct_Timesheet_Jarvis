@@ -3,7 +3,7 @@ import { useEffect, useRef, useState, type ClipboardEvent, type FocusEvent, type
 import { ColorMenu } from '../../../components/ColorMenu'
 import { cx } from '../../../components/ui'
 import { DEFAULT_GRID, GRID_LIMITS, ROW_HEIGHTS, type GridPrefs } from '../../../data/preferences'
-import { isSelectable, sortProjects } from '../../../domain/projects'
+import { isSelectable, projectNumbers } from '../../../domain/projects'
 import { slotToTime } from '../../../domain/time'
 import type { ProjectKind, TaskTemplate, TimeSlot } from '../../../domain/types'
 import { useT } from '../../../lib/i18n'
@@ -57,6 +57,7 @@ interface Option {
   template?: TaskTemplate // task column: apply the template
   create?: 'template' | 'category'
   colorKey?: string // category options: preference key for its color
+  no?: number // category options: the project's No in Projects → Project mapping
 }
 
 interface Editing {
@@ -191,6 +192,7 @@ export function DailyGrid({
     const list: Option[] = []
 
     if (activeCol === 'category') {
+      const numbers = projectNumbers(ctx.projects)
       for (const g of GROUPS) {
         const items: Option[] =
           g.id === 'nonwork'
@@ -216,15 +218,14 @@ export function DailyGrid({
                   color: ctx.color('work', p.id),
                   value: displayName(p),
                   colorKey: p.id,
+                  no: numbers.get(p.id),
                 }))
         const created = new Map(ctx.projects.map((p) => [p.id, p.created_at]))
-        // the order of the No column in Projects → Project mapping
-        const no = new Map(sortProjects(ctx.projects).map((p, i) => [p.id, i]))
         list.push(
           ...sortItems(
             items,
             api.sort.category,
-            { key: (o) => o.key, name: (o) => o.label, created: (o) => created.get(o.key) ?? '', number: (o) => no.get(o.key) ?? 0 },
+            { key: (o) => o.key, name: (o) => o.label, created: (o) => created.get(o.key) ?? '', number: (o) => o.no ?? 0 },
             api.categoryOrder,
           ),
         )
@@ -534,9 +535,9 @@ export function DailyGrid({
     <div>
       <div className={cx('relative select-none text-[13px]', readOnly ? 'cursor-default' : 'cursor-cell')} role="grid" aria-label="30-min log">
         <div className="sticky top-0 z-10 grid rounded-t-control bg-sage-light/90 font-semibold backdrop-blur" style={{ gridTemplateColumns: gridColumns }}>
-          {(['Time', 'Category', 'Task', '업무내용'] as const).map((h, k) => (
+          {(['Time', 'Category', 'Sub Category', 'Content'] as const).map((h, k) => (
             <div key={h} className={cx('relative px-2.5 py-2', k > 0 && 'border-l border-dashed border-black/10')}>
-              {h === '업무내용' ? h : tr(h)}
+              {tr(h)}
               {k < 2 && (
                 <div
                   role="separator"
@@ -749,6 +750,7 @@ export function DailyGrid({
                       ) : (
                         <span className="w-[14px]" />
                       )}
+                      {o.no !== undefined && <span className="w-6 shrink-0 text-right font-mono text-[11px] text-muted">{o.no}</span>}
                       <span className="truncate rounded-chip px-1.5 py-0.5 text-[13px] font-medium" style={o.color ? { backgroundColor: chipBg(o.color) } : undefined}>
                         {o.label}
                       </span>

@@ -17,6 +17,7 @@ import type {
 } from '../domain/types'
 import { projectNameKey } from '../domain/projects'
 import type { DataStore } from './store'
+import type { ProjectImportPlan } from '../domain/projectFile'
 
 type Result<T> = { data: T | null; error: { message: string } | null }
 
@@ -26,7 +27,7 @@ function must<T>(res: Result<T>): T {
 }
 
 const PROJECT_COLUMNS =
-  'id, code, name, kind, system_key, counts_toward_total, sort_order, status, hidden, manual, first_seen_import_id, last_seen_import_id, created_at'
+  'id, code, name, kind, system_key, counts_toward_total, sort_order, status, hidden, manual, sheet_name, first_seen_import_id, last_seen_import_id, created_at'
 const SLOT_COLUMNS = 'user_id, work_date, slot_index, kind, group_project_id, label, description, details, focus'
 
 export class SupabaseStore implements DataStore {
@@ -101,6 +102,18 @@ export class SupabaseStore implements DataStore {
     const same = must<{ id: string }[]>(await this.sb.from('group_projects').select('id').eq('name_key', projectNameKey(clean)).neq('id', id))
     if (same.length) throw new Error(`이미 있는 프로젝트입니다: ${clean}`)
     must(await this.sb.from('group_projects').update({ name: clean }).eq('id', id))
+  }
+  async reorderProjects(updates: { id: string; sort_order: number }[]) {
+    for (const u of updates) must(await this.sb.from('group_projects').update({ sort_order: u.sort_order }).eq('id', u.id))
+  }
+  async importProjectList(plan: ProjectImportPlan) {
+    const created_by = await this.userId()
+    for (const { id, ...patch } of plan.updates) must(await this.sb.from('group_projects').update(patch).eq('id', id))
+    for (const { aliases, ...row } of plan.inserts) {
+      const { id } = must<{ id: string }>(await this.sb.from('group_projects').insert(row).select('id').single())
+      for (const alias of aliases) must(await this.sb.from('project_aliases').insert({ group_project_id: id, alias, created_by }))
+    }
+    for (const a of plan.aliasInserts) must(await this.sb.from('project_aliases').insert({ group_project_id: a.projectId, alias: a.alias, created_by }))
   }
   async restoreProject(id: string) {
     must(await this.sb.from('group_projects').update({ hidden: false }).eq('id', id))
