@@ -1,4 +1,4 @@
-import { Eye, EyeOff, Plus, RotateCcw, Trash2, Upload, X } from 'lucide-react'
+import { Eye, EyeOff, Pencil, Plus, RotateCcw, Trash2, Upload, X } from 'lucide-react'
 import { useState } from 'react'
 import { ColorMenu, Swatch } from '../../components/ColorMenu'
 import { Button, Card, ErrorNote, Modal, Pill, cx } from '../../components/ui'
@@ -35,6 +35,7 @@ export function ProjectsPage() {
   const [note, setNote] = useState('')
   const [confirmDelete, setConfirmDelete] = useState<GroupProject | null>(null)
   const [colorOf, setColorOf] = useState<{ project: GroupProject; anchor: DOMRect } | null>(null)
+  const [renaming, setRenaming] = useState<{ id: string; name: string } | null>(null)
   const colors = useColorPrefs()
 
   const newOnes = projects.filter((p) => !p.hidden && isNewProject(p, latestImport))
@@ -114,6 +115,19 @@ export function ProjectsPage() {
           ? `‘${p.name}’ 삭제됨`
           : `‘${p.name}’ 숨김 · 기존 기록은 그대로이고, 숨긴 항목 보기에서 되돌릴 수 있습니다.`,
       )
+      reloadMaster()
+    } catch (e) {
+      setError(e as Error)
+    }
+  }
+
+  async function renameProject(p: GroupProject) {
+    if (!renaming || renaming.name.trim() === p.name) return setRenaming(null)
+    setError(null)
+    try {
+      await store.renameProject(p.id, renaming.name)
+      setNote(`이름 변경: ‘${p.name}’ → ‘${renaming.name.replace(/\s+/g, ' ').trim()}’`)
+      setRenaming(null)
       reloadMaster()
     } catch (e) {
       setError(e as Error)
@@ -282,7 +296,44 @@ export function ProjectsPage() {
                       <Swatch color={categoryColor('work', p, colors.prefs)} label={`Color of ${p.name}`} />
                     </span>
                   </td>
-                  <td className="font-semibold">{p.name}</td>
+                  <td className="font-semibold">
+                    {renaming?.id === p.id ? (
+                      <form
+                        className="flex items-center gap-1"
+                        onSubmit={(e) => {
+                          e.preventDefault()
+                          void renameProject(p)
+                        }}
+                      >
+                        <input
+                          aria-label="Project name"
+                          autoFocus
+                          className="field !py-1 text-sm"
+                          value={renaming.name}
+                          onChange={(e) => setRenaming({ id: p.id, name: e.target.value })}
+                          onKeyDown={(e) => e.key === 'Escape' && setRenaming(null)}
+                        />
+                        <Button type="submit" className="whitespace-nowrap !px-2.5 !py-1 text-xs">
+                          저장
+                        </Button>
+                      </form>
+                    ) : (
+                      <span className="inline-flex items-center gap-1.5">
+                        {p.name}
+                        {/* Sections and hand-added rows can be renamed; master-sheet names come from the sheet */}
+                        {isAdmin && !p.hidden && (p.kind === 'local_section' || p.manual) && (
+                          <button
+                            aria-label={`Rename ${p.name}`}
+                            title="이름 바꾸기"
+                            className="rounded-chip p-1 text-muted hover:bg-black/5"
+                            onClick={() => setRenaming({ id: p.id, name: p.name })}
+                          >
+                            <Pencil size={13} />
+                          </button>
+                        )}
+                      </span>
+                    )}
+                  </td>
                   <td className="text-muted">{KIND_LABEL[p.kind]}</td>
                   <td>
                     <div className="flex flex-wrap items-center gap-1">

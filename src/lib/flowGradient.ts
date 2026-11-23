@@ -1,20 +1,20 @@
-// Flowing gradient background (WebGL): today's colours ripple and drift like water.
-// Rendered at a reduced resolution and ~30 fps — a soft gradient needs no more — so it stays
-// cheap even under the glass panels. Returns null when WebGL is unavailable (caller falls back
-// to the static CSS gradient).
-import type { GradientScene, Hsl } from './background'
+// Flowing gradient background (WebGL): today's colours lie in soft wavy bands that flow from the
+// right edge of the screen to the left. Each pattern (seed) has its own wave shape. Rendered at a
+// reduced resolution and ~30 fps — a soft gradient needs no more — so it stays cheap even under
+// the glass panels. Returns null when WebGL is unavailable (the caller shows a still gradient).
+import { bandColors, type GradientScene, type Hsl } from './background'
 
 export type FlowSpeedKey = 'slow' | 'normal' | 'fast'
 
 /** Time multiplier per speed setting. */
-export const FLOW_RATE: Record<FlowSpeedKey, number> = { slow: 0.5, normal: 1, fast: 1.8 }
+export const FLOW_RATE: Record<FlowSpeedKey, number> = { slow: 0.5, normal: 1, fast: 2 }
 
-/** Angular speed of the main ripple in the shader (rad per second at rate 1). */
-const RIPPLE = 1.2
+/** Seconds for the pattern to travel one screen width at rate 1. */
+const CROSS = 12
 
-/** Seconds for one ripple to pass at a speed (shown next to the speed buttons). */
-export function rippleSeconds(speed: FlowSpeedKey): number {
-  return Math.round((2 * Math.PI) / (RIPPLE * FLOW_RATE[speed]))
+/** Seconds for the waves to cross the screen at a speed (shown next to the speed buttons). */
+export function crossSeconds(speed: FlowSpeedKey): number {
+  return Math.round(CROSS / FLOW_RATE[speed])
 }
 
 const VERTEX = `
@@ -27,39 +27,32 @@ const FRAGMENT = `
 precision mediump float;
 varying vec2 vUv;
 uniform float uTime;
-uniform float uAspect;
-uniform vec2 uDir;
-uniform vec3 uBase0;
-uniform vec3 uBase1;
-uniform vec3 uCol[4];
-uniform vec2 uPos[4];
+uniform vec3 uCol[6];
+uniform vec2 uK;     // waves per screen width (whole numbers: seamless while scrolling)
+uniform vec2 uAmp;   // wave heights
+uniform vec2 uPhase;
+uniform float uTilt;
+const float TAU = 6.2831853;
 
-vec3 hueShift(vec3 c, float a) {
-  const mat3 toYIQ = mat3(0.299, 0.596, 0.211, 0.587, -0.274, -0.523, 0.114, -0.322, 0.312);
-  const mat3 toRGB = mat3(1.0, 1.0, 1.0, 0.956, -0.272, -1.106, 0.621, -0.647, 1.703);
-  vec3 yiq = toYIQ * c;
-  float h = atan(yiq.z, yiq.y) + a;
-  float ch = length(yiq.yz);
-  return toRGB * vec3(yiq.x, ch * cos(h), ch * sin(h));
+vec3 band(float f) {
+  // 6 colours spread over f = 0..1, smoothly blended
+  float x = clamp(f, 0.0, 1.0) * 5.0;
+  float i = floor(x);
+  float w = smoothstep(0.0, 1.0, fract(x));
+  vec3 a = uCol[0]; vec3 b = uCol[1];
+  if (i >= 1.0) { a = uCol[1]; b = uCol[2]; }
+  if (i >= 2.0) { a = uCol[2]; b = uCol[3]; }
+  if (i >= 3.0) { a = uCol[3]; b = uCol[4]; }
+  if (i >= 4.0) { a = uCol[4]; b = uCol[5]; }
+  if (i >= 5.0) { a = uCol[5]; b = uCol[5]; }
+  return mix(a, b, w);
 }
 
 void main() {
   vec2 p = vUv;
-  float t = uTime;
-  // water: travelling sine waves bend the whole gradient, so colour edges ripple and flow
-  vec2 w = p;
-  w.x += 0.08 * sin(p.y * 5.0 + t * ${RIPPLE.toFixed(1)}) + 0.035 * sin(p.y * 11.0 - t * 1.9 + 1.3);
-  w.y += 0.07 * sin(p.x * 4.0 - t * 1.0 + 0.7) + 0.03 * sin(p.x * 9.0 + t * 1.6);
-  float g = dot(w - 0.5, uDir) / (0.5 * (abs(uDir.x) + abs(uDir.y))) * 0.5 + 0.5;
-  vec3 col = mix(uBase0, uBase1, clamp(g, 0.0, 1.0));
-  for (int i = 0; i < 4; i++) {
-    float fi = float(i);
-    vec2 c = uPos[i] + vec2(0.16 * sin(t * 0.45 + fi * 1.7), 0.12 * cos(t * 0.38 + fi * 2.3));
-    vec2 d = w - c;
-    d.x *= uAspect;
-    col = mix(col, uCol[i], 0.85 * (1.0 - smoothstep(0.0, 0.62, length(d))));
-  }
-  col = hueShift(col, 0.28 * sin(t * 0.12)); // today's colours slowly shift (about ±16°)
+  float x = p.x + uTime / ${CROSS.toFixed(1)}; // the pattern moves right → left
+  float wave = uAmp.x * sin(TAU * uK.x * x + uPhase.x) + uAmp.y * sin(TAU * uK.y * x + uPhase.y);
+  vec3 col = band(p.y + wave + uTilt * (p.x - 0.5));
   // dither: wide, soft gradients would otherwise show bands on 8-bit screens
   float n = fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453);
   gl_FragColor = vec4(clamp(col + (n - 0.5) / 255.0, 0.0, 1.0), 1.0);
@@ -123,19 +116,17 @@ export function startFlow(canvas: HTMLCanvasElement, initial: FlowOptions, cfg: 
   gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 0, 0)
   const u = (name: string) => gl.getUniformLocation(prog, name)
   const uTime = u('uTime')
-  const uAspect = u('uAspect')
 
   let opts = initial
   const debug: FlowDebug = { frames: 0, time: 0 }
   ;(canvas as HTMLCanvasElement & { flowDebug?: FlowDebug }).flowDebug = debug
 
   const setScene = (scene: GradientScene) => {
-    const rad = (scene.angle * Math.PI) / 180
-    gl.uniform2f(u('uDir'), Math.sin(rad), Math.cos(rad)) // CSS angle: 0° = towards the top
-    gl.uniform3fv(u('uBase0'), hslToRgb(scene.baseHsl[0]))
-    gl.uniform3fv(u('uBase1'), hslToRgb(scene.baseHsl[1]))
-    gl.uniform3fv(u('uCol'), scene.blobs.flatMap((b) => hslToRgb(b.hsl)))
-    gl.uniform2fv(u('uPos'), scene.blobs.flatMap((b) => [b.x / 100, 1 - b.y / 100]))
+    gl.uniform3fv(u('uCol'), bandColors(scene).flatMap((c: Hsl) => hslToRgb(c)))
+    gl.uniform2fv(u('uK'), scene.wave.counts)
+    gl.uniform2fv(u('uAmp'), scene.wave.heights)
+    gl.uniform2fv(u('uPhase'), scene.wave.phases)
+    gl.uniform1f(u('uTilt'), scene.wave.tilt)
   }
 
   const resize = () => {
@@ -146,7 +137,6 @@ export function startFlow(canvas: HTMLCanvasElement, initial: FlowOptions, cfg: 
       canvas.height = h
       gl.viewport(0, 0, w, h)
     }
-    gl.uniform1f(uAspect, w / h)
   }
 
   const draw = () => {

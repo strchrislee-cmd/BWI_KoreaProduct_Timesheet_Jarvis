@@ -3,6 +3,7 @@ import { readPrefs } from '../data/preferences'
 import { useStore } from '../data/StoreContext'
 import { todayLocal } from '../domain/time'
 import { LIQUID_FILTER_ID, REFRACTION_MAP, supportsRefraction } from '../lib/liquidGlass'
+import { applyFont } from '../lib/fonts'
 import { FlowCanvas } from './FlowCanvas'
 
 export const BACKGROUND_CHANGED = 'timecrumbs:background'
@@ -36,6 +37,7 @@ export function BackgroundLayer() {
   const prefs = readPrefs(user?.preferences ?? {})
   const mode = user ? prefs.background.mode : 'gradient'
   const uiStyle = user ? prefs.uiStyle : 'blur'
+  const font = user ? prefs.font : 'pretendard'
   const [upload, setUpload] = useState<string | null>(null)
   const [photo, setPhoto] = useState<Photo | null>(null)
   const [tick, setTick] = useState(0)
@@ -51,6 +53,8 @@ export function BackgroundLayer() {
       document.removeEventListener('visibilitychange', v)
     }
   }, [])
+
+  useEffect(() => applyFont(font), [font])
 
   useEffect(() => {
     const root = document.documentElement

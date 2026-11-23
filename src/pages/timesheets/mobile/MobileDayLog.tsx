@@ -168,7 +168,7 @@ function SlotSheet({
       <div
         role="dialog"
         aria-label="30-min entry"
-        className="glass-strong max-h-[90vh] w-full overflow-y-auto rounded-t-card bg-white/95 p-4"
+        className="glass-strong max-h-[90vh] w-full overflow-y-auto rounded-t-card p-4"
         style={{ paddingBottom: 'calc(1rem + env(safe-area-inset-bottom))' }}
         onClick={(e) => e.stopPropagation()}
       >

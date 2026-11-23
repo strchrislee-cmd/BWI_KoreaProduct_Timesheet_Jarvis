@@ -4,8 +4,8 @@ import { readPrefs } from '../src/data/preferences'
 import { buildGroupTimesheet } from '../src/domain/aggregate'
 import { diffMaster, isSelectable, manualProjectRow } from '../src/domain/projects'
 import { currentSlot } from '../src/domain/time'
-import { gradientBackground, gradientScene } from '../src/lib/background'
-import { FLOW_RATE, hslToRgb, rippleSeconds } from '../src/lib/flowGradient'
+import { bandColors, gradientBackground, gradientScene } from '../src/lib/background'
+import { FLOW_RATE, crossSeconds, hslToRgb } from '../src/lib/flowGradient'
 import { REFRACTION_MAP, supportsRefraction } from '../src/lib/liquidGlass'
 import { project, slot } from './helpers'
 
@@ -14,25 +14,36 @@ describe('B2/B4 gradient background', () => {
     for (let i = 0; i < 200; i++) {
       const g = gradientBackground(`seed-${i}`)
       expect(g.backgroundImage).not.toMatch(/repeating-|rgba\(255,\s*255,\s*255/)
-      expect(g.backgroundImage.match(/radial-gradient/g)).toHaveLength(4)
-      expect(Object.keys(gradientScene(`seed-${i}`)).sort()).toEqual(['angle', 'baseHsl', 'blobs'])
+      expect(g.backgroundImage.startsWith('linear-gradient(to top,')).toBe(true)
+      expect(Object.keys(gradientScene(`seed-${i}`)).sort()).toEqual(['angle', 'baseHsl', 'blobs', 'wave'])
     }
   })
 
-  it('scene is deterministic with 4 blobs, and the static preview matches it', () => {
+  it('scene is deterministic; the still fallback shows the same 6 bands', () => {
     const a = gradientScene('2026-11-20')
     expect(gradientScene('2026-11-20')).toEqual(a)
-    expect(a.blobs).toHaveLength(4)
-    for (const b of a.blobs) expect(gradientBackground('2026-11-20').backgroundImage).toContain(`at ${b.x}% ${b.y}%`)
+    expect(bandColors(a)).toHaveLength(6)
+    for (const [h, s, l] of bandColors(a)) expect(gradientBackground('2026-11-20').backgroundImage).toContain(`hsla(${h}, ${s}%, ${l}%`)
   })
 
-  it('flow speeds: faster setting = shorter ripple; even 느리게 is quicker than the old 46–64 s cycle', () => {
+  it('each pattern has its own wave shape, and it repeats seamlessly while flowing (11-23)', () => {
+    const shapes = new Set<string>()
+    for (let i = 0; i < 100; i++) {
+      const { wave } = gradientScene(`seed-${i}`)
+      const [k1, k2] = wave.counts
+      expect(Number.isInteger(k1) && Number.isInteger(k2) && k1 >= 1 && k2 > k1).toBe(true) // whole waves per screen
+      expect(wave.heights[0]).toBeGreaterThanOrEqual(0.06)
+      expect(wave.heights[0]).toBeLessThanOrEqual(0.14)
+      expect(Math.abs(wave.tilt)).toBeLessThanOrEqual(0.25)
+      shapes.add(JSON.stringify(wave))
+    }
+    expect(shapes.size).toBe(100)
+  })
+
+  it('flow speeds: seconds for the waves to cross the screen right → left', () => {
     expect(FLOW_RATE.slow).toBeLessThan(FLOW_RATE.normal)
     expect(FLOW_RATE.normal).toBeLessThan(FLOW_RATE.fast)
-    expect(rippleSeconds('slow')).toBeGreaterThan(rippleSeconds('normal'))
-    expect(rippleSeconds('normal')).toBeGreaterThan(rippleSeconds('fast'))
-    expect(rippleSeconds('slow')).toBeLessThan(15)
-    expect([rippleSeconds('slow'), rippleSeconds('normal'), rippleSeconds('fast')]).toEqual([10, 5, 3])
+    expect([crossSeconds('slow'), crossSeconds('normal'), crossSeconds('fast')]).toEqual([24, 12, 6])
   })
 
   it('HSL → RGB for the shader matches CSS', () => {
@@ -47,6 +58,9 @@ describe('B2/B4 gradient background', () => {
     expect(p.background.animate).toBe(true)
     expect(p.background.speed).toBe('normal')
     expect(p.grid.rowHeight).toBe(30) // 좁게 by default (11-22)
+    expect(p.font).toBe('pretendard')
+    expect(readPrefs({ font: 'plex' }).font).toBe('plex')
+    expect(readPrefs({ font: 'comic-sans' }).font).toBe('pretendard')
     expect(p.uiStyle).toBe('blur')
     const q = readPrefs({ background: { animate: false, speed: 'fast' }, uiStyle: 'liquid' })
     expect([q.background.animate, q.background.speed, q.uiStyle]).toEqual([false, 'fast', 'liquid'])

@@ -15,6 +15,7 @@ import type {
   TimeSlot,
   WorkDay,
 } from '../domain/types'
+import { projectNameKey } from '../domain/projects'
 import type { DataStore } from './store'
 
 type Result<T> = { data: T | null; error: { message: string } | null }
@@ -93,6 +94,13 @@ export class SupabaseStore implements DataStore {
   }
   async removeProject(id: string) {
     return must<'deleted' | 'hidden'>(await this.sb.rpc('remove_group_project', { p_id: id }))
+  }
+  async renameProject(id: string, name: string) {
+    const clean = name.replace(/\s+/g, ' ').trim()
+    if (!clean) throw new Error('project name is required')
+    const same = must<{ id: string }[]>(await this.sb.from('group_projects').select('id').eq('name_key', projectNameKey(clean)).neq('id', id))
+    if (same.length) throw new Error(`이미 있는 프로젝트입니다: ${clean}`)
+    must(await this.sb.from('group_projects').update({ name: clean }).eq('id', id))
   }
   async restoreProject(id: string) {
     must(await this.sb.from('group_projects').update({ hidden: false }).eq('id', id))

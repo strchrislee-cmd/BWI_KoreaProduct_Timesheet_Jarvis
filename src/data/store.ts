@@ -42,6 +42,8 @@ export interface DataStore {
   /** Admins: delete a hand-added project nobody has used yet, otherwise hide it. */
   removeProject(id: string): Promise<'deleted' | 'hidden'>
   restoreProject(id: string): Promise<void>
+  /** Admins: rename a Section or a hand-added project (master-sheet names come from the sheet). */
+  renameProject(id: string, name: string): Promise<void>
   latestImport(): Promise<MasterImport | null>
   applyMasterImport(input: { fileName: string; contentHash: string; rows: MasterRow[] }): Promise<MasterImportResult>
 

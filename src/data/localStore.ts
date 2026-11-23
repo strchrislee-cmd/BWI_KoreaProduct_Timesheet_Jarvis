@@ -212,6 +212,15 @@ export class LocalStore implements DataStore {
     this.mutate((s) => (s.projects.find((x) => x.id === id)!.hidden = true))
     return 'hidden'
   }
+  async renameProject(id: string, name: string) {
+    const clean = name.replace(/\s+/g, ' ').trim()
+    if (!clean) throw new Error('project name is required')
+    if (this.state.projects.some((p) => p.id !== id && projectNameKey(p.name) === projectNameKey(clean))) throw new Error(`이미 있는 프로젝트입니다: ${clean}`)
+    this.mutate((s) => {
+      const p = s.projects.find((x) => x.id === id)
+      if (p) p.name = clean
+    })
+  }
   async restoreProject(id: string) {
     this.mutate((s) => {
       const p = s.projects.find((x) => x.id === id)

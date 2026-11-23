@@ -2,6 +2,7 @@
 // rows or hand-edited JSON must never break the app.
 import type { Profile } from '../domain/types'
 import { isSortMode, type SortMode } from '../lib/ordering'
+import { isFontChoice, type FontChoice } from '../lib/fonts'
 import { readColorPrefs, type ColorPrefs } from '../pages/timesheets/colors'
 
 export interface GridPrefs {
@@ -30,6 +31,8 @@ export interface Prefs extends ColorPrefs {
   background: { mode: BackgroundMode; seed: string | null; animate: boolean; speed: FlowSpeed }
   /** blur = frosted glass (default), liquid = clear glass with refracting edges */
   uiStyle: UiStyle
+  /** body font (Settings → 화면 스타일 → 글꼴) */
+  font: FontChoice
 }
 
 // 좁게 (30px) by default so a whole working day fits on one screen
@@ -69,5 +72,6 @@ export function readPrefs(preferences: Profile['preferences']): Prefs {
       speed: FLOW_SPEEDS.some((x) => x.value === bg.speed) ? (bg.speed as FlowSpeed) : 'normal',
     },
     uiStyle: p.uiStyle === 'liquid' ? 'liquid' : 'blur',
+    font: isFontChoice(p.font) ? p.font : 'pretendard',
   }
 }

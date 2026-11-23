@@ -13,8 +13,9 @@ import { FLOW_SPEEDS, type BackgroundMode, type Prefs, type UiStyle } from '../d
 import { isSelectable, sortProjects } from '../domain/projects'
 import { todayLocal } from '../domain/time'
 import type { OrgSettings, Profile } from '../domain/types'
-import { rippleSeconds } from '../lib/flowGradient'
+import { crossSeconds } from '../lib/flowGradient'
 import { compressImage } from '../lib/files'
+import { FONT_CHOICES, loadFont } from '../lib/fonts'
 import { supportsRefraction } from '../lib/liquidGlass'
 import { useAsync } from '../lib/hooks'
 import { NONWORK_KEY, categoryColor } from './timesheets/colors'
@@ -300,6 +301,8 @@ const UI_STYLES: { value: UiStyle; label: string; desc: string }[] = [
 
 function UiStyleCard() {
   const { prefs, update, error } = usePreferences()
+  // load every font once so each option previews in its own typeface
+  useEffect(() => FONT_CHOICES.forEach((f) => void loadFont(f.value)), [])
   return (
     <Card title={<span className="flex items-center gap-2"><Layers size={18} /> 화면 스타일</span>}>
       <ErrorNote error={error} />
@@ -321,6 +324,24 @@ function UiStyleCard() {
       {prefs.uiStyle === 'liquid' && !supportsRefraction() && (
         <p className="mt-2 text-xs text-muted">이 브라우저에서는 가장자리 휘어짐 없이 맑은 유리로만 보입니다. Chrome·Edge에서는 휘어짐까지 보입니다.</p>
       )}
+      <h3 className="mb-1.5 mt-4 text-sm font-semibold text-muted">글꼴</h3>
+      <div className="grid gap-2 sm:grid-cols-2" role="radiogroup" aria-label="Font">
+        {FONT_CHOICES.map((f) => (
+          <label
+            key={f.value}
+            className={`flex cursor-pointer flex-col gap-0.5 rounded-control border p-3 ${prefs.font === f.value ? 'border-primary bg-white/60' : 'border-white/60 bg-white/30'}`}
+          >
+            <span className="flex items-center gap-2 text-sm font-semibold">
+              <input type="radio" name="font" aria-label={f.label} checked={prefs.font === f.value} onChange={() => void update((p) => ({ ...p, font: f.value }))} />
+              {f.label}
+            </span>
+            <span className="text-[15px]" style={{ fontFamily: f.family }} data-testid={`font-sample-${f.value}`}>
+              30분 기록 · 회의 08:30
+            </span>
+            <span className="text-xs text-muted">{f.desc}</span>
+          </label>
+        ))}
+      </div>
     </Card>
   )
 }
@@ -414,7 +435,7 @@ function BackgroundCard() {
               </div>
               <label className="mt-3 flex items-center gap-2 text-xs font-semibold">
                 <input type="checkbox" aria-label="Flowing gradient" checked={prefs.background.animate} onChange={(e) => void setBackground({ animate: e.target.checked })} />
-                물결처럼 흐르기
+                물결처럼 흐르기 (오른쪽 → 왼쪽)
               </label>
               {prefs.background.animate && (
                 <div role="group" aria-label="Flow speed" className="mt-1.5 flex flex-wrap items-center gap-1 text-xs">
@@ -426,14 +447,14 @@ function BackgroundCard() {
                       className={`whitespace-nowrap rounded-chip px-2 py-0.5 ${prefs.background.speed === sp.value ? 'bg-primary text-white' : 'bg-black/5 hover:bg-black/10'}`}
                       onClick={() => void setBackground({ speed: sp.value })}
                     >
-                      {sp.label} <span className="opacity-70">{rippleSeconds(sp.value)}초</span>
+                      {sp.label} <span className="opacity-70">{crossSeconds(sp.value)}초</span>
                     </button>
                   ))}
                 </div>
               )}
               {prefs.background.animate && (
                 <p className="mt-1 text-xs text-muted" data-testid="flow-speed-hint">
-                  물결 한 번 약 {rippleSeconds(prefs.background.speed)}초 · 위 미리보기가 이 속도로 흐릅니다
+                  물결이 화면을 오른쪽→왼쪽으로 지나가는 데 약 {crossSeconds(prefs.background.speed)}초 · 위 미리보기가 이 속도로 흐릅니다
                 </p>
               )}
               {prefs.background.animate && reducedMotion && <p className="mt-1 text-xs text-muted">OS의 ‘동작 줄이기’가 켜져 있어 움직이지 않습니다.</p>}
