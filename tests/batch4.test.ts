@@ -15,7 +15,7 @@ describe('B2/B4 gradient background', () => {
       const g = gradientBackground(`seed-${i}`)
       expect(g.backgroundImage).not.toMatch(/repeating-|rgba\(255,\s*255,\s*255/)
       expect(g.backgroundImage.startsWith('linear-gradient(to top,')).toBe(true)
-      expect(Object.keys(gradientScene(`seed-${i}`)).sort()).toEqual(['angle', 'baseHsl', 'blobs', 'wave'])
+      expect(Object.keys(gradientScene(`seed-${i}`)).sort()).toEqual(['angle', 'baseHsl', 'blobs', 'sea'])
     }
   })
 
@@ -26,24 +26,22 @@ describe('B2/B4 gradient background', () => {
     for (const [h, s, l] of bandColors(a)) expect(gradientBackground('2026-11-20').backgroundImage).toContain(`hsla(${h}, ${s}%, ${l}%`)
   })
 
-  it('each pattern has its own wave shape, and it repeats seamlessly while flowing (11-23)', () => {
-    const shapes = new Set<string>()
+  it('each pattern starts at its own place in the sea texture (11-23)', () => {
+    const seas = new Set<string>()
     for (let i = 0; i < 100; i++) {
-      const { wave } = gradientScene(`seed-${i}`)
-      const [k1, k2] = wave.counts
-      expect(Number.isInteger(k1) && Number.isInteger(k2) && k1 >= 1 && k2 > k1).toBe(true) // whole waves per screen
-      expect(wave.heights[0]).toBeGreaterThanOrEqual(0.06)
-      expect(wave.heights[0]).toBeLessThanOrEqual(0.14)
-      expect(Math.abs(wave.tilt)).toBeLessThanOrEqual(0.25)
-      shapes.add(JSON.stringify(wave))
+      const { sea } = gradientScene(`seed-${i}`)
+      expect(sea.scale).toBeGreaterThanOrEqual(2)
+      expect(sea.scale).toBeLessThanOrEqual(3.2)
+      expect(sea.offset.every((v) => v >= 0 && v <= 100)).toBe(true)
+      seas.add(JSON.stringify(sea))
     }
-    expect(shapes.size).toBe(100)
+    expect(seas.size).toBe(100)
   })
 
-  it('flow speeds: seconds for the waves to cross the screen right → left', () => {
+  it('flow speeds: seconds for the sea to drift across the screen right → left', () => {
     expect(FLOW_RATE.slow).toBeLessThan(FLOW_RATE.normal)
     expect(FLOW_RATE.normal).toBeLessThan(FLOW_RATE.fast)
-    expect([crossSeconds('slow'), crossSeconds('normal'), crossSeconds('fast')]).toEqual([24, 12, 6])
+    expect([crossSeconds('slow'), crossSeconds('normal'), crossSeconds('fast')]).toEqual([32, 16, 8])
   })
 
   it('HSL → RGB for the shader matches CSS', () => {

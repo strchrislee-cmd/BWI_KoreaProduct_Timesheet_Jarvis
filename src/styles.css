@@ -72,8 +72,9 @@ body {
 /* Glassmorphism surfaces (A8): translucent panels over the background layer */
 /* in the components layer so Tailwind utilities (hover:, bg-…) can still override */
 @layer components {
+  /* --glass-bg / --glass-sage-bg: panel opacity slider (Settings → 화면 스타일, lib/panelOpacity.ts) */
   .glass {
-    background: rgba(255, 255, 255, 0.58);
+    background: var(--glass-bg, rgba(255, 255, 255, 0.58));
     backdrop-filter: blur(18px) saturate(150%);
     border: 1px solid rgba(255, 255, 255, 0.65);
     box-shadow:
@@ -87,7 +88,7 @@ body {
     box-shadow: 0 16px 48px rgba(15, 40, 30, 0.2);
   }
   .glass-sage {
-    background: rgba(220, 229, 218, 0.62);
+    background: var(--glass-sage-bg, rgba(220, 229, 218, 0.62));
   }
   .glass-accent {
     background: rgba(242, 107, 42, 0.82);
@@ -107,7 +108,7 @@ body {
 
   /* Liquid glass (B3, Settings → 화면 스타일): clear panels, light edges, refracting rim in Chromium */
   :root[data-ui='liquid'] .glass {
-    background: linear-gradient(135deg, rgba(255, 255, 255, 0.36), rgba(255, 255, 255, 0.1) 45%, rgba(255, 255, 255, 0.22));
+    background: var(--glass-bg, linear-gradient(135deg, rgba(255, 255, 255, 0.36), rgba(255, 255, 255, 0.1) 45%, rgba(255, 255, 255, 0.22)));
     backdrop-filter: blur(2px) saturate(180%);
     border: 1px solid rgba(255, 255, 255, 0.55);
     box-shadow:
@@ -117,7 +118,7 @@ body {
       0 10px 30px rgba(15, 40, 30, 0.12);
   }
   :root[data-ui='liquid'] .glass-sage {
-    background: linear-gradient(135deg, rgba(220, 229, 218, 0.55), rgba(220, 229, 218, 0.2) 45%, rgba(220, 229, 218, 0.35));
+    background: var(--glass-sage-bg, linear-gradient(135deg, rgba(220, 229, 218, 0.55), rgba(220, 229, 218, 0.2) 45%, rgba(220, 229, 218, 0.35)));
   }
   :root[data-ui='liquid'] .glass-accent {
     background: linear-gradient(135deg, rgba(242, 107, 42, 0.8), rgba(242, 107, 42, 0.6));

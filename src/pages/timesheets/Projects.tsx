@@ -1,5 +1,5 @@
 import { Eye, EyeOff, Pencil, Plus, RotateCcw, Trash2, Upload, X } from 'lucide-react'
-import { useState } from 'react'
+import { Fragment, useState } from 'react'
 import { ColorMenu, Swatch } from '../../components/ColorMenu'
 import { Button, Card, ErrorNote, Modal, Pill, cx } from '../../components/ui'
 import { useStore, useUser } from '../../data/StoreContext'
@@ -7,6 +7,7 @@ import { diffMaster, isNewProject, manualProjectRow, type MasterDiff } from '../
 import type { GroupProject, MasterImportResult, MasterRow, ProjectKind } from '../../domain/types'
 import { loadExcel, sha256Hex } from '../../lib/files'
 import { categoryColor } from './colors'
+import { GroupColorControl } from './GroupColor'
 import { KIND_LABEL } from './projectUi'
 import { useTimesheets } from './TimesheetsLayout'
 import { useColorPrefs } from './useColorPrefs'
@@ -282,128 +283,150 @@ export function ProjectsPage() {
               <tr>
                 <th className="w-10">Color</th>
                 <th>Group Project</th>
-                <th>Kind</th>
                 <th>Local aliases</th>
                 <th>Status</th>
                 {isAdmin && <th className="w-28" />}
               </tr>
             </thead>
             <tbody>
-              {shown.map((p) => (
-                <tr key={p.id} className={cx(p.hidden && 'opacity-60')}>
-                  <td>
-                    <span className="inline-flex" onClick={(e) => setColorOf({ project: p, anchor: e.currentTarget.getBoundingClientRect() })}>
-                      <Swatch color={categoryColor('work', p, colors.prefs)} label={`Color of ${p.name}`} />
-                    </span>
-                  </td>
-                  <td className="font-semibold">
-                    {renaming?.id === p.id ? (
-                      <form
-                        className="flex items-center gap-1"
-                        onSubmit={(e) => {
-                          e.preventDefault()
-                          void renameProject(p)
-                        }}
-                      >
-                        <input
-                          aria-label="Project name"
-                          autoFocus
-                          className="field !py-1 text-sm"
-                          value={renaming.name}
-                          onChange={(e) => setRenaming({ id: p.id, name: e.target.value })}
-                          onKeyDown={(e) => e.key === 'Escape' && setRenaming(null)}
-                        />
-                        <Button type="submit" className="whitespace-nowrap !px-2.5 !py-1 text-xs">
-                          저장
-                        </Button>
-                      </form>
-                    ) : (
-                      <span className="inline-flex items-center gap-1.5">
-                        {p.name}
-                        {/* Sections and hand-added rows can be renamed; master-sheet names come from the sheet */}
-                        {isAdmin && !p.hidden && (p.kind === 'local_section' || p.manual) && (
-                          <button
-                            aria-label={`Rename ${p.name}`}
-                            title="이름 바꾸기"
-                            className="rounded-chip p-1 text-muted hover:bg-black/5"
-                            onClick={() => setRenaming({ id: p.id, name: p.name })}
+              {(['project', 'timelog', 'local_section'] as const).map((kind) => {
+                const rows = shown.filter((p) => p.kind === kind)
+                if (!rows.length) return null
+                const visible = rows.filter((p) => !p.hidden)
+                return (
+                  <Fragment key={kind}>
+                    {/* 대분류 header: common colour / random colours for every 소분류 below */}
+                    <tr data-testid={`group-${kind}`} className="bg-black/[0.03]">
+                      <td colSpan={isAdmin ? 5 : 4} className="!py-1.5">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <GroupColorControl
+                            label={KIND_LABEL[kind]}
+                            items={visible.map((p) => ({ key: p.id, color: categoryColor('work', p, colors.prefs) }))}
+                            colors={colors}
                           >
-                            <Pencil size={13} />
-                          </button>
-                        )}
-                      </span>
-                    )}
-                  </td>
-                  <td className="text-muted">{KIND_LABEL[p.kind]}</td>
-                  <td>
-                    <div className="flex flex-wrap items-center gap-1">
-                      {aliases
-                        .filter((a) => a.group_project_id === p.id)
-                        .map((a) => (
-                          <Pill key={a.id} tone="blue">
-                            {a.alias}
-                            {(isAdmin || a.created_by === user.id) && (
-                              <button aria-label={`Remove alias ${a.alias}`} className="ml-1" onClick={() => void removeAlias(a.id)}>
-                                <X size={12} />
+                            <span className="text-xs font-bold tracking-wide">{KIND_LABEL[kind]}</span>
+                            <span className="text-xs text-muted">{visible.length}개</span>
+                          </GroupColorControl>
+                        </div>
+                      </td>
+                    </tr>
+                    {rows.map((p) => (
+                      <tr key={p.id} className={cx(p.hidden && 'opacity-60')}>
+                        <td>
+                          <span className="inline-flex" onClick={(e) => setColorOf({ project: p, anchor: e.currentTarget.getBoundingClientRect() })}>
+                            <Swatch color={categoryColor('work', p, colors.prefs)} label={`Color of ${p.name}`} />
+                          </span>
+                        </td>
+                        <td className="font-semibold">
+                          {renaming?.id === p.id ? (
+                            <form
+                              className="flex items-center gap-1"
+                              onSubmit={(e) => {
+                                e.preventDefault()
+                                void renameProject(p)
+                              }}
+                            >
+                              <input
+                                aria-label="Project name"
+                                autoFocus
+                                className="field !py-1 text-sm"
+                                value={renaming.name}
+                                onChange={(e) => setRenaming({ id: p.id, name: e.target.value })}
+                                onKeyDown={(e) => e.key === 'Escape' && setRenaming(null)}
+                              />
+                              <Button type="submit" className="whitespace-nowrap !px-2.5 !py-1 text-xs">
+                                저장
+                              </Button>
+                            </form>
+                          ) : (
+                            <span className="inline-flex items-center gap-1.5">
+                              {p.name}
+                              {/* Sections and hand-added rows can be renamed; master-sheet names come from the sheet */}
+                              {isAdmin && !p.hidden && (p.kind === 'local_section' || p.manual) && (
+                                <button
+                                  aria-label={`Rename ${p.name}`}
+                                  title="이름 바꾸기"
+                                  className="rounded-chip p-1 text-muted hover:bg-black/5"
+                                  onClick={() => setRenaming({ id: p.id, name: p.name })}
+                                >
+                                  <Pencil size={13} />
+                                </button>
+                              )}
+                            </span>
+                          )}
+                        </td>
+                        <td>
+                          <div className="flex flex-wrap items-center gap-1">
+                            {aliases
+                              .filter((a) => a.group_project_id === p.id)
+                              .map((a) => (
+                                <Pill key={a.id} tone="blue">
+                                  {a.alias}
+                                  {(isAdmin || a.created_by === user.id) && (
+                                    <button aria-label={`Remove alias ${a.alias}`} className="ml-1" onClick={() => void removeAlias(a.id)}>
+                                      <X size={12} />
+                                    </button>
+                                  )}
+                                </Pill>
+                              ))}
+                            {canAlias && (
+                              <span className="flex items-center">
+                                <input
+                                  aria-label={`Add alias for ${p.name}`}
+                                  className="cell-input !w-28 text-xs"
+                                  placeholder="+ alias"
+                                  value={drafts[p.id] ?? ''}
+                                  onChange={(e) => setDrafts({ ...drafts, [p.id]: e.target.value })}
+                                  onKeyDown={(e) => e.key === 'Enter' && void addAlias(p.id)}
+                                />
+                                {(drafts[p.id] ?? '').trim() && (
+                                  <button aria-label="Save alias" className="rounded-control p-1 hover:bg-sage-light" onClick={() => void addAlias(p.id)}>
+                                    <Plus size={14} />
+                                  </button>
+                                )}
+                              </span>
+                            )}
+                          </div>
+                        </td>
+                        <td>
+                          <span className="flex flex-wrap gap-1">
+                            {p.hidden ? (
+                              <Pill>숨김</Pill>
+                            ) : isNewProject(p, latestImport) ? (
+                              <Pill tone="orange">NEW</Pill>
+                            ) : p.status === 'missing' ? (
+                              <Pill>Not in sheet</Pill>
+                            ) : (
+                              <Pill tone="green">Active</Pill>
+                            )}
+                            {p.manual && <Pill tone="blue">직접 추가</Pill>}
+                          </span>
+                        </td>
+                        {isAdmin && (
+                          <td className="text-right">
+                            {p.hidden ? (
+                              <Button variant="ghost" className="whitespace-nowrap !px-2 !py-1 text-xs" aria-label={`Restore ${p.name}`} onClick={() => void restoreProject(p)}>
+                                <RotateCcw size={14} /> 되돌리기
+                              </Button>
+                            ) : p.system_key ? (
+                              <span className="whitespace-nowrap text-xs text-muted" title="기본 항목은 삭제할 수 없습니다">기본 항목</span>
+                            ) : (
+                              <button
+                                aria-label={`Remove ${p.name}`}
+                                title={p.manual ? '삭제' : '숨기기 (되돌리기 가능)'}
+                                className="rounded-control p-1.5 text-muted hover:bg-black/5 hover:text-[#9a3a0e]"
+                                onClick={() => (p.manual ? setConfirmDelete(p) : void removeProject(p))}
+                              >
+                                <Trash2 size={15} />
                               </button>
                             )}
-                          </Pill>
-                        ))}
-                      {canAlias && (
-                        <span className="flex items-center">
-                          <input
-                            aria-label={`Add alias for ${p.name}`}
-                            className="cell-input !w-28 text-xs"
-                            placeholder="+ alias"
-                            value={drafts[p.id] ?? ''}
-                            onChange={(e) => setDrafts({ ...drafts, [p.id]: e.target.value })}
-                            onKeyDown={(e) => e.key === 'Enter' && void addAlias(p.id)}
-                          />
-                          {(drafts[p.id] ?? '').trim() && (
-                            <button aria-label="Save alias" className="rounded-control p-1 hover:bg-sage-light" onClick={() => void addAlias(p.id)}>
-                              <Plus size={14} />
-                            </button>
-                          )}
-                        </span>
-                      )}
-                    </div>
-                  </td>
-                  <td>
-                    <span className="flex flex-wrap gap-1">
-                      {p.hidden ? (
-                        <Pill>숨김</Pill>
-                      ) : isNewProject(p, latestImport) ? (
-                        <Pill tone="orange">NEW</Pill>
-                      ) : p.status === 'missing' ? (
-                        <Pill>Not in sheet</Pill>
-                      ) : (
-                        <Pill tone="green">Active</Pill>
-                      )}
-                      {p.manual && <Pill tone="blue">직접 추가</Pill>}
-                    </span>
-                  </td>
-                  {isAdmin && (
-                    <td className="text-right">
-                      {p.hidden ? (
-                        <Button variant="ghost" className="whitespace-nowrap !px-2 !py-1 text-xs" aria-label={`Restore ${p.name}`} onClick={() => void restoreProject(p)}>
-                          <RotateCcw size={14} /> 되돌리기
-                        </Button>
-                      ) : p.system_key ? (
-                        <span className="whitespace-nowrap text-xs text-muted" title="기본 항목은 삭제할 수 없습니다">기본 항목</span>
-                      ) : (
-                        <button
-                          aria-label={`Remove ${p.name}`}
-                          title={p.manual ? '삭제' : '숨기기 (되돌리기 가능)'}
-                          className="rounded-control p-1.5 text-muted hover:bg-black/5 hover:text-[#9a3a0e]"
-                          onClick={() => (p.manual ? setConfirmDelete(p) : void removeProject(p))}
-                        >
-                          <Trash2 size={15} />
-                        </button>
-                      )}
-                    </td>
-                  )}
-                </tr>
-              ))}
+                          </td>
+                        )}
+                      </tr>
+                    ))}
+                  </Fragment>
+                )
+              })}
             </tbody>
           </table>
         </div>

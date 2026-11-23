@@ -35,13 +35,15 @@ export interface ColorMenuProps {
   /** Viewport rect of the element the menu belongs to. */
   anchor: DOMRect
   placement?: 'right' | 'below'
+  /** extra commands shown above the colour list (e.g. "randomise every item in this group") */
+  actions?: { label: string; onClick: () => void }[]
 }
 
 /**
  * Notion-style option menu: name, delete, and a color list
  * (random, random pastel, default, named colors, saved colors, custom RGB).
  */
-export function ColorMenu({ title, onRename, onDelete, note, value, isCustom, saved, onPick, onSave, onRemoveSaved, onClose, anchor, placement = 'below' }: ColorMenuProps) {
+export function ColorMenu({ title, onRename, onDelete, note, value, isCustom, saved, onPick, onSave, onRemoveSaved, onClose, anchor, placement = 'below', actions }: ColorMenuProps) {
   const ref = useRef<HTMLDivElement>(null)
   const [custom, setCustom] = useState(false)
   const [name, setName] = useState(title)
@@ -134,6 +136,11 @@ export function ColorMenu({ title, onRename, onDelete, note, value, isCustom, sa
           <Trash2 size={14} /> 삭제
         </button>
       )}
+      {actions?.map((a) => (
+        <button key={a.label} type="button" onClick={a.onClick} className="flex w-full items-center gap-2 rounded-chip px-2 py-1 text-[13px] hover:bg-black/5">
+          <Shuffle size={14} className="text-primary" /> {a.label}
+        </button>
+      ))}
       <div className="my-1 border-t border-dashed border-black/10" />
       <div className="px-2 pb-1 text-[11px] font-semibold text-muted">색</div>
       <Row label="랜덤" icon={<Shuffle size={14} className="text-primary" />} onClick={() => onPick(randomColor())} />

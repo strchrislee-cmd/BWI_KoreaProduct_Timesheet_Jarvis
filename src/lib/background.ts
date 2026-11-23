@@ -28,10 +28,10 @@ export interface GradientScene {
   /** 4 colour blobs, centre in % of the screen (x from the left, y from the top) */
   blobs: { hsl: Hsl; x: number; y: number }[]
   /**
-   * Shape of the waves that flow right → left (differs per pattern). Two sine waves per screen
-   * width: whole-number counts so the pattern repeats seamlessly while it scrolls.
+   * The "sea seen from above" texture that drifts right → left: where in the (endless) noise
+   * field this pattern starts, and how large its currents are. Differs per pattern.
    */
-  wave: { counts: [number, number]; heights: [number, number]; phases: [number, number]; tilt: number }
+  sea: { offset: [number, number]; scale: number }
 }
 
 /** Today's (or a pinned seed's) colours: soft mesh of 4 blobs over a light base. No overlay patterns. */
@@ -44,16 +44,12 @@ export function gradientScene(seed: string): GradientScene {
     y: Math.round(rnd() * 100),
   }))
   const angle = Math.round(rnd() * 360)
-  // drawn after the colours so a seed keeps the colours it had before the waves were added
-  const k1 = 1 + Math.floor(rnd() * 2) // 1–2 big waves per screen
-  const k2 = k1 + 1 + Math.floor(rnd() * 3) // plus a smaller, faster ripple
-  const wave = {
-    counts: [k1, k2] as [number, number],
-    heights: [round(0.06 + rnd() * 0.08), round(0.02 + rnd() * 0.04)] as [number, number],
-    phases: [round(rnd() * Math.PI * 2), round(rnd() * Math.PI * 2)] as [number, number],
-    tilt: round((rnd() - 0.5) * 0.5),
+  // drawn after the colours so a seed keeps the colours it had before
+  const sea = {
+    offset: [round(rnd() * 100), round(rnd() * 100)] as [number, number],
+    scale: round(2 + rnd() * 1.2), // 2–3.2: size of the gentle currents (bigger = finer)
   }
-  return { baseHsl: [[hue, 60, 93], [(hue + 50) % 360, 55, 86]], angle, blobs, wave }
+  return { baseHsl: [[hue, 60, 93], [(hue + 50) % 360, 55, 86]], angle, blobs, sea }
 }
 
 const round = (v: number) => Math.round(v * 1000) / 1000

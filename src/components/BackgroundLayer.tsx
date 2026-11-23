@@ -4,6 +4,7 @@ import { useStore } from '../data/StoreContext'
 import { todayLocal } from '../domain/time'
 import { LIQUID_FILTER_ID, REFRACTION_MAP, supportsRefraction } from '../lib/liquidGlass'
 import { applyFont } from '../lib/fonts'
+import { PANEL_OPACITY_DEFAULT, applyPanelOpacity } from '../lib/panelOpacity'
 import { FlowCanvas } from './FlowCanvas'
 
 export const BACKGROUND_CHANGED = 'timecrumbs:background'
@@ -38,6 +39,7 @@ export function BackgroundLayer() {
   const mode = user ? prefs.background.mode : 'gradient'
   const uiStyle = user ? prefs.uiStyle : 'blur'
   const font = user ? prefs.font : 'pretendard'
+  const panelOpacity = user ? prefs.panelOpacity[uiStyle] : PANEL_OPACITY_DEFAULT[uiStyle]
   const [upload, setUpload] = useState<string | null>(null)
   const [photo, setPhoto] = useState<Photo | null>(null)
   const [tick, setTick] = useState(0)
@@ -55,6 +57,8 @@ export function BackgroundLayer() {
   }, [])
 
   useEffect(() => applyFont(font), [font])
+
+  useEffect(() => applyPanelOpacity(uiStyle, panelOpacity), [uiStyle, panelOpacity])
 
   useEffect(() => {
     const root = document.documentElement
@@ -103,7 +107,7 @@ export function BackgroundLayer() {
           speed={prefs.background.speed}
           animate={!user || prefs.background.animate}
           paused={hidden}
-          scale={0.5}
+          scale={0.4}
         />
       )}
       <div aria-hidden className="fixed inset-0 -z-10 bg-white/20" />

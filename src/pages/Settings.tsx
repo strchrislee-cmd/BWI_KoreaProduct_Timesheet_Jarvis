@@ -1,5 +1,5 @@
 import { Bell, ImagePlus, Layers, RefreshCw, Sparkles, X } from 'lucide-react'
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { BACKGROUND_CHANGED, fetchDailyPhoto } from '../components/BackgroundLayer'
 import { ColorMenu, Swatch } from '../components/ColorMenu'
 import { FlowCanvas } from '../components/FlowCanvas'
@@ -17,8 +17,10 @@ import { crossSeconds } from '../lib/flowGradient'
 import { compressImage } from '../lib/files'
 import { FONT_CHOICES, loadFont } from '../lib/fonts'
 import { supportsRefraction } from '../lib/liquidGlass'
+import { PANEL_OPACITY_DEFAULT, PANEL_OPACITY_MIN, applyPanelOpacity } from '../lib/panelOpacity'
 import { useAsync } from '../lib/hooks'
 import { NONWORK_KEY, categoryColor } from './timesheets/colors'
+import { GroupColorControl } from './timesheets/GroupColor'
 import { KIND_LABEL, displayName } from './timesheets/projectUi'
 import { useColorPrefs } from './timesheets/useColorPrefs'
 
@@ -186,9 +188,10 @@ function CategoryColorsCard() {
   const groups = [
     ...(['project', 'timelog', 'local_section'] as const).map((kind) => ({
       title: KIND_LABEL[kind],
+      major: true,
       items: active.filter((p) => p.kind === kind).map((p) => ({ key: p.id, name: displayName(p), color: categoryColor('work', p, colors.prefs) })),
     })),
-    { title: 'Non-work', items: [{ key: NONWORK_KEY, name: 'Non-work (점심·휴식·퇴근)', color: categoryColor('nonwork', undefined, colors.prefs) }] },
+    { title: 'Non-work', major: false, items: [{ key: NONWORK_KEY, name: 'Non-work (점심·휴식·퇴근)', color: categoryColor('nonwork', undefined, colors.prefs) }] },
   ].filter((g) => g.items.length)
 
   return (
@@ -198,7 +201,15 @@ function CategoryColorsCard() {
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         {groups.map((g) => (
           <div key={g.title} className="min-w-0">
-            <h3 className="mb-1 text-xs font-semibold uppercase text-muted">{g.title}</h3>
+            {g.major ? (
+              <h3 className="mb-1 flex flex-wrap items-center gap-2 text-xs font-semibold uppercase text-muted">
+                <GroupColorControl label={g.title} items={g.items} colors={colors}>
+                  <span>{g.title}</span>
+                </GroupColorControl>
+              </h3>
+            ) : (
+              <h3 className="mb-1 text-xs font-semibold uppercase text-muted">{g.title}</h3>
+            )}
             <ul>
               {g.items.map((it) => (
                 <li key={it.key} className="flex items-center gap-2 py-1 text-sm">
@@ -324,6 +335,12 @@ function UiStyleCard() {
       {prefs.uiStyle === 'liquid' && !supportsRefraction() && (
         <p className="mt-2 text-xs text-muted">이 브라우저에서는 가장자리 휘어짐 없이 맑은 유리로만 보입니다. Chrome·Edge에서는 휘어짐까지 보입니다.</p>
       )}
+      <PanelOpacitySlider
+        key={prefs.uiStyle}
+        style={prefs.uiStyle}
+        value={prefs.panelOpacity[prefs.uiStyle]}
+        onCommit={(style, v) => void update((p) => ({ ...p, panelOpacity: { ...p.panelOpacity, [style]: v } }))}
+      />
       <h3 className="mb-1.5 mt-4 text-sm font-semibold text-muted">글꼴</h3>
       <div className="grid gap-2 sm:grid-cols-2" role="radiogroup" aria-label="Font">
         {FONT_CHOICES.map((f) => (
@@ -343,6 +360,56 @@ function UiStyleCard() {
         ))}
       </div>
     </Card>
+  )
+}
+
+/** How much background shows through the panels, per UI style: previews live, saves when you stop dragging. */
+function PanelOpacitySlider({ style, value, onCommit }: { style: UiStyle; value: number; onCommit: (style: UiStyle, v: number) => void }) {
+  const [draft, setDraft] = useState(value)
+  const pending = useRef<{ timer: number; value: number } | null>(null)
+  const commit = useRef(onCommit)
+  commit.current = onCommit
+  const flush = () => {
+    if (!pending.current) return
+    window.clearTimeout(pending.current.timer)
+    commit.current(style, pending.current.value)
+    pending.current = null
+  }
+  useEffect(() => flush, []) // save a change still waiting when the slider unmounts (style switch, leaving Settings)
+  const change = (v: number) => {
+    setDraft(v)
+    applyPanelOpacity(style, v)
+    if (pending.current) window.clearTimeout(pending.current.timer)
+    pending.current = { value: v, timer: window.setTimeout(flush, 400) }
+  }
+  const def = PANEL_OPACITY_DEFAULT[style]
+  return (
+    <div className="mt-3">
+      <div className="flex items-center justify-between text-sm font-semibold text-muted">
+        <span>패널 불투명도 · {UI_STYLES.find((o) => o.value === style)?.label}</span>
+        <span className="font-mono text-ink" data-testid="panel-opacity-value">
+          {draft}%
+        </span>
+      </div>
+      <input
+        type="range"
+        aria-label="Panel opacity"
+        min={PANEL_OPACITY_MIN}
+        max={100}
+        step={1}
+        value={draft}
+        onChange={(e) => change(Number(e.target.value))}
+        className="w-full accent-primary"
+      />
+      <p className="flex flex-wrap items-center gap-x-2 text-xs text-muted">
+        높을수록 배경이 덜 비칩니다 (기본 {def}%)
+        {draft !== def && (
+          <button type="button" className="underline hover:text-ink" onClick={() => change(def)}>
+            기본값으로
+          </button>
+        )}
+      </p>
+    </div>
   )
 }
 
@@ -454,7 +521,7 @@ function BackgroundCard() {
               )}
               {prefs.background.animate && (
                 <p className="mt-1 text-xs text-muted" data-testid="flow-speed-hint">
-                  물결이 화면을 오른쪽→왼쪽으로 지나가는 데 약 {crossSeconds(prefs.background.speed)}초 · 위 미리보기가 이 속도로 흐릅니다
+                  물결이 오른쪽→왼쪽으로 화면을 지나가는 데 약 {crossSeconds(prefs.background.speed)}초 · 위 미리보기가 이 속도로 흐릅니다
                 </p>
               )}
               {prefs.background.animate && reducedMotion && <p className="mt-1 text-xs text-muted">OS의 ‘동작 줄이기’가 켜져 있어 움직이지 않습니다.</p>}

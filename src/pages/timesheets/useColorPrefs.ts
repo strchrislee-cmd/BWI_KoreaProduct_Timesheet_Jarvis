@@ -17,6 +17,16 @@ export function useColorPrefs() {
         else delete categoryColors[key]
         return { ...p, categoryColors }
       }),
+    /** Several categories at once (a 대분류's common colour, or random colours for all of them). */
+    setCategoryColors: (entries: [string, string | null][]) =>
+      update((p) => {
+        const categoryColors = { ...p.categoryColors }
+        for (const [key, hex] of entries) {
+          if (hex) categoryColors[key] = hex
+          else delete categoryColors[key]
+        }
+        return { ...p, categoryColors }
+      }),
     savePreset: (hex: string) => update((p) => ({ ...p, palette: addToPalette(p.palette, hex) })),
     removePreset: (hex: string) => update((p) => ({ ...p, palette: p.palette.filter((x) => x.toUpperCase() !== hex.toUpperCase()) })),
   }

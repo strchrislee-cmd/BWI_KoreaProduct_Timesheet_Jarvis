@@ -1,18 +1,20 @@
-// Flowing gradient background (WebGL): today's colours lie in soft wavy bands that flow from the
-// right edge of the screen to the left. Each pattern (seed) has its own wave shape. Rendered at a
-// reduced resolution and ~30 fps — a soft gradient needs no more — so it stays cheap even under
-// the glass panels. Returns null when WebGL is unavailable (the caller shows a still gradient).
-import { bandColors, type GradientScene, type Hsl } from './background'
+// Flowing gradient background (WebGL): today's soft colour pools over a light base, gently
+// rippled, drifting steadily from the right edge of the screen to the left like the sea seen from
+// high above — one direction only, no back-and-forth. Each pattern (seed) has its own colours,
+// pool positions and currents. Rendered at a
+// reduced resolution and ~30 fps so it stays cheap under the glass panels. Returns null when
+// WebGL is unavailable (the caller shows a still gradient).
+import type { GradientScene, Hsl } from './background'
 
 export type FlowSpeedKey = 'slow' | 'normal' | 'fast'
 
 /** Time multiplier per speed setting. */
 export const FLOW_RATE: Record<FlowSpeedKey, number> = { slow: 0.5, normal: 1, fast: 2 }
 
-/** Seconds for the pattern to travel one screen width at rate 1. */
-const CROSS = 12
+/** Seconds for the currents to drift across one screen width at rate 1. */
+const CROSS = 16
 
-/** Seconds for the waves to cross the screen at a speed (shown next to the speed buttons). */
+/** Seconds for the sea to drift across the screen at a speed (shown next to the speed buttons). */
 export function crossSeconds(speed: FlowSpeedKey): number {
   return Math.round(CROSS / FLOW_RATE[speed])
 }
@@ -27,32 +29,48 @@ const FRAGMENT = `
 precision mediump float;
 varying vec2 vUv;
 uniform float uTime;
-uniform vec3 uCol[6];
-uniform vec2 uK;     // waves per screen width (whole numbers: seamless while scrolling)
-uniform vec2 uAmp;   // wave heights
-uniform vec2 uPhase;
-uniform float uTilt;
-const float TAU = 6.2831853;
+uniform float uAspect;
+uniform vec2 uDir;
+uniform vec3 uBase0;
+uniform vec3 uBase1;
+uniform vec3 uCol[4];
+uniform vec2 uPos[4];
+uniform vec2 uOffset; // where this pattern starts in the noise field
+uniform float uScale; // size of the gentle currents
 
-vec3 band(float f) {
-  // 6 colours spread over f = 0..1, smoothly blended
-  float x = clamp(f, 0.0, 1.0) * 5.0;
-  float i = floor(x);
-  float w = smoothstep(0.0, 1.0, fract(x));
-  vec3 a = uCol[0]; vec3 b = uCol[1];
-  if (i >= 1.0) { a = uCol[1]; b = uCol[2]; }
-  if (i >= 2.0) { a = uCol[2]; b = uCol[3]; }
-  if (i >= 3.0) { a = uCol[3]; b = uCol[4]; }
-  if (i >= 4.0) { a = uCol[4]; b = uCol[5]; }
-  if (i >= 5.0) { a = uCol[5]; b = uCol[5]; }
-  return mix(a, b, w);
+float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+float noise(vec2 p) {
+  vec2 i = floor(p);
+  vec2 f = fract(p);
+  vec2 u = f * f * (3.0 - 2.0 * f);
+  return mix(mix(hash(i), hash(i + vec2(1.0, 0.0)), u.x), mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), u.x), u.y);
+}
+float fbm(vec2 p) {
+  float v = 0.0;
+  float a = 0.5;
+  for (int i = 0; i < 3; i++) { v += a * noise(p); p = p * 2.03 + 17.0; a *= 0.5; }
+  return v;
 }
 
 void main() {
   vec2 p = vUv;
-  float x = p.x + uTime / ${CROSS.toFixed(1)}; // the pattern moves right → left
-  float wave = uAmp.x * sin(TAU * uK.x * x + uPhase.x) + uAmp.y * sin(TAU * uK.y * x + uPhase.y);
-  vec3 col = band(p.y + wave + uTilt * (p.x - 0.5));
+  float s = uTime / ${CROSS.toFixed(1)}; // screens travelled; only ever grows, so nothing swings back
+  // gentle currents, drifting right -> left a little faster than the colours
+  vec2 np = vec2(p.x * uAspect, p.y) * uScale + uOffset + vec2(s * 1.3 * uAspect * uScale, 0.0);
+  vec2 w = p + 0.07 * vec2(fbm(np) - 0.44, fbm(np + vec2(4.1, 7.3)) - 0.44);
+  float g = dot(w - 0.5, uDir) / (0.5 * (abs(uDir.x) + abs(uDir.y))) * 0.5 + 0.5;
+  vec3 col = mix(uBase0, uBase1, clamp(g, 0.0, 1.0));
+  for (int i = 0; i < 4; i++) {
+    // colour pools move right -> left and come back in from the right edge (seamless wrap)
+    vec2 c = vec2(fract(uPos[i].x - s), uPos[i].y);
+    float a = 0.0;
+    for (int k = -1; k <= 1; k++) {
+      vec2 d = w - c - vec2(float(k), 0.0);
+      d.x *= uAspect;
+      a = max(a, 1.0 - smoothstep(0.0, 0.62, length(d)));
+    }
+    col = mix(col, uCol[i], 0.85 * a);
+  }
   // dither: wide, soft gradients would otherwise show bands on 8-bit screens
   float n = fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453);
   gl_FragColor = vec4(clamp(col + (n - 0.5) / 255.0, 0.0, 1.0), 1.0);
@@ -116,17 +134,21 @@ export function startFlow(canvas: HTMLCanvasElement, initial: FlowOptions, cfg: 
   gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 0, 0)
   const u = (name: string) => gl.getUniformLocation(prog, name)
   const uTime = u('uTime')
+  const uAspect = u('uAspect')
 
   let opts = initial
   const debug: FlowDebug = { frames: 0, time: 0 }
   ;(canvas as HTMLCanvasElement & { flowDebug?: FlowDebug }).flowDebug = debug
 
   const setScene = (scene: GradientScene) => {
-    gl.uniform3fv(u('uCol'), bandColors(scene).flatMap((c: Hsl) => hslToRgb(c)))
-    gl.uniform2fv(u('uK'), scene.wave.counts)
-    gl.uniform2fv(u('uAmp'), scene.wave.heights)
-    gl.uniform2fv(u('uPhase'), scene.wave.phases)
-    gl.uniform1f(u('uTilt'), scene.wave.tilt)
+    const rad = (scene.angle * Math.PI) / 180
+    gl.uniform2f(u('uDir'), Math.sin(rad), Math.cos(rad)) // CSS angle: 0° = towards the top
+    gl.uniform3fv(u('uBase0'), hslToRgb(scene.baseHsl[0]))
+    gl.uniform3fv(u('uBase1'), hslToRgb(scene.baseHsl[1]))
+    gl.uniform3fv(u('uCol'), scene.blobs.flatMap((b) => hslToRgb(b.hsl)))
+    gl.uniform2fv(u('uPos'), scene.blobs.flatMap((b) => [b.x / 100, 1 - b.y / 100]))
+    gl.uniform2fv(u('uOffset'), scene.sea.offset)
+    gl.uniform1f(u('uScale'), scene.sea.scale)
   }
 
   const resize = () => {
@@ -137,6 +159,7 @@ export function startFlow(canvas: HTMLCanvasElement, initial: FlowOptions, cfg: 
       canvas.height = h
       gl.viewport(0, 0, w, h)
     }
+    gl.uniform1f(uAspect, w / h)
   }
 
   const draw = () => {

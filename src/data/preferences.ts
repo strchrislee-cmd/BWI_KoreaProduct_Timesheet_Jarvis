@@ -3,6 +3,7 @@
 import type { Profile } from '../domain/types'
 import { isSortMode, type SortMode } from '../lib/ordering'
 import { isFontChoice, type FontChoice } from '../lib/fonts'
+import { PANEL_OPACITY_DEFAULT, PANEL_OPACITY_MIN } from '../lib/panelOpacity'
 import { readColorPrefs, type ColorPrefs } from '../pages/timesheets/colors'
 
 export interface GridPrefs {
@@ -31,6 +32,8 @@ export interface Prefs extends ColorPrefs {
   background: { mode: BackgroundMode; seed: string | null; animate: boolean; speed: FlowSpeed }
   /** blur = frosted glass (default), liquid = clear glass with refracting edges */
   uiStyle: UiStyle
+  /** panel opacity in % per UI style (higher = less background shows through) */
+  panelOpacity: Record<UiStyle, number>
   /** body font (Settings → 화면 스타일 → 글꼴) */
   font: FontChoice
 }
@@ -52,6 +55,7 @@ export function readPrefs(preferences: Profile['preferences']): Prefs {
   const sort = (p.sort ?? {}) as Record<string, unknown>
   const grid = (p.grid ?? {}) as Record<string, unknown>
   const bg = (p.background ?? {}) as Record<string, unknown>
+  const opacity = (p.panelOpacity ?? {}) as Record<string, unknown>
   return {
     ...readColorPrefs(preferences),
     categoryOrder: Array.isArray(p.categoryOrder) ? p.categoryOrder.filter((x): x is string => typeof x === 'string') : [],
@@ -72,6 +76,10 @@ export function readPrefs(preferences: Profile['preferences']): Prefs {
       speed: FLOW_SPEEDS.some((x) => x.value === bg.speed) ? (bg.speed as FlowSpeed) : 'normal',
     },
     uiStyle: p.uiStyle === 'liquid' ? 'liquid' : 'blur',
+    panelOpacity: {
+      blur: num(opacity.blur, PANEL_OPACITY_MIN, 100, PANEL_OPACITY_DEFAULT.blur),
+      liquid: num(opacity.liquid, PANEL_OPACITY_MIN, 100, PANEL_OPACITY_DEFAULT.liquid),
+    },
     font: isFontChoice(p.font) ? p.font : 'pretendard',
   }
 }
