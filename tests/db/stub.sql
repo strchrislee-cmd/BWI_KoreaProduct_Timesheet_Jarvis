@@ -13,6 +13,5 @@ create function auth.uid() returns uuid language sql stable as $$
 $$;
 grant usage on schema auth, public to anon, authenticated, service_role;
 grant execute on function auth.uid() to anon, authenticated, service_role;
-alter default privileges in schema public grant all on tables to anon, authenticated, service_role;
-alter default privileges in schema public grant all on sequences to anon, authenticated, service_role;
-alter default privileges in schema public grant execute on functions to anon, authenticated, service_role;
+-- Like a new Supabase project: new tables are NOT granted to the API roles automatically (0010
+-- grants them), while functions stay executable by PUBLIC (Postgres default) until 0010 revokes it.

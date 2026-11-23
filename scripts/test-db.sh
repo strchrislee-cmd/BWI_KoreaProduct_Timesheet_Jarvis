@@ -43,6 +43,7 @@ psql -h "$WORK" -p "$PORT" -U postgres -d postgres -X -q -v ON_ERROR_STOP=1 \
   -f supabase/migrations/0007_slot_details.sql \
   -f supabase/migrations/0008_project_edit.sql \
   -f supabase/migrations/0009_levels_personal_aliases.sql \
+  -f supabase/migrations/0010_api_privileges.sql \
   -f tests/db/helpers.sql \
   -f "$WORK/name_keys.sql" \
   -f tests/db/rls.sql -o /dev/null 2>&1 | sed -e 's/^psql:[^ ]* NOTICE:  /  /'

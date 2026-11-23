@@ -115,11 +115,15 @@ select pg_temp.check(
 select pg_temp.check((select count(*) from group_projects where kind = 'local_section' and status = 'active') = 7, 'local sections untouched by imports');
 
 reset role;
--- service role (auth.uid() null) may import, like /api/ingest
+-- service role (no user, role claim service_role) may import, like /api/ingest
 select pg_temp.login('');
+set role service_role;
+select set_config('request.jwt.claims', '{"role":"service_role"}', false);
 select pg_temp.check(
   (select apply_master_import('m3.xlsx', 'ingest', 'hash3', '[{"name":"2041--Utility Work Lamp Series","code":"2041","kind":"project"}]'::jsonb) ->> 'status') = 'imported',
   'service role can import');
+select set_config('request.jwt.claims', '', false);
+reset role;
 
 -- ── Repeated-task templates (0003) ───────────────────────────────────────────
 set role authenticated;
@@ -256,3 +260,22 @@ select pg_temp.login('00000000-0000-0000-0000-00000000000c');
 select pg_temp.check(pg_temp.affected($$update group_projects set sort_order = 99 where code = '3001'$$) = 0, 'member cannot change the order');
 select pg_temp.check(pg_temp.affected($$update group_projects set sheet_name = 'x' where code = '3001'$$) = 0, 'member cannot set sheet names');
 reset role;
+
+-- ── API privileges (0010) ─────────────────────────────────────────────────────
+-- the anonymous role (public key, nobody signed in) gets nothing — before 0010 it could import
+set role anon;
+select pg_temp.login('');
+select set_config('request.jwt.claims', '{"role":"anon"}', false);
+select pg_temp.expect_error($$select apply_master_import('x.xlsx', 'manual', 'hash-anon', '[]'::jsonb)$$, 'anon cannot import the master sheet');
+select pg_temp.expect_error($$select count(*) from group_projects$$, 'anon cannot read tables');
+select pg_temp.expect_error($$select public.is_admin()$$, 'anon cannot call functions');
+select set_config('request.jwt.claims', '', false);
+reset role;
+-- a signed-in member with the claim role authenticated still cannot import
+set role authenticated;
+select pg_temp.login('00000000-0000-0000-0000-00000000000c');
+select set_config('request.jwt.claims', '{"role":"authenticated"}', false);
+select pg_temp.expect_error($$select apply_master_import('y.xlsx', 'manual', 'hash-l1', '[]'::jsonb)$$, 'a non-admin cannot import even with no other checks');
+select set_config('request.jwt.claims', '', false);
+reset role;
+select pg_temp.check(not exists (select 1 from master_imports where content_hash in ('hash-anon', 'hash-l1')), 'no import was recorded by anon or L1');
