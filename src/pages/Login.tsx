@@ -56,12 +56,9 @@ export function Login() {
       <BackgroundLayer />
       <div className="grid w-full max-w-4xl gap-5 md:grid-cols-[1.1fr_1fr]">
         <div className="glass-dark flex flex-col justify-between rounded-card p-8 text-white">
-          <div className="flex items-center gap-3">
-            <div className="flex h-12 w-12 items-center justify-center rounded-control bg-white text-2xl font-extrabold text-primary">T</div>
-            <div>
-              <div className="font-display text-2xl font-extrabold">TeamEmbedded</div>
-              <div className="text-sm opacity-80">Gods of Team Embedded</div>
-            </div>
+          <div>
+            <div className="font-display text-2xl font-extrabold">TeamEmbedded</div>
+            <div className="text-sm opacity-80">Gods of Team Embedded</div>
           </div>
           <p className="mt-16 font-display text-4xl font-extrabold leading-tight">Your timesheet, on autopilot.</p>
         </div>

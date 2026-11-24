@@ -80,12 +80,9 @@ export function Shell() {
       <BackgroundLayer />
       <ReminderScheduler />
       <nav className="glass sticky top-4 hidden h-[calc(100vh-2rem)] w-[168px] shrink-0 flex-col rounded-card p-3 md:flex">
-        <div className="mb-6 flex items-start gap-2 px-1 pt-1">
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-chip bg-primary text-sm font-bold text-white">T</div>
-          <div className="min-w-0">
-            <div className="font-display font-extrabold tracking-tight text-primary">TeamEmbedded</div>
-            <div className="text-[11px] leading-tight text-muted">Gods of Team Embedded</div>
-          </div>
+        <div className="mb-6 px-1 pt-1">
+          <div className="font-display font-extrabold tracking-tight text-primary">TeamEmbedded</div>
+          <div className="text-[11px] leading-tight text-muted">Gods of Team Embedded</div>
         </div>
         <div className="flex flex-col gap-1">
           <NavItem to="/" end icon={<House size={18} />} label={tr('Home')} sub="Olympus" />
@@ -114,7 +111,6 @@ export function Shell() {
       <main className="min-w-0 flex-1">
         {/* phones: small top bar instead of the side navigation */}
         <div className="mb-3 flex items-center gap-2 md:hidden">
-          <div className="flex h-8 w-8 items-center justify-center rounded-chip bg-primary text-sm font-bold text-white">T</div>
           <div className="font-display font-extrabold tracking-tight text-primary">TeamEmbedded</div>
           <div className="ml-auto flex h-8 w-8 items-center justify-center rounded-full bg-sage text-xs font-bold text-primary" title={user.name}>
             {initials}
