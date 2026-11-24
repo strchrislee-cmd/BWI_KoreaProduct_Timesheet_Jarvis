@@ -237,6 +237,23 @@ export class SupabaseStore implements DataStore {
     if (!res.ok) throw new Error(body.error ?? `Invite failed (${res.status})`)
     return { sent: body.sent ?? 'invite' }
   }
+  /** POST /api/admin/user (see api/_lib/userAdminCore.ts) */
+  private async userAdmin(body: Record<string, unknown>) {
+    const { data } = await this.sb.auth.getSession()
+    const res = await fetch('/api/admin/user', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${data.session?.access_token ?? ''}` },
+      body: JSON.stringify(body),
+    })
+    const out = (await res.json().catch(() => ({}))) as { error?: string }
+    if (!res.ok) throw new Error(out.error ?? `Request failed (${res.status})`)
+  }
+  async setUserPassword(userId: string, password: string) {
+    await this.userAdmin({ action: 'set_password', user_id: userId, password })
+  }
+  async deleteUser(userId: string) {
+    await this.userAdmin({ action: 'delete', user_id: userId })
+  }
   async revokeInvitation(id: string) {
     must(await this.sb.from('invitations').update({ status: 'revoked' }).eq('id', id))
   }

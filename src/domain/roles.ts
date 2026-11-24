@@ -18,3 +18,12 @@ export function normalizeRole(role: unknown): Role {
   if (role === 'viewer') return 'l2'
   return ROLES.some((r) => r.value === role) ? (role as Role) : 'l1'
 }
+
+export type DeleteUserProblem = 'You cannot delete your own account' | 'Cannot delete the last admin'
+
+/** Why an admin may not delete this account, or null (Admin → Users, POST /api/admin/user). */
+export function deleteUserProblem(callerId: string, target: { id: string; role: string }, profiles: { role: string }[]): DeleteUserProblem | null {
+  if (target.id === callerId) return 'You cannot delete your own account'
+  if (target.role === 'admin' && profiles.filter((p) => p.role === 'admin').length <= 1) return 'Cannot delete the last admin'
+  return null
+}

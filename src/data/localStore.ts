@@ -1,5 +1,5 @@
 import { aliasConflict, diffMaster, projectNameKey, sheetNameAfterRename } from '../domain/projects'
-import { normalizeRole } from '../domain/roles'
+import { deleteUserProblem, normalizeRole } from '../domain/roles'
 import { SEED_ALIASES, SEED_PROJECTS } from '../domain/seed'
 import type {
   GroupProject,
@@ -428,6 +428,23 @@ export class LocalStore implements DataStore {
   }
   async deleteInvitation(id: string) {
     this.mutate((s) => (s.invitations = s.invitations.filter((i) => i.id !== id)))
+  }
+  async setUserPassword() {} // demo: no passwords
+  async deleteUser(userId: string) {
+    const target = this.state.profiles.find((p) => p.id === userId)
+    if (!target) throw new Error('User not found')
+    const problem = deleteUserProblem(DEMO_USER_ID, target, this.state.profiles)
+    if (problem) throw new Error(problem)
+    this.mutate((s) => {
+      s.profiles = s.profiles.filter((p) => p.id !== userId)
+      s.slots = s.slots.filter((x) => x.user_id !== userId)
+      s.leaves = s.leaves.filter((x) => x.user_id !== userId)
+      s.templates = s.templates.filter((x) => x.user_id !== userId)
+      s.workDays = s.workDays.filter((x) => x.user_id !== userId)
+      s.aliases = s.aliases.filter((x) => x.user_id !== userId)
+      s.invitations = s.invitations.filter((i) => i.email !== target.email.toLowerCase())
+      delete s.backgrounds[userId]
+    })
   }
   async revokeInvitation(id: string) {
     this.mutate((s) => {

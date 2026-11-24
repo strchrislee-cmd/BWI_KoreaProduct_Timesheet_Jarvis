@@ -279,3 +279,17 @@ select pg_temp.expect_error($$select apply_master_import('y.xlsx', 'manual', 'ha
 select set_config('request.jwt.claims', '', false);
 reset role;
 select pg_temp.check(not exists (select 1 from master_imports where content_hash in ('hash-anon', 'hash-l1')), 'no import was recorded by anon or L1');
+
+-- ── Deleting a login account (Admin → Users → 삭제, api/admin/user.ts) ───────────
+-- the API deletes auth.users; everything of that person must go with it, nothing of anyone else
+select pg_temp.check((select count(*) from time_slots where user_id = '00000000-0000-0000-0000-00000000000d') > 0
+  and (select count(*) from task_templates where user_id = '00000000-0000-0000-0000-00000000000d') > 0, 'L2 has slots and templates before the delete');
+delete from auth.users where id = '00000000-0000-0000-0000-00000000000d';
+select pg_temp.check(not exists (select 1 from profiles where id = '00000000-0000-0000-0000-00000000000d'), 'deleting the login account removes the profile');
+select pg_temp.check(not exists (select 1 from time_slots where user_id = '00000000-0000-0000-0000-00000000000d')
+  and not exists (select 1 from task_templates where user_id = '00000000-0000-0000-0000-00000000000d')
+  and not exists (select 1 from project_aliases where user_id = '00000000-0000-0000-0000-00000000000d')
+  and not exists (select 1 from leave_requests where user_id = '00000000-0000-0000-0000-00000000000d')
+  and not exists (select 1 from work_days where user_id = '00000000-0000-0000-0000-00000000000d'), '… and the person''s slots, templates, personal aliases, leave and work days');
+select pg_temp.check(exists (select 1 from time_slots where user_id = '00000000-0000-0000-0000-00000000000c')
+  and exists (select 1 from profiles where id = '00000000-0000-0000-0000-00000000000a'), 'other people''s records stay');

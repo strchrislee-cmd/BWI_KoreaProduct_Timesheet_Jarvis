@@ -83,6 +83,10 @@ export interface DataStore {
   /** with a password: account made (or its password set) without e-mail, see api/_lib/inviteCore.ts */
   invite(input: { email: string; role: Role; can_export: boolean; password?: string }): Promise<{ sent: InviteSent }>
   revokeInvitation(id: string): Promise<void>
+  /** Admins, Users table: set someone's password (no e-mail) */
+  setUserPassword(userId: string, password: string): Promise<void>
+  /** Admins, Users table: delete the account and all of that person's records (not yourself, not the last admin) */
+  deleteUser(userId: string): Promise<void>
   /** remove an invitation row (revoked / accepted ones; the account itself stays) */
   deleteInvitation(id: string): Promise<void>
 }

@@ -1,10 +1,10 @@
-import { Shield, UserPlus, Users } from 'lucide-react'
+import { KeyRound, Shield, Trash2, UserPlus, Users } from 'lucide-react'
 import { useState } from 'react'
 import { PageTitle } from '../components/Shell'
-import { Button, Card, ErrorNote, Field, Pill } from '../components/ui'
+import { Button, Card, ErrorNote, Field, Modal, Pill } from '../components/ui'
 import { useStore, useUser } from '../data/StoreContext'
 import { passwordProblem } from '../domain/password'
-import type { InviteSent, Role } from '../domain/types'
+import type { InviteSent, Profile, Role } from '../domain/types'
 import { useAsync } from '../lib/hooks'
 import { useT } from '../lib/i18n'
 import { ROLES, roleLabel } from '../domain/roles'
@@ -18,6 +18,9 @@ export function Admin() {
   const [form, setForm] = useState({ email: '', role: 'l1' as Role, can_export: true, password: '' })
   const [error, setError] = useState<Error | null>(null)
   const [notice, setNotice] = useState('')
+  // Users table: whose password is being set (temporary password typed in the dialog)
+  const [pwFor, setPwFor] = useState<Profile | null>(null)
+  const [pwValue, setPwValue] = useState('')
 
   async function run(fn: () => Promise<void>, ok?: string) {
     try {
@@ -53,6 +56,26 @@ export function Admin() {
       profiles.reload()
       if (id === me.id) await refreshUser()
     })
+
+  const setPassword = (p: Profile) =>
+    run(async () => {
+      const problem = passwordProblem(pwValue)
+      if (problem) throw new Error(problem)
+      await store.setUserPassword(p.id, pwValue)
+      setPwFor(null)
+      setNotice(`${p.email}: 비밀번호를 바꿨습니다(메일 없음). 임시 비밀번호를 직접 전달해 주세요.`)
+    })
+
+  const removeUser = (p: Profile) => {
+    const ask = `${p.name} (${p.email}) 계정을 삭제할까요?\n\n로그인 계정과 이 사람의 시간 기록·휴가·근무시간·업무 템플릿·개인 별칭이 모두 지워지고 되돌릴 수 없습니다.`
+    if (!confirm(ask)) return
+    void run(async () => {
+      await store.deleteUser(p.id)
+      profiles.reload()
+      invitations.reload()
+      setNotice(`${p.email} 계정을 삭제했습니다.`)
+    })
+  }
 
   const pending = (invitations.data ?? []).filter((i) => i.status === 'pending')
   const admins = (profiles.data ?? []).filter((p) => p.role === 'admin').length
@@ -99,6 +122,7 @@ export function Admin() {
                 <th>E-mail</th>
                 <th>Role</th>
                 <th>Can export</th>
+                <th />
               </tr>
             </thead>
             <tbody>
@@ -119,6 +143,36 @@ export function Admin() {
                   </td>
                   <td>
                     <input type="checkbox" aria-label={`Export permission of ${p.email}`} checked={p.can_export} onChange={(e) => void update(p.id, { can_export: e.target.checked })} />
+                  </td>
+                  <td className="whitespace-nowrap text-right">
+                    {p.id === me.id ? (
+                      <span className="text-xs text-muted">나 · 비밀번호는 설정에서</span>
+                    ) : (
+                      <span className="inline-flex gap-1">
+                        {store.mode === 'supabase' && (
+                          <Button
+                            variant="ghost"
+                            className="!px-2.5 !py-1 text-xs"
+                            aria-label={`Set password of ${p.email}`}
+                            onClick={() => {
+                              setPwFor(p)
+                              setPwValue('')
+                              setError(null)
+                            }}
+                          >
+                            <KeyRound size={14} /> 비밀번호
+                          </Button>
+                        )}
+                        <Button
+                          variant="ghost"
+                          className="!px-2.5 !py-1 text-xs"
+                          aria-label={`Delete user ${p.email}`}
+                          onClick={() => removeUser(p)}
+                        >
+                          <Trash2 size={14} /> 삭제
+                        </Button>
+                      </span>
+                    )}
                   </td>
                 </tr>
               ))}
@@ -224,6 +278,41 @@ export function Admin() {
           </form>
         </Card>
       </div>
+
+      {pwFor && (
+        <Modal title="비밀번호 설정" onClose={() => setPwFor(null)}>
+          <form
+            className="space-y-3"
+            onSubmit={(e) => {
+              e.preventDefault()
+              void setPassword(pwFor)
+            }}
+          >
+            <p className="text-sm">
+              <strong>{pwFor.name}</strong> ({pwFor.email})의 비밀번호를 바꿉니다. 메일은 보내지 않으니 직접 전달해 주세요. 본인은 설정에서 다시 바꿀 수 있습니다.
+            </p>
+            <Field label="임시 비밀번호" hint="8자 이상">
+              <input
+                type="text"
+                className="field"
+                autoComplete="off"
+                spellCheck={false}
+                autoFocus
+                aria-label="New temporary password"
+                value={pwValue}
+                onChange={(e) => setPwValue(e.target.value)}
+              />
+            </Field>
+            <ErrorNote error={error} />
+            <div className="flex justify-end gap-2">
+              <Button type="button" variant="outline" onClick={() => setPwFor(null)}>
+                취소
+              </Button>
+              <Button type="submit">저장</Button>
+            </div>
+          </form>
+        </Modal>
+      )}
     </div>
   )
 }
