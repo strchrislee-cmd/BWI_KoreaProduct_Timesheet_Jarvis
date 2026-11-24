@@ -1,7 +1,7 @@
 // POST /api/admin/invite, minus Supabase (tested in tests/invite.test.ts).
 //
 // Inviting creates the person's login account at once (Supabase Auth). So:
-// - a new address gets the invite e-mail; their TimeCrumbs profile is made from the invitation
+// - a new address gets the invite e-mail; their TeamEmbedded profile is made from the invitation
 //   (the DB trigger normally does this; done here too so a missing trigger cannot leave them out);
 // - an address that already has an account (e.g. invited before, or the first send failed after
 //   the account was made) gets a fresh sign-in link instead of the error "already registered",

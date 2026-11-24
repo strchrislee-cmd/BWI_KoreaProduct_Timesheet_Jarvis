@@ -1,6 +1,6 @@
 // POST /api/admin/user, minus Supabase (tested in tests/userAdmin.test.ts).
 // Admins, from the Users table: set a person's password (no e-mail) or delete their account.
-// Deleting the login account removes the TimeCrumbs profile and everything that hangs off it
+// Deleting the login account removes the TeamEmbedded profile and everything that hangs off it
 // (time slots, leave, work days, templates, personal aliases) through the database's cascades.
 import { passwordProblem } from '../../src/domain/password.js'
 import { deleteUserProblem } from '../../src/domain/roles.js'

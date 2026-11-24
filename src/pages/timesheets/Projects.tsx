@@ -163,10 +163,10 @@ export function ProjectsPage() {
     }
   }
 
-  /** 목록 저장: the whole list as a TimeCrumbs file (.json) */
+  /** 목록 저장: the whole list as a TeamEmbedded file (.json) */
   function saveList() {
     const file = buildProjectFile(projects, teamAliases)
-    downloadBlob(new Blob([JSON.stringify(file, null, 2)], { type: 'application/json' }), `timecrumbs-projects-${todayLocal()}.json`)
+    downloadBlob(new Blob([JSON.stringify(file, null, 2)], { type: 'application/json' }), `teamembedded-projects-${todayLocal()}.json`)
     setNote(`프로젝트 목록 ${file.projects.length}개를 저장했습니다 · 목록 불러오기로 다시 읽을 수 있습니다.`)
   }
 
@@ -258,7 +258,7 @@ export function ProjectsPage() {
               <p>POST the master .xlsx to:</p>
               <code className="block break-all rounded-chip bg-white px-2 py-1 text-xs">{window.location.origin}/api/ingest</code>
               <p>
-                Header <code className="text-xs">x-timecrumbs-token</code> = <code className="text-xs">INGEST_TOKEN</code>. See README → Power Automate.
+                Header <code className="text-xs">x-teamembedded-token</code> = <code className="text-xs">INGEST_TOKEN</code>. See README → Power Automate.
               </p>
             </div>
           ) : (
@@ -660,7 +660,7 @@ export function ProjectsPage() {
   )
 }
 
-/** Preview of loading a TimeCrumbs project list file (what changes before anything is saved). */
+/** Preview of loading a TeamEmbedded project list file (what changes before anything is saved). */
 function ListImportReview({
   fileName,
   count,

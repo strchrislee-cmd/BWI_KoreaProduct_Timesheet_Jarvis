@@ -5,7 +5,7 @@ import { adminClient, readBody } from './_lib/server.js'
 
 /**
  * POST /api/ingest — Power Automate sends the group master .xlsx here.
- * Headers: x-timecrumbs-token: <INGEST_TOKEN> (the old name x-jarvis-token also works), Content-Type: application/octet-stream, optional x-file-name.
+ * Headers: x-teamembedded-token: <INGEST_TOKEN> (the old names x-timecrumbs-token and x-jarvis-token also work), Content-Type: application/octet-stream, optional x-file-name.
  * Re-sending the same file is a no-op (sha256 de-duplication in apply_master_import).
  */
 export default async function handler(req: VercelRequest, res: VercelResponse) {

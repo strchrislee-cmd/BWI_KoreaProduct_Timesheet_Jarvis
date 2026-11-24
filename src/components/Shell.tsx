@@ -8,20 +8,28 @@ import { BackgroundLayer } from './BackgroundLayer'
 import { ReminderScheduler } from './ReminderScheduler'
 import { cx } from './ui'
 
-function NavItem({ to, icon, label, end }: { to: string; icon: ReactNode; label: string; end?: boolean }) {
+/** `sub`: the small god's name under the label (Home · Olympus, Timesheets · Chronos, …). */
+function NavItem({ to, icon, label, sub, end }: { to: string; icon: ReactNode; label: string; sub: string; end?: boolean }) {
   return (
     <NavLink
       to={to}
       end={end}
       className={({ isActive }) =>
         cx(
-          'flex items-center gap-3 rounded-control px-3 py-2.5 text-sm font-semibold transition-colors',
+          'flex items-center gap-3 rounded-control px-3 py-2 text-sm font-semibold transition-colors',
           isActive ? 'bg-primary text-white shadow-md' : 'text-ink hover:bg-white/60',
         )
       }
     >
-      {icon}
-      {label}
+      {({ isActive }) => (
+        <>
+          {icon}
+          <span className="flex min-w-0 flex-col leading-tight">
+            <span>{label}</span>
+            <span className={cx('text-[10px] font-medium', isActive ? 'text-white/75' : 'text-muted')}>{sub}</span>
+          </span>
+        </>
+      )}
     </NavLink>
   )
 }
@@ -73,19 +81,19 @@ export function Shell() {
       <ReminderScheduler />
       <nav className="glass sticky top-4 hidden h-[calc(100vh-2rem)] w-[168px] shrink-0 flex-col rounded-card p-3 md:flex">
         <div className="mb-6 flex items-start gap-2 px-1 pt-1">
-          <div className="flex h-8 w-8 items-center justify-center rounded-chip bg-primary text-sm font-bold text-white">T</div>
-          <div>
-            <div className="font-display font-extrabold tracking-tight text-primary">TimeCrumbs</div>
-            <div className="text-[11px] leading-tight text-muted">Internal Groupware Assistant</div>
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-chip bg-primary text-sm font-bold text-white">T</div>
+          <div className="min-w-0">
+            <div className="font-display font-extrabold tracking-tight text-primary">TeamEmbedded</div>
+            <div className="text-[11px] leading-tight text-muted">Gods of Team Embedded</div>
           </div>
         </div>
         <div className="flex flex-col gap-1">
-          <NavItem to="/" end icon={<House size={18} />} label={tr('Home')} />
-          <NavItem to="/timesheets" icon={<Clock size={18} />} label="Timesheets" />
+          <NavItem to="/" end icon={<House size={18} />} label={tr('Home')} sub="Olympus" />
+          <NavItem to="/timesheets" icon={<Clock size={18} />} label="Timesheets" sub="Chronos" />
         </div>
         <div className="mt-auto flex flex-col gap-1 border-t border-dashed border-black/10 pt-3">
-          {user.role === 'admin' && <NavItem to="/admin" icon={<Shield size={18} />} label={tr('Admin')} />}
-          <NavItem to="/settings" icon={<Settings size={18} />} label={tr('Settings')} />
+          {user.role === 'admin' && <NavItem to="/admin" icon={<Shield size={18} />} label={tr('Admin')} sub="Zeus" />}
+          <NavItem to="/settings" icon={<Settings size={18} />} label={tr('Settings')} sub="Hephaestus" />
         </div>
         <div className="mt-3 flex items-center gap-2 border-t border-dashed border-black/10 px-1 pt-3">
           <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-sage text-xs font-bold text-primary">
@@ -107,7 +115,7 @@ export function Shell() {
         {/* phones: small top bar instead of the side navigation */}
         <div className="mb-3 flex items-center gap-2 md:hidden">
           <div className="flex h-8 w-8 items-center justify-center rounded-chip bg-primary text-sm font-bold text-white">T</div>
-          <div className="font-display font-extrabold tracking-tight text-primary">TimeCrumbs</div>
+          <div className="font-display font-extrabold tracking-tight text-primary">TeamEmbedded</div>
           <div className="ml-auto flex h-8 w-8 items-center justify-center rounded-full bg-sage text-xs font-bold text-primary" title={user.name}>
             {initials}
           </div>

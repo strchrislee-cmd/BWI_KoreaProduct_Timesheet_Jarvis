@@ -14,7 +14,7 @@ function current(): GroupProject[] {
 }
 const aliases: ProjectAlias[] = [{ id: 'al1', group_project_id: 'a', alias: '램프', created_by: null, user_id: null }]
 
-describe('TimeCrumbs project list file', () => {
+describe('TeamEmbedded project list file', () => {
   it('saves every row in table order with its No, sheet name and aliases, and reads it back', () => {
     const file = buildProjectFile(current(), aliases, new Date('2026-11-23T00:00:00Z'))
     expect(file.projects.map((p) => [p.no, p.name])).toEqual([
@@ -25,14 +25,20 @@ describe('TimeCrumbs project list file', () => {
       [4, '금형 Support'],
     ])
     expect(file.projects[0].aliases).toEqual(['램프'])
+    expect(file.format).toBe('teamembedded-projects')
     expect(parseProjectFile(JSON.stringify(file))).toEqual(file)
   })
 
+  it('still reads files saved before the rename (TimeCrumbs)', () => {
+    const file = buildProjectFile(current(), aliases, new Date('2026-11-23T00:00:00Z'))
+    expect(parseProjectFile(JSON.stringify({ ...file, format: 'timecrumbs-projects' }))).toEqual(file)
+  })
+
   it('refuses other files with a readable message', () => {
-    expect(() => parseProjectFile('not json')).toThrow('TimeCrumbs 프로젝트 목록 파일')
-    expect(() => parseProjectFile('{"format":"x","projects":[]}')).toThrow('TimeCrumbs 프로젝트 목록 파일')
-    expect(() => parseProjectFile('{"format":"timecrumbs-projects","version":2,"projects":[]}')).toThrow('버전')
-    expect(() => parseProjectFile('{"format":"timecrumbs-projects","version":1,"projects":[{"name":"A","kind":"x"}]}')).toThrow('1번째 항목')
+    expect(() => parseProjectFile('not json')).toThrow('TeamEmbedded 프로젝트 목록 파일')
+    expect(() => parseProjectFile('{"format":"x","projects":[]}')).toThrow('TeamEmbedded 프로젝트 목록 파일')
+    expect(() => parseProjectFile('{"format":"teamembedded-projects","version":2,"projects":[]}')).toThrow('버전')
+    expect(() => parseProjectFile('{"format":"teamembedded-projects","version":1,"projects":[{"name":"A","kind":"x"}]}')).toThrow('1번째 항목')
   })
 
   it('loading the same list changes nothing', () => {

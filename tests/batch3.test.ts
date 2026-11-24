@@ -121,7 +121,7 @@ describe('A8 /api/background core', () => {
     const out = await dailyPhoto({ key: 'k', query: 'nature landscape', fetchFn, now })
     expect(out.status).toBe(200)
     expect(out.body).toMatchObject({ configured: true, author: 'Jane Doe', url: 'https://images.unsplash.com/photo-1?ixid=abc&w=2400&q=80&fm=jpg&fit=max' })
-    expect((out.body as { authorUrl: string }).authorUrl).toContain('utm_source=timecrumbs')
+    expect((out.body as { authorUrl: string }).authorUrl).toContain('utm_source=teamembedded')
     expect(fetchFn).toHaveBeenNthCalledWith(1, expect.stringContaining('query=nature%20landscape'), { headers: expect.objectContaining({ Authorization: 'Client-ID k' }) })
     expect(fetchFn).toHaveBeenNthCalledWith(2, photo.links.download_location, expect.anything())
     expect(out.cacheControl).toContain('s-maxage=3600')

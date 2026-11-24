@@ -47,8 +47,9 @@ function extractFile(input: IngestInput): { bytes: Buffer; fileName: string } {
 export async function handleIngest(input: IngestInput, deps: IngestDeps): Promise<IngestOutput> {
   if (!deps.token) return { status: 500, body: { error: 'INGEST_TOKEN is not configured on the server' } }
   // x-jarvis-token: the header's name before the app was renamed; still accepted so older flows keep working
-  const given = header(input.headers, 'x-timecrumbs-token') ?? header(input.headers, 'x-jarvis-token') ?? ''
-  if (!sameSecret(given, deps.token)) return { status: 401, body: { error: 'Invalid or missing x-timecrumbs-token' } }
+  // older names from before the renames (JARVIS → TimeCrumbs → TeamEmbedded) still work
+  const given = header(input.headers, 'x-teamembedded-token') ?? header(input.headers, 'x-timecrumbs-token') ?? header(input.headers, 'x-jarvis-token') ?? ''
+  if (!sameSecret(given, deps.token)) return { status: 401, body: { error: 'Invalid or missing x-teamembedded-token' } }
 
   const { bytes, fileName } = extractFile(input)
   if (!bytes.length) {

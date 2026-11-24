@@ -59,8 +59,8 @@ export function Login() {
           <div className="flex items-center gap-3">
             <div className="flex h-12 w-12 items-center justify-center rounded-control bg-white text-2xl font-extrabold text-primary">T</div>
             <div>
-              <div className="font-display text-2xl font-extrabold">TimeCrumbs</div>
-              <div className="text-sm opacity-80">Internal Groupware Assistant</div>
+              <div className="font-display text-2xl font-extrabold">TeamEmbedded</div>
+              <div className="text-sm opacity-80">Gods of Team Embedded</div>
             </div>
           </div>
           <p className="mt-16 font-display text-4xl font-extrabold leading-tight">Your timesheet, on autopilot.</p>

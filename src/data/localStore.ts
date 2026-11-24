@@ -22,7 +22,7 @@ import type { ProjectImportPlan } from '../domain/projectFile'
 const KEY = 'timecrumbs-demo-v1'
 /** Key used before the app was renamed from JARVIS; its data is moved to KEY on first load. */
 const LEGACY_KEY = 'jarvis-demo-v1'
-const DEMO_EMAIL = 'demo@timecrumbs.local'
+const DEMO_EMAIL = 'demo@teamembedded.local'
 
 interface DemoState {
   profiles: Profile[]
@@ -110,7 +110,7 @@ export class LocalStore implements DataStore {
         slots: saved.slots.map((x) => ({ ...x, details: x.details ?? '' })),
         workDays: saved.workDays ?? [],
         backgrounds: saved.backgrounds ?? {},
-        profiles: saved.profiles.map((p) => ({ ...p, email: p.email === 'demo@jarvis.local' ? DEMO_EMAIL : p.email, role: normalizeRole(p.role) })),
+        profiles: saved.profiles.map((p) => ({ ...p, email: ['demo@jarvis.local', 'demo@timecrumbs.local'].includes(p.email) ? DEMO_EMAIL : p.email, role: normalizeRole(p.role) })),
         invitations: saved.invitations.map((i) => ({ ...i, role: normalizeRole(i.role) })),
         aliases: saved.aliases.map((a) => ({ ...a, user_id: a.user_id ?? null })),
       }

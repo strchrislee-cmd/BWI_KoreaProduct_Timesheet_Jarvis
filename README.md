@@ -1,6 +1,6 @@
-# BWI Korea Product · TimeCrumbs
+# BWI Korea Product · TeamEmbedded
 
-**TimeCrumbs**(시간 부스러기, 이전 이름 JARVIS)는 사내 그룹웨어 헬퍼 웹앱의 첫 모듈 **Timesheets**입니다(데모: https://timecrumbs.vercel.app). 30분 단위 업무 기록을 그룹 지정 프로젝트명으로 매핑해 **그룹 timesheet 포맷**과 **업무진행세부계획(주간계획)**을 만들고, 새 그룹 프로젝트가 생기면 알려 줍니다.
+**TeamEmbedded**(Gods of Team Embedded, 이전 이름 TimeCrumbs · JARVIS)는 사내 그룹웨어 헬퍼 웹앱의 첫 모듈 **Timesheets**입니다(데모: https://timecrumbs.vercel.app). 30분 단위 업무 기록을 그룹 지정 프로젝트명으로 매핑해 **그룹 timesheet 포맷**과 **업무진행세부계획(주간계획)**을 만들고, 새 그룹 프로젝트가 생기면 알려 줍니다.
 
 - UI 컨셉과 요구사항: [`concept-design/`](./concept-design/README.md), 압축 컨텍스트: [`concept-design/CONTEXT.md`](./concept-design/CONTEXT.md)
 - 날짜별 작업 기록(작업 내용·결과): [`docs/worklog/`](./docs/worklog/README.md)
@@ -51,8 +51,8 @@ npm run dev
 2. **SQL Editor**에서 `supabase/migrations/`의 SQL 파일(`0001_init.sql` → `0002_seed.sql` → `0003_task_templates.sql` → `0004_work_days_colors.sql` → `0005_user_backgrounds.sql` → `0006_project_manage.sql` → `0007_slot_details.sql` → `0008_project_edit.sql` → `0009_levels_personal_aliases.sql` → `0010_api_privileges.sql`)을 **번호 순서대로** 실행합니다. Supabase CLI를 쓴다면 `supabase db push`도 됩니다. 이미 앞 파일을 실행했다면 새로 추가된 파일만 실행하면 됩니다.
 3. **Authentication → URL Configuration**: Site URL과 Redirect URL에 Vercel 주소를 넣습니다.
 4. **Authentication → SMTP Settings**: **외부 SMTP를 반드시 연결**하세요. 기본 발송기는 시간당 2통, 그것도 Supabase 팀 멤버에게만 보냅니다. 회사 SMTP나 Resend·Brevo 등을 쓰면 됩니다.
-5. **Authentication → Sign In / Providers**에서 공개 가입(**Allow new users to sign up**)을 끕니다. DB 트리거가 초대받지 않은 가입은 거부하지만, 켜 두면 초대 대기 중인 주소로 다른 사람이 먼저 비밀번호를 정해 가입할 수 있습니다. 꺼도 TimeCrumbs의 초대·계정 만들기는 그대로 동작합니다.
-6. **첫 관리자 만들기**: Authentication → Users → **Add user → Create new user**에서 이메일과 비밀번호를 넣고(Auto Confirm 켬) 만들면, 사이트에서 그 이메일·비밀번호로 바로 로그인합니다. **처음 생성되는 계정은 자동으로 Admin**이 되고, 이후 사용자는 TimeCrumbs Admin 화면에서 초대합니다.
+5. **Authentication → Sign In / Providers**에서 공개 가입(**Allow new users to sign up**)을 끕니다. DB 트리거가 초대받지 않은 가입은 거부하지만, 켜 두면 초대 대기 중인 주소로 다른 사람이 먼저 비밀번호를 정해 가입할 수 있습니다. 꺼도 TeamEmbedded의 초대·계정 만들기는 그대로 동작합니다.
+6. **첫 관리자 만들기**: Authentication → Users → **Add user → Create new user**에서 이메일과 비밀번호를 넣고(Auto Confirm 켬) 만들면, 사이트에서 그 이메일·비밀번호로 바로 로그인합니다. **처음 생성되는 계정은 자동으로 Admin**이 되고, 이후 사용자는 TeamEmbedded Admin 화면에서 초대합니다.
 
 **로그인 방식**
 - 평소에는 **이메일 + 비밀번호**로 로그인합니다. 각자 **설정 → 비밀번호**에서 정하거나 바꿉니다.
@@ -84,7 +84,7 @@ npm run dev
 2. SharePoint **Get file content**
 3. **HTTP** 액션(Premium 커넥터):
    - Method `POST`, URI `https://<배포 주소>/api/ingest`
-   - Headers: `x-timecrumbs-token: <INGEST_TOKEN>`(예전 이름 `x-jarvis-token`도 계속 받음), `Content-Type: application/octet-stream`, `x-file-name: <파일명>`
+   - Headers: `x-teamembedded-token: <INGEST_TOKEN>`(예전 이름 `x-timecrumbs-token`, `x-jarvis-token`도 계속 받음), `Content-Type: application/octet-stream`, `x-file-name: <파일명>`
    - Body: 2번의 File Content
    - 설정에서 **Secure inputs**를 켜서 실행 기록에 토큰이 남지 않게 합니다.
 4. 응답 예: `{"status":"imported","added":1,"added_names":["…"],"missing":0,"rows":28}`. 같은 파일이 다시 오면 `"duplicate"`가 반환되고 아무것도 바뀌지 않습니다.
@@ -110,10 +110,10 @@ npm run dev
 | 현재 시간 | 오늘 날짜를 보면 지금 시각 위치에 빨간 선과 `10:17` 같은 시각이 표시되고 1분마다 움직임 |
 | 근무 시간 | 30-min Log 위의 **시작 → 종료**를 날짜별로 고름. 시작은 07:00–10:00(30분 단위). 시작을 바꾸면 종료는 **시작 + 근무 8h + 점심 1h**(점심이 그 사이에 있을 때)로 맞춰지고, 그 뒤로 늘릴 수 있음(“+1h 연장” 표시). 새 날짜의 기본값은 Settings → Work hours |
 | 색상 | 드롭다운 옵션·반복 업무 칩의 `…`, Projects → Project mapping의 색상 칸, 또는 Settings → **카테고리 색상**(모두 같은 개인 색상). **대분류**(PROJECT RND / PROJECT CO-WORK / PROJECT NON-RND) 옆 색 칸으로 아래 소분류 전체에 **공통 색**, **모두 랜덤**으로 소분류마다 랜덤 색(이후 소분류별로 다시 변경 가능). **랜덤 / 랜덤 (파스텔)**, 노션 9색, RGB/Hex/색상환으로 직접 지정. **프리셋에 저장**한 색은 “내 색상”에 보관. **기본**으로 되돌리기. 개인별 설정 |
-| 알림 | Settings → **알림**에서 켜고 브라우저 권한 허용. 근무시간 중 :00·:30마다 직전 칸이 비어 있으면 알림(점심·주말 제외). TimeCrumbs 탭이 열려 있어야 함 |
+| 알림 | Settings → **알림**에서 켜고 브라우저 권한 허용. 근무시간 중 :00·:30마다 직전 칸이 비어 있으면 알림(점심·주말 제외). TeamEmbedded 탭이 열려 있어야 함 |
 | 화면 스타일·글꼴 | Settings → **화면 스타일**: 블러(기본) / 리퀴드 글래스, **패널 불투명도**(높을수록 배경이 덜 비침, 기본 블러 58% · 리퀴드 22%, 스타일마다 따로 저장), **언어**(English 기본 / 한국어: 메뉴·탭·제목·표 머리글, Timesheets 제목은 그대로), **글꼴**: Pretendard(기본) / IBM Plex Sans KR / 고운돋움 / 나눔명조(고를 때만 내려받음). 드롭다운·메뉴·창은 항상 불투명 |
 | 배경 | Settings → **배경**: 무작위 그라데이션(매일 자동 또는 고정). **물결처럼 흐르기**를 켜면 물결 모양 색 띠가 화면 오른쪽에서 왼쪽으로 흐르고, 물결 모양은 패턴마다 다름. 속도 느리게 24초 / 보통 12초(기본) / 빠르게 6초 = 물결이 화면을 지나가는 시간, 미리보기에 바로 반영. 내 사진 업로드, Unsplash 오늘의 사진(키 설정 시)도 가능. 다른 탭을 보는 동안과 OS ‘동작 줄이기’가 켜져 있으면 멈춤 |
-| 프로젝트 추가·삭제 | Projects → Project mapping(관리자). 표는 대분류(PROJECT RND / CO-WORK / NON-RND)별로 묶여 보이고, **No**는 전체 이어지는 번호(대분류 → 마스터 시트 순서, 숨긴 항목은 –)입니다. 이름과 대분류를 넣고 **추가**. 🗑 → 마스터 시트에서 온 항목은 **숨김**(기존 기록 유지, 다시 올려도 NEW 안 뜸, **숨긴 항목 보기 → 되돌리기**), 직접 추가한 항목은 확인 후 삭제(이미 쓰였으면 숨김). 기본 항목(휴가·회의 등)은 삭제 불가. 관리자는 **No와 이름을 더블클릭**(또는 ✏)해서 고침: No를 바꾸면 같은 대분류 안에서 그 자리로 옮겨지고(Daily Log 번호순에도 반영), 마스터 시트에서 온 이름을 바꾸면 원래 시트 이름을 기억해(이름 아래 '시트 이름') 예전 시트를 다시 올려도 같은 항목으로 맞춰지고 앱 이름이 유지됨. **목록 저장 (.json)** / **목록 불러오기**(관리자): 대분류·No 순서·이름·시트 이름·별칭·숨김을 TimeCrumbs 파일로 저장하고, 불러올 때는 바뀌는 내용을 미리 보여 준 뒤 적용(같은 항목은 이름·순서 갱신, 새 항목 추가, 별칭 추가, 파일에 없는 항목은 그대로). 다른 브라우저·폰으로 옮길 때도 사용 |
+| 프로젝트 추가·삭제 | Projects → Project mapping(관리자). 표는 대분류(PROJECT RND / CO-WORK / NON-RND)별로 묶여 보이고, **No**는 전체 이어지는 번호(대분류 → 마스터 시트 순서, 숨긴 항목은 –)입니다. 이름과 대분류를 넣고 **추가**. 🗑 → 마스터 시트에서 온 항목은 **숨김**(기존 기록 유지, 다시 올려도 NEW 안 뜸, **숨긴 항목 보기 → 되돌리기**), 직접 추가한 항목은 확인 후 삭제(이미 쓰였으면 숨김). 기본 항목(휴가·회의 등)은 삭제 불가. 관리자는 **No와 이름을 더블클릭**(또는 ✏)해서 고침: No를 바꾸면 같은 대분류 안에서 그 자리로 옮겨지고(Daily Log 번호순에도 반영), 마스터 시트에서 온 이름을 바꾸면 원래 시트 이름을 기억해(이름 아래 '시트 이름') 예전 시트를 다시 올려도 같은 항목으로 맞춰지고 앱 이름이 유지됨. **목록 저장 (.json)** / **목록 불러오기**(관리자): 대분류·No 순서·이름·시트 이름·별칭·숨김을 TeamEmbedded 파일로 저장하고(이름을 바꾸기 전 TimeCrumbs 파일도 읽음), 불러올 때는 바뀌는 내용을 미리 보여 준 뒤 적용(같은 항목은 이름·순서 갱신, 새 항목 추가, 별칭 추가, 파일에 없는 항목은 그대로). 다른 브라우저·폰으로 옮길 때도 사용 |
 
 Mac에서는 Ctrl 대신 ⌘를 씁니다.
 

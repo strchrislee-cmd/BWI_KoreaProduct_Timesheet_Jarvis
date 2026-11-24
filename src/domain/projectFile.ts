@@ -1,10 +1,12 @@
-// TimeCrumbs project list file (.json): Projects → Project mapping → 목록 저장 / 목록 불러오기.
+// TeamEmbedded project list file (.json): Projects → Project mapping → 목록 저장 / 목록 불러오기.
 // Keeps everything the table shows (대분류, No order, names, sheet names, local aliases, hidden),
 // so a list edited in one place can be loaded in another browser, a phone, or later Supabase.
 import { parseProjectCode, projectNameKey, projectNumbers, sheetNameAfterRename, sortProjects } from './projects.js'
 import type { GroupProject, ProjectAlias, ProjectKind, SystemKey } from './types.js'
 
-export const PROJECT_FILE_FORMAT = 'timecrumbs-projects'
+export const PROJECT_FILE_FORMAT = 'teamembedded-projects'
+/** files saved before the rename to TeamEmbedded are still read */
+const OLD_PROJECT_FILE_FORMATS = ['timecrumbs-projects']
 const KINDS: ProjectKind[] = ['project', 'timelog', 'local_section']
 
 export interface ProjectFileEntry {
@@ -55,10 +57,11 @@ export function parseProjectFile(text: string): ProjectFile {
   try {
     data = JSON.parse(text)
   } catch {
-    throw new Error('TimeCrumbs 프로젝트 목록 파일(.json)이 아닙니다.')
+    throw new Error('TeamEmbedded 프로젝트 목록 파일(.json)이 아닙니다.')
   }
   const d = data as Partial<ProjectFile> | null
-  if (!d || d.format !== PROJECT_FILE_FORMAT || !Array.isArray(d.projects)) throw new Error('TimeCrumbs 프로젝트 목록 파일(.json)이 아닙니다.')
+  const knownFormat = d?.format === PROJECT_FILE_FORMAT || OLD_PROJECT_FILE_FORMATS.includes(String(d?.format))
+  if (!d || !knownFormat || !Array.isArray(d.projects)) throw new Error('TeamEmbedded 프로젝트 목록 파일(.json)이 아닙니다.')
   if (d.version !== 1) throw new Error(`지원하지 않는 파일 버전입니다 (${String(d.version)}).`)
   const projects = d.projects.map((raw, i): ProjectFileEntry => {
     const e = (raw ?? {}) as unknown as Record<string, unknown>
