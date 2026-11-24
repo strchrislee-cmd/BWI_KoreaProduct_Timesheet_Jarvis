@@ -529,7 +529,8 @@ export function DailyGrid({
 
   const menuOption = menu ? options.find((o) => o.key === menu.key) : undefined
   const menuCategoryKey = menuOption?.colorKey
-  const rowStyle = { height: size.rowHeight }
+  // the chosen row height is the minimum: long text wraps inside its cell and the whole row grows
+  const rowStyle = { minHeight: size.rowHeight }
 
   return (
     <div>
@@ -585,7 +586,7 @@ export function DailyGrid({
                     aria-selected={selected}
                     data-cell={`${i}:${col}`}
                     className={cx(
-                      'relative flex items-center overflow-hidden whitespace-nowrap border-l border-dashed border-black/10 px-2.5',
+                      'relative flex items-center border-l border-dashed border-black/10 px-2.5 py-1',
                       selected && 'shadow-[inset_0_0_0_9999px_rgba(31,77,58,0.12)]',
                       active && 'outline outline-2 -outline-offset-2 outline-primary',
                     )}
@@ -594,7 +595,7 @@ export function DailyGrid({
                     onMouseEnter={() => onCellEnter(i, c)}
                     onDoubleClick={openEditor}
                   >
-                    <span className="relative z-[1] min-w-0 truncate">{renderCell(col, s, lunchDefault)}</span>
+                    <span className={cx('relative z-[1] min-w-0 whitespace-pre-wrap break-words', active && !editing && col !== 'details' && 'pr-5')}>{renderCell(col, s, lunchDefault)}</span>
                     {active && !editing && col !== 'details' && (
                       <span className="absolute right-1 top-1/2 flex -translate-y-1/2 items-center gap-1" onMouseDown={(e) => e.stopPropagation()}>
                         {!readOnly && (

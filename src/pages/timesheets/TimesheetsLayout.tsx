@@ -32,7 +32,7 @@ export function useTimesheets(): TimesheetsValue {
 
 const TABS: { to: string; label: TextKey; end?: boolean }[] = [
   { to: '/timesheets', label: 'Daily Log', end: true },
-  { to: '/timesheets/weekly', label: 'Weekly Plan' },
+  { to: '/timesheets/weekly', label: 'Weekly Result' },
   { to: '/timesheets/group', label: 'Group Timesheet' },
   { to: '/timesheets/projects', label: 'Projects' },
   { to: '/timesheets/leave', label: 'Leave' },
@@ -91,6 +91,14 @@ export function TimesheetsLayout() {
           <span className="pr-1">· {shortLabel(date).slice(0, 3)} · W{week}</span>
           <button aria-label="Next day" className="rounded-chip p-1 hover:bg-white" onClick={() => value?.setDate(addDays(date, 1))}>
             <ChevronRight size={16} />
+          </button>
+          <button
+            className={cx('ml-0.5 rounded-chip px-2 py-0.5 text-xs font-bold', date === todayLocal() ? 'text-muted' : 'bg-white/70 text-primary hover:bg-white')}
+            aria-label="Go to today"
+            disabled={date === todayLocal()}
+            onClick={() => value?.setDate(todayLocal())}
+          >
+            {tr('Today')}
           </button>
         </div>
         {/* phones: one row of tabs you can swipe sideways */}

@@ -211,7 +211,7 @@ export function ImportWizard({ onClose, onDone }: { onClose: () => void; onDone:
               Back
             </Button>
             <Button onClick={() => void run()} disabled={busy || selected.length === 0}>
-              {busy ? 'Importing…' : 'Generate timesheet & weekly plan'}
+              {busy ? 'Importing…' : 'Generate timesheet & weekly result'}
             </Button>
           </div>
         </div>

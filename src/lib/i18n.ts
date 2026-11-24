@@ -19,7 +19,7 @@ const KO = {
   'Welcome back,': '다시 오셨네요,',
   // Timesheets tabs
   'Daily Log': '일일 기록',
-  'Weekly Plan': '주간 계획',
+  'Weekly Result': '주간 결과',
   'Group Timesheet': '그룹 타임시트',
   Projects: '프로젝트',
   Leave: '휴가',
@@ -33,8 +33,8 @@ const KO = {
   Today: '오늘',
   target: '목표',
   'Unmapped categories': '매핑 안 된 카테고리',
-  // Weekly Plan
-  'Weekly Task Plan': '주간 업무 계획',
+  // Weekly Result
+  'Weekly Task Result': '주간 업무 결과',
   Week: '주차',
   Date: '날짜',
   'Local Project': '로컬 프로젝트',

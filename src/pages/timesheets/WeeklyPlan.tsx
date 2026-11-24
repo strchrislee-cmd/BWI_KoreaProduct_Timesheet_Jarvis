@@ -2,12 +2,15 @@ import { Download, Sparkles } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { Button, Card, ErrorNote, Loading, Pill } from '../../components/ui'
 import { useStore, useUser } from '../../data/StoreContext'
-import { buildWeeklyPlan } from '../../domain/aggregate'
+import { buildWeeklyPlan, type WeeklyPlanRow } from '../../domain/aggregate'
 import { WEEKDAY_SHORT, isoWeek, slotToTime, weekDates } from '../../domain/time'
 import { downloadWorkbook, loadExcel } from '../../lib/files'
 import { useAsync } from '../../lib/hooks'
 import { useT } from '../../lib/i18n'
+import { categoryColor, chipBg, rowBg } from './colors'
+import { displayName } from './projectUi'
 import { useTimesheets } from './TimesheetsLayout'
+import { useColorPrefs } from './useColorPrefs'
 
 export function WeeklyPlanPage() {
   const tr = useT()
@@ -20,6 +23,13 @@ export function WeeklyPlanPage() {
 
   const q = useAsync(() => store.listSlots(engineer.id, dates[0], dates[6]), [store, engineer.id, dates[0]])
   const rows = useMemo(() => (q.data ? buildWeeklyPlan(q.data, projects) : []), [q.data, projects])
+  const { prefs } = useColorPrefs()
+  const byId = useMemo(() => new Map(projects.map((p) => [p.id, p])), [projects])
+  /** Local Project as the Daily Log's Category column shows it, in the user's color for that category */
+  const category = (r: WeeklyPlanRow) => {
+    const p = r.groupProjectId ? byId.get(r.groupProjectId) : undefined
+    return { text: p ? displayName(p) : r.label, color: categoryColor('work', p, prefs) }
+  }
 
   const perDay = dates.map((d) => rows.filter((r) => r.date === d).reduce((a, r) => a + r.hours, 0))
   const total = perDay.reduce((a, b) => a + b, 0)
@@ -34,7 +44,7 @@ export function WeeklyPlanPage() {
   async function exportXlsx() {
     try {
       const x = await loadExcel()
-      await downloadWorkbook(x.buildWeeklyPlanWorkbook(rows, { engineer: engineer.name }), `WeeklyPlan_W${week}_${engineer.engineer_code || engineer.name}.xlsx`)
+      await downloadWorkbook(x.buildWeeklyPlanWorkbook(rows, { engineer: engineer.name }), `WeeklyResult_W${week}_${engineer.engineer_code || engineer.name}.xlsx`)
     } catch (e) {
       setError(e as Error)
     }
@@ -43,7 +53,7 @@ export function WeeklyPlanPage() {
   return (
     <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
       <Card
-        title={tr('Weekly Task Plan')}
+        title={tr('Weekly Task Result')}
         action={
           <div className="flex items-center gap-2">
             <Pill tone="green">
@@ -78,22 +88,27 @@ export function WeeklyPlanPage() {
                 </tr>
               </thead>
               <tbody>
-                {rows.map((r) => (
-                  <tr key={`${r.date}-${r.startSlot}`}>
+                {rows.map((r) => {
+                  const c = category(r)
+                  return (
+                  <tr key={`${r.date}-${r.startSlot}`} style={{ backgroundColor: rowBg(c.color) }}>
                     <td>{r.week}</td>
                     <td className="whitespace-nowrap">{r.date.slice(5)}</td>
                     <td className="whitespace-nowrap tabular-nums">
                       {slotToTime(r.startSlot)}–{slotToTime(r.endSlot % 48)}
                     </td>
                     <td>
-                      <Pill tone="blue">{r.localProject || '—'}</Pill>
+                      <span className="inline-block rounded-chip px-1.5 py-0.5 text-[13px] font-medium" style={{ backgroundColor: chipBg(c.color) }} data-testid="local-project">
+                        {c.text ? (r.groupProjectId ? c.text : `⚠ ${c.text}`) : '—'}
+                      </span>
                     </td>
                     <td className="max-w-[260px] truncate">{r.groupProjectName ? r.groupProjectName : <Pill tone="orange">{tr('Unmapped')}</Pill>}</td>
                     <td>{r.work === '회의' ? <Pill tone="yellow">회의</Pill> : <Pill>기타</Pill>}</td>
                     <td>{r.item}</td>
                     <td className="num font-semibold">{r.hours.toFixed(1)}</td>
                   </tr>
-                ))}
+                  )
+                })}
               </tbody>
             </table>
           </div>
