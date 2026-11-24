@@ -2,6 +2,7 @@ import { CircleAlert, MoreHorizontal, Plus, Upload } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useLocation } from 'react-router'
 import { ColorMenu } from '../../components/ColorMenu'
+import { SLOTS_CHANGED } from '../../components/ReminderToast'
 import { TimeRangePicker } from '../../components/TimeRangePicker'
 import { Button, Card, ErrorNote, Loading, Pill, cx } from '../../components/ui'
 import { useStore, useUser } from '../../data/StoreContext'
@@ -30,6 +31,12 @@ export function DailyLog() {
   const canEdit = engineer.id === user.id || user.role === 'admin'
 
   const q = useAsync(() => store.listSlots(engineer.id, date, date), [store, engineer.id, date])
+  // the reminder toast saved something for this day: show it
+  useEffect(() => {
+    const onSaved = (e: Event) => (e as CustomEvent<{ date: string }>).detail.date === date && q.reload()
+    window.addEventListener(SLOTS_CHANGED, onSaved)
+    return () => window.removeEventListener(SLOTS_CHANGED, onSaved)
+  }, [date, q.reload])
   const templatesQ = useAsync(() => store.listTemplates(user.id), [store, user.id])
   const [localOrder, setLocalOrder] = useState<string[] | null>(null) // optimistic drag order
   useEffect(() => setLocalOrder(null), [templatesQ.data])

@@ -18,6 +18,7 @@ import type { OrgSettings, Profile, Role } from '../domain/types'
 import { crossSeconds } from '../lib/flowGradient'
 import { compressImage } from '../lib/files'
 import { FONT_CHOICES, loadFont } from '../lib/fonts'
+import { SHOW_REMINDER_TOAST } from '../components/ReminderToast'
 import { AUTH_LINK } from '../lib/authLink'
 import { LANG_CHOICES, useT } from '../lib/i18n'
 import { supportsRefraction } from '../lib/liquidGlass'
@@ -392,11 +393,17 @@ function NotificationsCard() {
         30분마다 기록 알림
       </label>
       <p className="mt-2 text-xs text-muted">매시 정각·30분에, 방금 끝난 30분이 비어 있으면 알려 드립니다. 평일 근무시간에만, 점심은 제외합니다.</p>
+      <p className="mt-1 text-xs text-muted">알림 때 화면 오른쪽 아래에 입력 창이 떠서 바로 기록하거나 <strong>이전 업무 계속</strong>으로 빈 칸을 채울 수 있습니다.</p>
       <p className="mt-1 text-xs text-muted">TeamEmbedded 탭이 열려 있어야 합니다(최소화·다른 탭은 괜찮음).</p>
       <p className="mt-2 text-sm">
         브라우저 권한: <strong data-testid="notification-permission">{status}</strong>
       </p>
       <ErrorNote error={error ?? (msg || null)} />
+      {prefs.notifications && (
+        <Button variant="outline" className="mr-2 mt-2" onClick={() => window.dispatchEvent(new Event(SHOW_REMINDER_TOAST))}>
+          입력 창 띄워 보기
+        </Button>
+      )}
       {supported && permission === 'granted' && (
         <Button variant="outline" className="mt-2" onClick={() => new Notification('TeamEmbedded · 테스트 알림', { body: '알림이 정상적으로 동작합니다.' })}>
           테스트 알림

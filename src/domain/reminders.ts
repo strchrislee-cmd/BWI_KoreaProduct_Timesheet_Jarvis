@@ -1,4 +1,5 @@
-import { SLOT_MINUTES, slotToTime, timeToMinutes } from './time.js'
+import { SLOT_MINUTES, slotToTime, timeToMinutes, timeToSlot } from './time.js'
+import type { TimeSlot } from './types.js'
 
 /** Milliseconds from `now` to the next :00 or :30 (plus a 1 s margin). */
 export function msUntilNextBoundary(now: Date): number {
@@ -24,3 +25,23 @@ export function reminderFor(
   if (opts.lunch.has(slot) || opts.filled.has(slot)) return null
   return { slot, text: `${slotToTime(slot)}–${slotToTime(slot + 1)} 업무를 기록해 주세요` }
 }
+
+/**
+ * "이전 업무 계속" (reminder toast): the last half hour logged before `slot` today, and the empty
+ * slots after it up to and including `slot` — inside working hours, never lunch, never a logged slot.
+ * Null when nothing is logged earlier today (within working hours) or nothing is left to fill.
+ */
+export function continuePlan(
+  slot: number,
+  saved: TimeSlot[],
+  opts: { start: string; lunch: Set<number> },
+): { from: TimeSlot; targets: number[] } | null {
+  const first = timeToSlot(opts.start)
+  const from = saved.filter((s) => s.slot_index < slot && s.slot_index >= first).sort((a, b) => b.slot_index - a.slot_index)[0]
+  if (!from) return null
+  const logged = new Set(saved.map((s) => s.slot_index))
+  const targets: number[] = []
+  for (let i = from.slot_index + 1; i <= slot; i++) if (!logged.has(i) && !opts.lunch.has(i)) targets.push(i)
+  return targets.length ? { from, targets } : null
+}
+

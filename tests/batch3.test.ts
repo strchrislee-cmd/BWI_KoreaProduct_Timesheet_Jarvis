@@ -1,11 +1,12 @@
 import { describe, expect, it, vi } from 'vitest'
 import { startTimeOptions } from '../src/domain/time'
-import { msUntilNextBoundary, reminderFor } from '../src/domain/reminders'
+import { continuePlan, msUntilNextBoundary, reminderFor } from '../src/domain/reminders'
 import { NAMED_COLORS, hslToHex, isHex, randomColor, randomPastel } from '../src/pages/timesheets/colors'
 import { moveItem, sortItems } from '../src/lib/ordering'
 import { gradientBackground, seededRandom } from '../src/lib/background'
 import { DEFAULT_GRID, readPrefs } from '../src/data/preferences'
 import { dailyPhoto, secondsUntilKstMidnight } from '../api/_lib/backgroundCore'
+import type { TimeSlot } from '../src/domain/types'
 
 describe('A1 start time range', () => {
   it('07:00 … 10:00 in 30-min steps; keeps a saved value outside the range', () => {
@@ -133,3 +134,26 @@ describe('A8 /api/background core', () => {
     expect(out).toMatchObject({ status: 502, cacheControl: 'no-store' })
   })
 })
+
+describe('reminder toast: 이전 업무 계속', () => {
+  const slot = (i: number, label: string): TimeSlot => ({
+    user_id: 'u', work_date: '2026-11-16', slot_index: i, kind: 'work', group_project_id: 'p1', label, description: '설계', details: '도면', focus: null,
+  })
+  const opts = { start: '07:30', lunch: new Set([24, 25]) }
+
+  it('fills the half hour that just ended from the one before', () => {
+    expect(continuePlan(20, [slot(19, 'A')], opts)).toEqual({ from: slot(19, 'A'), targets: [20] })
+  })
+  it('fills every empty slot since the last entry (missed reminders)', () => {
+    expect(continuePlan(21, [slot(15, 'old'), slot(18, 'A')], opts)?.targets).toEqual([19, 20, 21])
+  })
+  it('skips lunch and continues the morning task after it', () => {
+    expect(continuePlan(26, [slot(23, 'A')], opts)).toEqual({ from: slot(23, 'A'), targets: [26] })
+  })
+  it('nothing to continue: no entry today, only entries before work starts, or the slot is already logged', () => {
+    expect(continuePlan(20, [], opts)).toBeNull()
+    expect(continuePlan(20, [slot(10, 'night')], opts)).toBeNull()
+    expect(continuePlan(20, [slot(19, 'A'), slot(20, 'B')], opts)).toBeNull()
+  })
+})
+
