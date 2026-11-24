@@ -1,6 +1,6 @@
 # BWI Korea Product · TeamEmbedded
 
-**TeamEmbedded**(Gods of Team Embedded, 이전 이름 TimeCrumbs · JARVIS)는 사내 그룹웨어 헬퍼 웹앱의 첫 모듈 **Timesheets**입니다(데모: https://timecrumbs.vercel.app). 30분 단위 업무 기록을 그룹 지정 프로젝트명으로 매핑해 **그룹 timesheet 포맷**과 **업무진행세부계획(주간계획)**을 만들고, 새 그룹 프로젝트가 생기면 알려 줍니다.
+**TeamEmbedded**(Gods of Team Embedded, 이전 이름 TimeCrumbs · JARVIS)는 사내 그룹웨어 헬퍼 웹앱의 첫 모듈 **Timesheets**입니다(데모: https://teamembedded.vercel.app, 예전 주소 timecrumbs.vercel.app은 자동 이동). 30분 단위 업무 기록을 그룹 지정 프로젝트명으로 매핑해 **그룹 timesheet 포맷**과 **업무진행세부계획(주간계획)**을 만들고, 새 그룹 프로젝트가 생기면 알려 줍니다.
 
 - UI 컨셉과 요구사항: [`concept-design/`](./concept-design/README.md), 압축 컨텍스트: [`concept-design/CONTEXT.md`](./concept-design/CONTEXT.md)
 - 날짜별 작업 기록(작업 내용·결과): [`docs/worklog/`](./docs/worklog/README.md)
