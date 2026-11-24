@@ -146,6 +146,9 @@ export interface LeaveRequest {
   note: string
 }
 
+/** what POST /api/admin/invite did — invite / login_link: e-mail sent; password_new / password_reset: account made / password set, no e-mail */
+export type InviteSent = 'invite' | 'login_link' | 'password_new' | 'password_reset'
+
 export interface Invitation {
   id: string
   email: string

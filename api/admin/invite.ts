@@ -8,9 +8,10 @@ const must = <T>({ data, error }: { data: T; error: { message: string } | null }
 }
 
 /**
- * POST /api/admin/invite { email, role, can_export } with "Authorization: Bearer <access token>".
+ * POST /api/admin/invite { email, role, can_export, password? } with "Authorization: Bearer <access token>".
  * Only admins. Records the invitation, then e-mails the invite link (or, when the address already
- * has an account, a fresh sign-in link). See api/_lib/inviteCore.ts.
+ * has an account, a fresh sign-in link). With a temporary password the account is made (or its
+ * password set) without any e-mail. See api/_lib/inviteCore.ts.
  */
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'POST only' })
@@ -49,6 +50,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         void must(await sb.from('invitations').update({ status: 'accepted', accepted_at: new Date().toISOString() }).eq('email', email)),
       sendLoginLink: async (email) => {
         const { error } = await sb.auth.signInWithOtp({ email, options: { shouldCreateUser: false, emailRedirectTo: redirectTo } })
+        if (error) throw new Error(error.message)
+      },
+      createUser: async (email, password) => {
+        const { data, error } = await sb.auth.admin.createUser({ email, password, email_confirm: true })
+        if (error && (error.code === 'email_exists' || /already been registered/i.test(error.message))) return { exists: true }
+        if (error) throw new Error(error.message)
+        return { exists: false, userId: data.user.id }
+      },
+      setPassword: async (userId, password) => {
+        const { error } = await sb.auth.admin.updateUserById(userId, { password, email_confirm: true })
         if (error) throw new Error(error.message)
       },
     })

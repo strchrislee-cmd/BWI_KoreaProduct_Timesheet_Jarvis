@@ -140,6 +140,9 @@ export class LocalStore implements DataStore {
     return p ? { ...p } : null // copies, so React sees changes
   }
   async sendMagicLink() {}
+  // demo: there is no sign-in, so no passwords
+  async signInWithPassword() {}
+  async changePassword() {}
   async signOut() {}
   onAuthChange() {
     return () => {}

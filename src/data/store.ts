@@ -1,6 +1,7 @@
 import type {
   GroupProject,
   Invitation,
+  InviteSent,
   LeaveRequest,
   MasterImport,
   MasterImportResult,
@@ -26,6 +27,9 @@ export interface DataStore {
 
   currentUser(): Promise<Profile | null>
   sendMagicLink(email: string): Promise<void>
+  signInWithPassword(email: string, password: string): Promise<void>
+  /** the signed-in user's new password (Settings) */
+  changePassword(password: string): Promise<void>
   signOut(): Promise<void>
   onAuthChange(cb: () => void): () => void
 
@@ -76,7 +80,8 @@ export interface DataStore {
   deleteLeave(id: string): Promise<void>
 
   listInvitations(): Promise<Invitation[]>
-  invite(input: { email: string; role: Role; can_export: boolean }): Promise<{ sent: 'invite' | 'login_link' }>
+  /** with a password: account made (or its password set) without e-mail, see api/_lib/inviteCore.ts */
+  invite(input: { email: string; role: Role; can_export: boolean; password?: string }): Promise<{ sent: InviteSent }>
   revokeInvitation(id: string): Promise<void>
   /** remove an invitation row (revoked / accepted ones; the account itself stays) */
   deleteInvitation(id: string): Promise<void>

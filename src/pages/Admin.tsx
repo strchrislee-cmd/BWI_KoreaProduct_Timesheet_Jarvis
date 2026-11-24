@@ -3,7 +3,8 @@ import { useState } from 'react'
 import { PageTitle } from '../components/Shell'
 import { Button, Card, ErrorNote, Field, Pill } from '../components/ui'
 import { useStore, useUser } from '../data/StoreContext'
-import type { Role } from '../domain/types'
+import { passwordProblem } from '../domain/password'
+import type { InviteSent, Role } from '../domain/types'
 import { useAsync } from '../lib/hooks'
 import { useT } from '../lib/i18n'
 import { ROLES, roleLabel } from '../domain/roles'
@@ -14,7 +15,7 @@ export function Admin() {
   const me = useUser()
   const profiles = useAsync(() => store.listProfiles(), [store])
   const invitations = useAsync(() => store.listInvitations(), [store])
-  const [form, setForm] = useState({ email: '', role: 'l1' as Role, can_export: true })
+  const [form, setForm] = useState({ email: '', role: 'l1' as Role, can_export: true, password: '' })
   const [error, setError] = useState<Error | null>(null)
   const [notice, setNotice] = useState('')
 
@@ -28,14 +29,22 @@ export function Admin() {
     }
   }
 
-  const invite = (input = form) =>
+  const invite = (input: { email: string; role: Role; can_export: boolean; password?: string } = form) =>
     run(async () => {
+      const problem = input.password ? passwordProblem(input.password) : null
+      if (problem) throw new Error(problem)
       const { sent } = await store.invite(input)
-      if (input === form) setForm({ ...form, email: '' })
+      if (input === form) setForm({ ...form, email: '', password: '' })
       invitations.reload()
       profiles.reload()
-      // an address that already has an account gets a sign-in link instead (see api/_lib/inviteCore.ts)
-      setNotice(sent === 'login_link' ? `${input.email}: 이미 계정이 있는 주소라 로그인 링크를 다시 보냈습니다.` : `Invitation sent to ${input.email}`)
+      // see api/_lib/inviteCore.ts: an existing account gets a sign-in link (or, with a password, that password)
+      const notices: Record<InviteSent, string> = {
+        invite: `Invitation sent to ${input.email}`,
+        login_link: `${input.email}: 이미 계정이 있는 주소라 로그인 링크를 다시 보냈습니다.`,
+        password_new: `${input.email}: 계정을 만들었습니다(메일 없음). 임시 비밀번호를 직접 전달해 주세요.`,
+        password_reset: `${input.email}: 이미 계정이 있어 비밀번호를 방금 입력한 임시 비밀번호로 바꿨습니다(메일 없음).`,
+      }
+      setNotice(notices[sent])
     })
 
   const update = (id: string, patch: { role?: Role; can_export?: boolean }) =>
@@ -193,10 +202,25 @@ export function Admin() {
             <label className="flex items-center gap-2 text-sm">
               <input type="checkbox" checked={form.can_export} onChange={(e) => setForm({ ...form, can_export: e.target.checked })} /> Can export group timesheet
             </label>
+            <Field label="임시 비밀번호 (선택)" hint="비워 두면 초대 메일을 보냅니다. 넣으면 메일 없이 바로 계정을 만들고(이미 있으면 비밀번호를 바꿈) 그 비밀번호로 로그인합니다. 8자 이상.">
+              <input
+                type="text"
+                className="field"
+                autoComplete="off"
+                spellCheck={false}
+                aria-label="Temporary password"
+                value={form.password}
+                onChange={(e) => setForm({ ...form, password: e.target.value })}
+              />
+            </Field>
             <Button type="submit" className="w-full">
-              Send invite
+              {form.password ? 'Create account' : 'Send invite'}
             </Button>
-            <p className="text-xs text-muted">The invitee gets an e-mail link; their account is created with this role when they open it.</p>
+            <p className="text-xs text-muted">
+              {form.password
+                ? 'No e-mail is sent. Give the person this password; they can change it in Settings.'
+                : 'The invitee gets an e-mail link; their account is created with this role when they open it.'}
+            </p>
           </form>
         </Card>
       </div>

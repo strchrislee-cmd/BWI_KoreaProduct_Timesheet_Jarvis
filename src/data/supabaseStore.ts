@@ -2,6 +2,7 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import type {
   GroupProject,
   Invitation,
+  InviteSent,
   LeaveRequest,
   MasterImport,
   MasterImportResult,
@@ -54,6 +55,14 @@ export class SupabaseStore implements DataStore {
       email,
       options: { shouldCreateUser: false, emailRedirectTo: window.location.origin },
     })
+    if (error) throw new Error(error.message)
+  }
+  async signInWithPassword(email: string, password: string) {
+    const { error } = await this.sb.auth.signInWithPassword({ email, password })
+    if (error) throw new Error(error.message)
+  }
+  async changePassword(password: string) {
+    const { error } = await this.sb.auth.updateUser({ password })
     if (error) throw new Error(error.message)
   }
   async signOut() {
@@ -217,14 +226,14 @@ export class SupabaseStore implements DataStore {
       await this.sb.from('invitations').select('id, email, role, can_export, status, created_at').order('created_at', { ascending: false }),
     )
   }
-  async invite(input: { email: string; role: Role; can_export: boolean }): Promise<{ sent: 'invite' | 'login_link' }> {
+  async invite(input: { email: string; role: Role; can_export: boolean; password?: string }): Promise<{ sent: InviteSent }> {
     const { data } = await this.sb.auth.getSession()
     const res = await fetch('/api/admin/invite', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${data.session?.access_token ?? ''}` },
       body: JSON.stringify(input),
     })
-    const body = (await res.json().catch(() => ({}))) as { error?: string; sent?: 'invite' | 'login_link' }
+    const body = (await res.json().catch(() => ({}))) as { error?: string; sent?: InviteSent }
     if (!res.ok) throw new Error(body.error ?? `Invite failed (${res.status})`)
     return { sent: body.sent ?? 'invite' }
   }

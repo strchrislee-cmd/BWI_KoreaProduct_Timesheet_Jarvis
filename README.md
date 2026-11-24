@@ -51,8 +51,14 @@ npm run dev
 2. **SQL Editor**에서 `supabase/migrations/`의 SQL 파일(`0001_init.sql` → `0002_seed.sql` → `0003_task_templates.sql` → `0004_work_days_colors.sql` → `0005_user_backgrounds.sql` → `0006_project_manage.sql` → `0007_slot_details.sql` → `0008_project_edit.sql` → `0009_levels_personal_aliases.sql` → `0010_api_privileges.sql`)을 **번호 순서대로** 실행합니다. Supabase CLI를 쓴다면 `supabase db push`도 됩니다. 이미 앞 파일을 실행했다면 새로 추가된 파일만 실행하면 됩니다.
 3. **Authentication → URL Configuration**: Site URL과 Redirect URL에 Vercel 주소를 넣습니다.
 4. **Authentication → SMTP Settings**: **외부 SMTP를 반드시 연결**하세요. 기본 발송기는 시간당 2통, 그것도 Supabase 팀 멤버에게만 보냅니다. 회사 SMTP나 Resend·Brevo 등을 쓰면 됩니다.
-5. (권장) Authentication → Providers → Email에서 공개 가입(Allow new users to sign up)을 끕니다. 이걸 켜 두더라도 DB 트리거가 **초대받지 않은 가입을 거부**합니다.
-6. **첫 관리자 만들기**: Authentication → Users → **Add user → Send invitation**(또는 Create new user)으로 본인 계정을 만듭니다. 로그인은 사이트에서 이메일을 넣고 받는 **매직 링크**로 합니다. **처음 생성되는 계정은 자동으로 Admin**이 되고, 이후 사용자는 TimeCrumbs Admin 화면에서 초대합니다.
+5. **Authentication → Sign In / Providers**에서 공개 가입(**Allow new users to sign up**)을 끕니다. DB 트리거가 초대받지 않은 가입은 거부하지만, 켜 두면 초대 대기 중인 주소로 다른 사람이 먼저 비밀번호를 정해 가입할 수 있습니다. 꺼도 TimeCrumbs의 초대·계정 만들기는 그대로 동작합니다.
+6. **첫 관리자 만들기**: Authentication → Users → **Add user → Create new user**에서 이메일과 비밀번호를 넣고(Auto Confirm 켬) 만들면, 사이트에서 그 이메일·비밀번호로 바로 로그인합니다. **처음 생성되는 계정은 자동으로 Admin**이 되고, 이후 사용자는 TimeCrumbs Admin 화면에서 초대합니다.
+
+**로그인 방식**
+- 평소에는 **이메일 + 비밀번호**로 로그인합니다. 각자 **설정 → 비밀번호**에서 정하거나 바꿉니다.
+- 비밀번호가 없거나 잊었으면 로그인 화면의 **Forgot password?**로 메일 링크를 받아 들어온 뒤 설정에서 정합니다.
+- 관리자가 초대할 때 **임시 비밀번호**를 넣으면 메일 없이 바로 계정이 생깁니다. 이미 계정이 있는 주소라면 비밀번호가 그 값으로 바뀝니다. 비워 두면 초대 메일을 보냅니다.
+- 한 PC에서 두 계정을 동시에 쓰려면 일반 창과 시크릿 창(또는 다른 브라우저)으로 나눕니다. 크롬의 시크릿 창끼리는 로그인을 공유합니다.
 
 > 무료 플랜: DB 500 MB, 일주일간 접속이 없으면 프로젝트 일시정지, 자동 백업 없음. 시범 운영은 무료로 하고 정식 운영 때 Pro로 올리길 권합니다.
 

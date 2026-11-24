@@ -1,4 +1,4 @@
-import { Bell, ImagePlus, Layers, RefreshCw, Sparkles, X } from 'lucide-react'
+import { Bell, ImagePlus, KeyRound, Layers, RefreshCw, Sparkles, X } from 'lucide-react'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { BACKGROUND_CHANGED, fetchDailyPhoto } from '../components/BackgroundLayer'
 import { ColorMenu, Swatch } from '../components/ColorMenu'
@@ -10,6 +10,7 @@ import { LocalStore } from '../data/localStore'
 import { useStore, useUser } from '../data/StoreContext'
 import { usePreferences } from '../data/usePreferences'
 import { FLOW_SPEEDS, type BackgroundMode, type Prefs, type UiStyle } from '../data/preferences'
+import { passwordProblem, type PasswordProblem } from '../domain/password'
 import { isSelectable, sortProjects } from '../domain/projects'
 import { todayLocal } from '../domain/time'
 import { ROLES } from '../domain/roles'
@@ -194,6 +195,7 @@ export function Settings() {
             )}
           </Card>
         </div>
+        {store.mode === 'supabase' && <PasswordCard />}
         <NotificationsCard />
         <UiStyleCard />
         <BackgroundCard />
@@ -282,6 +284,64 @@ function CategoryColorsCard() {
           ))}
         </ul>
       )}
+    </Card>
+  )
+}
+
+const PASSWORD_PROBLEM_KO: Record<PasswordProblem, string> = {
+  'Password must be at least 8 characters': '비밀번호는 8자 이상이어야 합니다.',
+  'The two passwords do not match': '두 칸의 비밀번호가 서로 다릅니다.',
+}
+
+/** Set or change the signed-in user's password (sign-in with e-mail + password). */
+function PasswordCard() {
+  const { store } = useStore()
+  const [password, setPassword] = useState('')
+  const [confirm, setConfirm] = useState('')
+  const [msg, setMsg] = useState('')
+  const [error, setError] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+
+  async function save() {
+    setMsg('')
+    const problem = passwordProblem(password, confirm)
+    if (problem) return setError(PASSWORD_PROBLEM_KO[problem])
+    setBusy(true)
+    try {
+      await store.changePassword(password)
+      setPassword('')
+      setConfirm('')
+      setError(null)
+      setMsg('저장했습니다. 다음부터 이메일과 이 비밀번호로 로그인할 수 있습니다.')
+    } catch (e) {
+      setError((e as Error).message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <Card title={<span className="flex items-center gap-2"><KeyRound size={18} /> 비밀번호</span>}>
+      <form
+        className="space-y-3"
+        onSubmit={(e) => {
+          e.preventDefault()
+          void save()
+        }}
+      >
+        <Field label="새 비밀번호" hint="8자 이상">
+          <input type="password" className="field" autoComplete="new-password" aria-label="New password" value={password} onChange={(e) => setPassword(e.target.value)} />
+        </Field>
+        <Field label="한 번 더 입력">
+          <input type="password" className="field" autoComplete="new-password" aria-label="Confirm new password" value={confirm} onChange={(e) => setConfirm(e.target.value)} />
+        </Field>
+        <ErrorNote error={error} />
+        {msg && <p className="rounded-control bg-sage px-3 py-2 text-sm font-semibold text-primary" role="status">{msg}</p>}
+        <Button type="submit" variant="outline" disabled={busy}>
+          비밀번호 저장
+        </Button>
+        <p className="text-xs text-muted">관리자에게 받은 임시 비밀번호도 여기서 바꾸세요. 비밀번호를 잊으면 로그인 화면의 "Forgot password?"로 메일 링크를 받아 들어온 뒤 다시 정하면 됩니다.</p>
+      </form>
     </Card>
   )
 }

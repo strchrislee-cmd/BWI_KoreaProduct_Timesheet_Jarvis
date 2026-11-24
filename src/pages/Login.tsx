@@ -1,12 +1,22 @@
-import { Mail } from 'lucide-react'
+import { KeyRound, Mail } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 import { BackgroundLayer } from '../components/BackgroundLayer'
 import { Button, ErrorNote } from '../components/ui'
 import { useStore } from '../data/StoreContext'
 
+/** Supabase's wording for a wrong e-mail/password pair, made actionable. */
+function signInError(err: Error): Error {
+  if (/invalid login credentials/i.test(err.message))
+    return new Error('Wrong e-mail or password. No password yet? Use "Forgot password?" to get a sign-in link, then set one in Settings.')
+  return err
+}
+
 export function Login() {
   const { store } = useStore()
+  // password: e-mail + password; link: e-mail a sign-in link (first visit, forgotten password)
+  const [mode, setMode] = useState<'password' | 'link'>('password')
   const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
   const [sent, setSent] = useState(false)
   const [error, setError] = useState<Error | null>(null)
   const [busy, setBusy] = useState(false)
@@ -16,13 +26,23 @@ export function Login() {
     setBusy(true)
     setError(null)
     try {
-      await store.sendMagicLink(email.trim())
-      setSent(true)
+      if (mode === 'password') {
+        await store.signInWithPassword(email.trim(), password) // the app switches to the signed-in screens on success
+      } else {
+        await store.sendMagicLink(email.trim())
+        setSent(true)
+      }
     } catch (err) {
-      setError(err as Error)
+      setError(signInError(err as Error))
     } finally {
       setBusy(false)
     }
+  }
+
+  const switchTo = (next: 'password' | 'link') => {
+    setMode(next)
+    setSent(false)
+    setError(null)
   }
 
   return (
@@ -58,13 +78,33 @@ export function Login() {
                   className="w-full bg-transparent outline-none"
                 />
               </label>
+              {mode === 'password' && (
+                <label className="flex items-center gap-2 rounded-control border border-line px-4 py-2 focus-within:border-primary">
+                  <KeyRound size={18} className="text-primary" />
+                  <input
+                    type="password"
+                    required
+                    autoComplete="current-password"
+                    aria-label="Password"
+                    placeholder="Password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="w-full bg-transparent outline-none"
+                  />
+                </label>
+              )}
               <ErrorNote error={error} />
               <Button type="submit" className="w-full py-3" disabled={busy}>
-                {busy ? 'Sending…' : 'Send magic link'}
+                {mode === 'password' ? (busy ? 'Signing in…' : 'Sign in') : busy ? 'Sending…' : 'Send sign-in link'}
               </Button>
             </div>
           )}
-          <p className="mt-6 text-xs text-muted">Got an invite? Open the link in your e-mail to activate your account.</p>
+          <button type="button" className="mt-4 text-sm font-semibold text-primary underline" onClick={() => switchTo(mode === 'password' ? 'link' : 'password')}>
+            {mode === 'password' ? 'Forgot password? Get a sign-in link by e-mail' : 'Back to password sign-in'}
+          </button>
+          <p className="mt-4 text-xs text-muted">
+            Got an invite? Open the link in your e-mail (or sign in with the temporary password from your admin), then set your own password in Settings.
+          </p>
         </form>
       </div>
     </div>
