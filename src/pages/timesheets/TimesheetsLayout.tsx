@@ -30,6 +30,10 @@ export function useTimesheets(): TimesheetsValue {
   return v
 }
 
+// The native date field is wider than its text; size it to the browser's date format
+// (11/16/2026, 2026. 11. 16., …) plus the calendar icon, so the header stays on one line.
+const DATE_FIELD_WIDTH = `calc(${new Intl.DateTimeFormat(undefined).format(new Date(2026, 10, 16)).length}ch + 2rem)`
+
 const TABS: { to: string; label: TextKey; end?: boolean }[] = [
   { to: '/timesheets', label: 'Daily Log', end: true },
   { to: '/timesheets/weekly', label: 'Weekly Result' },
@@ -75,7 +79,7 @@ export function TimesheetsLayout() {
   return (
     <div>
       {/* title, date and tabs on one line (all controls 36px high) to leave room for the 30-min log */}
-      <div className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-2">
+      <div className="mb-3 flex flex-wrap items-center gap-x-2 gap-y-2">
         <h1 className={TITLE_CLASS}>Timesheets</h1>
         <div className="glass glass-sage flex h-9 items-center gap-0.5 rounded-control px-1 text-sm font-semibold max-md:w-full max-md:justify-between">
           <button aria-label="Previous day" className="rounded-chip p-1 hover:bg-white" onClick={() => value?.setDate(addDays(date, -1))}>
@@ -87,13 +91,14 @@ export function TimesheetsLayout() {
             value={date}
             onChange={(e) => e.target.value && value?.setDate(e.target.value)}
             className="h-7 bg-transparent px-1 outline-none"
+            style={{ width: DATE_FIELD_WIDTH }}
           />
           <span className="pr-1">· {shortLabel(date).slice(0, 3)} · W{week}</span>
           <button aria-label="Next day" className="rounded-chip p-1 hover:bg-white" onClick={() => value?.setDate(addDays(date, 1))}>
             <ChevronRight size={16} />
           </button>
           <button
-            className={cx('ml-0.5 rounded-chip px-2 py-0.5 text-xs font-bold', date === todayLocal() ? 'text-muted' : 'bg-white/70 text-primary hover:bg-white')}
+            className={cx('rounded-chip px-1.5 py-0.5 text-xs font-bold', date === todayLocal() ? 'text-muted' : 'bg-white/70 text-primary hover:bg-white')}
             aria-label="Go to today"
             disabled={date === todayLocal()}
             onClick={() => value?.setDate(todayLocal())}
@@ -109,7 +114,7 @@ export function TimesheetsLayout() {
               to={{ pathname: tab.to, search }}
               end={tab.end}
               className={({ isActive }) =>
-                cx('flex h-9 shrink-0 items-center rounded-control px-3.5 text-sm font-semibold', isActive ? 'bg-primary text-white shadow-md' : 'glass hover:bg-white/80')
+                cx('flex h-9 shrink-0 items-center rounded-control px-3 text-sm font-semibold', isActive ? 'bg-primary text-white shadow-md' : 'glass hover:bg-white/80')
               }
             >
               {tr(tab.label)}
