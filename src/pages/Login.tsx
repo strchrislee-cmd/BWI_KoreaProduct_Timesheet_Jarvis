@@ -1,8 +1,9 @@
 import { KeyRound, Mail } from 'lucide-react'
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import { BackgroundLayer } from '../components/BackgroundLayer'
 import { Button, ErrorNote } from '../components/ui'
 import { useStore } from '../data/StoreContext'
+import { AUTH_LINK, linkErrorText } from '../lib/authLink'
 
 /** Supabase's wording for a wrong e-mail/password pair, made actionable. */
 function signInError(err: Error): Error {
@@ -18,8 +19,13 @@ export function Login() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [sent, setSent] = useState(false)
-  const [error, setError] = useState<Error | null>(null)
+  // a failed e-mail link lands here with the reason in the address bar; say so instead of a silent login screen
+  const [error, setError] = useState<Error | null>(AUTH_LINK.error ? new Error(linkErrorText(AUTH_LINK.error)) : null)
   const [busy, setBusy] = useState(false)
+
+  useEffect(() => {
+    if (AUTH_LINK.error) window.history.replaceState(window.history.state, '', window.location.pathname)
+  }, [])
 
   async function submit(e: FormEvent) {
     e.preventDefault()

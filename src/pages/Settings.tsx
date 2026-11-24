@@ -18,6 +18,7 @@ import type { OrgSettings, Profile, Role } from '../domain/types'
 import { crossSeconds } from '../lib/flowGradient'
 import { compressImage } from '../lib/files'
 import { FONT_CHOICES, loadFont } from '../lib/fonts'
+import { AUTH_LINK } from '../lib/authLink'
 import { LANG_CHOICES, useT } from '../lib/i18n'
 import { supportsRefraction } from '../lib/liquidGlass'
 import { PANEL_OPACITY_DEFAULT, PANEL_OPACITY_MIN, applyPanelOpacity } from '../lib/panelOpacity'
@@ -301,6 +302,8 @@ function PasswordCard() {
   const [msg, setMsg] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  // signed in with an e-mail link (invite, forgotten password): ask for a password right here
+  const [fromLink, setFromLink] = useState(AUTH_LINK.signedIn)
 
   async function save() {
     setMsg('')
@@ -312,6 +315,7 @@ function PasswordCard() {
       setPassword('')
       setConfirm('')
       setError(null)
+      setFromLink(false)
       setMsg('저장했습니다. 다음부터 이메일과 이 비밀번호로 로그인할 수 있습니다.')
     } catch (e) {
       setError((e as Error).message)
@@ -329,8 +333,21 @@ function PasswordCard() {
           void save()
         }}
       >
+        {fromLink && (
+          <p className="rounded-control bg-accent-soft px-3 py-2 text-sm font-semibold" role="status" data-testid="set-password-prompt">
+            메일 링크로 로그인했습니다. 여기서 비밀번호를 정해 두면 다음부터 메일 없이 이메일과 비밀번호로 로그인합니다.
+          </p>
+        )}
         <Field label="새 비밀번호" hint="8자 이상">
-          <input type="password" className="field" autoComplete="new-password" aria-label="New password" value={password} onChange={(e) => setPassword(e.target.value)} />
+          <input
+            type="password"
+            className="field"
+            autoComplete="new-password"
+            aria-label="New password"
+            autoFocus={fromLink}
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+          />
         </Field>
         <Field label="한 번 더 입력">
           <input type="password" className="field" autoComplete="new-password" aria-label="Confirm new password" value={confirm} onChange={(e) => setConfirm(e.target.value)} />

@@ -1,4 +1,5 @@
-import { Navigate, Route, Routes } from 'react-router'
+import { useEffect } from 'react'
+import { Navigate, Route, Routes, useNavigate } from 'react-router'
 import { Shell } from './components/Shell'
 import { Loading } from './components/ui'
 import { useStore } from './data/StoreContext'
@@ -12,6 +13,16 @@ import { LeavePage } from './pages/timesheets/Leave'
 import { ProjectsPage } from './pages/timesheets/Projects'
 import { TimesheetsLayout } from './pages/timesheets/TimesheetsLayout'
 import { WeeklyPlanPage } from './pages/timesheets/WeeklyPlan'
+import { takeLinkSignIn } from './lib/authLink'
+
+/** After signing in with an e-mail link (invite, forgotten password): go to Settings to set a password. */
+function AfterLinkSignIn() {
+  const navigate = useNavigate()
+  useEffect(() => {
+    if (takeLinkSignIn()) navigate('/settings', { replace: true })
+  }, [navigate])
+  return null
+}
 
 export function App() {
   const { user } = useStore()
@@ -27,7 +38,14 @@ export function App() {
 
   return (
     <Routes>
-      <Route element={<Shell />}>
+      <Route
+        element={
+          <>
+            <AfterLinkSignIn />
+            <Shell />
+          </>
+        }
+      >
         <Route index element={<Home />} />
         <Route path="timesheets" element={<TimesheetsLayout />}>
           <Route index element={<DailyLog />} />
