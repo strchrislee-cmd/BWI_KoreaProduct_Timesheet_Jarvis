@@ -206,10 +206,10 @@ body {
 /* Daily Log layout editing: windows jiggle like iPhone home-screen icons; dots mark the grid (24px) */
 @keyframes te-jiggle {
   from {
-    transform: rotate(-0.35deg);
+    transform: rotate(-0.18deg);
   }
   to {
-    transform: rotate(0.35deg);
+    transform: rotate(0.18deg);
   }
 }
 .te-jiggle {
@@ -225,4 +225,24 @@ body {
   .te-jiggle {
     animation: none;
   }
+}
+
+/* Long names in narrow windows: about the first 10 characters, then … (the full text is in the title).
+   In a wide window (container ≥ 28rem) the name can use the whole width. */
+.te-clip {
+  display: inline-block;
+  max-width: min(10em, 100%);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: bottom;
+}
+@container (min-width: 28rem) {
+  .te-clip {
+    max-width: 100%;
+  }
+}
+/* while the layout is being edited the bottom Dock stays out of the way of the save bar */
+body[data-layout-editing] .te-dock-root {
+  visibility: hidden;
 }

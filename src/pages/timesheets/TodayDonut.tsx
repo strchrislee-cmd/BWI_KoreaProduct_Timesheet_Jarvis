@@ -51,8 +51,9 @@ export function TodayDonut({ items, total }: { items: DonutItem[]; total: number
   })
 
   return (
-    <div data-testid="today-donut">
-      <div className="flex justify-center">
+    // a wide window (≥ 28rem): the donut on the left, the hours on the right
+    <div data-testid="today-donut" className="flex flex-col gap-3 @md:flex-row @md:items-center @md:gap-6">
+      <div className="flex shrink-0 justify-center">
         <div className="relative" style={{ width: SIZE, height: SIZE }}>
           <svg
             width={SIZE}
@@ -99,7 +100,7 @@ export function TodayDonut({ items, total }: { items: DonutItem[]; total: number
         </div>
       </div>
       {slices.length > 0 && (
-        <ul className="mt-3 space-y-1 text-sm" aria-label="Today breakdown">
+        <ul className="min-w-0 space-y-1 text-sm @md:flex-1" aria-label="Today breakdown">
           {slices.map((s, i) => (
             <li
               key={s.name}
@@ -108,8 +109,10 @@ export function TodayDonut({ items, total }: { items: DonutItem[]; total: number
               onPointerLeave={() => setHover(null)}
             >
               <span className="h-2.5 w-2.5 shrink-0 rounded-[3px]" style={{ backgroundColor: s.color }} />
-              <span className="min-w-0 flex-1 truncate" title={s.name}>
-                {s.name}
+              <span className="min-w-0 flex-1">
+                <span className="te-clip" title={s.name}>
+                  {s.name}
+                </span>
               </span>
               <span className="w-10 text-right font-semibold tabular-nums">{percent(s.hours, total)}%</span>
               <span className="w-10 text-right tabular-nums text-muted">{s.hours.toFixed(1)}h</span>

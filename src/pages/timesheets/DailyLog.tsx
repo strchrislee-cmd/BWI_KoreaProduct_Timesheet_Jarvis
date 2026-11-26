@@ -408,23 +408,30 @@ export function DailyLog() {
           </p>
         </>
       ) : (
-        <>
-          <div className="font-display text-5xl font-extrabold text-primary" data-testid="today-total">
-            {Math.floor(total)}h {total % 1 ? '30m' : '00m'}
+        // a wide window (≥ 28rem): the total on the left, the hours on the right
+        <div className="@md:flex @md:items-start @md:gap-6">
+          <div className="shrink-0">
+            <div className="font-display text-5xl font-extrabold text-primary" data-testid="today-total">
+              {Math.floor(total)}h {total % 1 ? '30m' : '00m'}
+            </div>
+            <p className="mb-3 text-sm text-muted">{tr('target')} {engineer.daily_target_hours}h</p>
           </div>
-          <p className="mb-3 text-sm text-muted">{tr('target')} {engineer.daily_target_hours}h</p>
-          <ul className="space-y-1.5 text-sm">
+          <ul className="min-w-0 space-y-1.5 text-sm @md:flex-1 @md:pt-2" aria-label="Today hours">
             {[...breakdown.entries()]
               .sort((a, b) => b[1].hours - a[1].hours)
               .map(([name, v]) => (
                 <li key={name} className="flex items-center gap-2">
                   <span className="h-2.5 w-2.5 shrink-0 rounded-[3px]" style={{ backgroundColor: v.color }} />
-                  <span className="min-w-0 flex-1 truncate">{name}</span>
+                  <span className="min-w-0 flex-1">
+                    <span className="te-clip" title={name}>
+                      {name}
+                    </span>
+                  </span>
                   <span className="font-semibold tabular-nums">{v.hours.toFixed(1)}h</span>
                 </li>
               ))}
           </ul>
-        </>
+        </div>
       )}
     </SidePanel>
   )
@@ -433,7 +440,7 @@ export function DailyLog() {
     <SidePanel
       id="quick"
       layout={layout}
-      title={QUICK_TASKS}
+      title={tr('Quick add')}
       testId="templates-panel"
       actions={
         canEdit && (

@@ -44,7 +44,7 @@ export interface Prefs extends ColorPrefs {
   font: FontChoice
   /** screen language for menus, tabs, titles and table headers */
   language: Lang
-  /** Daily Log windows (30-min Log, Today, 업무 빠른 등록): where they sit and how big they are */
+  /** Daily Log windows (30-min Log, Today, 빠른 등록): where they sit and how big they are */
   layout: LayoutPrefs
   /** Today window: list of hours or the donut graph */
   todayView: 'list' | 'graph'

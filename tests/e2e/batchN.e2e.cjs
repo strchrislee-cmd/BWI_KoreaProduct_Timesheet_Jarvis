@@ -1,5 +1,5 @@
 // 2026-11-26 (3): column names Project / Type / Task, a line after the row + column, the quick-task
-// menu shows Project · Type, and quick tasks (업무 빠른 등록, was 반복 업무) as a numbered table. Moving
+// menu shows Project · Type, and quick tasks (빠른 등록, was 반복 업무) as a numbered table. Moving
 // the window is in batchO.
 // REPORT=1 writes docs/test-reports/<date>-templates-table/ (see report.cjs).
 const { chromium } = require('playwright')
@@ -69,7 +69,7 @@ const report = createReport({
   for (const [slot, time] of [[18, '09:00'], [19, '09:30'], [20, '10:00']]) {
     await page.locator(`[data-slot="${slot}"]`).hover()
     await page.getByRole('button', { name: `Add ${time} to quick tasks` }).click()
-    await page.getByText('업무 빠른 등록에 추가:', { exact: false }).last().waitFor()
+    await page.getByText('빠른 등록에 추가:', { exact: false }).last().waitFor()
   }
   await rows.nth(2).waitFor()
   await page.mouse.move(700, 120)
@@ -91,7 +91,7 @@ const report = createReport({
     how: "thead === 'No|Task' && row1 = ['1','주간 회의'] && No === 1,2,3",
     pass: th.join('|') === 'No|Task' && first.slice(0, 2).join('|') === '1|주간 회의' && (await nos()).join(',') === '1,2,3',
   })
-  await report.shot(page, { caption: '업무 빠른 등록 표(오른쪽 열)', marks: [{ target: panel.locator('table'), n: c3, label: 'No · Task' }] })
+  await report.shot(page, { caption: '빠른 등록 표(오른쪽 열)', marks: [{ target: panel.locator('table'), n: c3, label: 'No · Task' }] })
 
   // click applies to the selected cells
   await cell(24, 'category').click()

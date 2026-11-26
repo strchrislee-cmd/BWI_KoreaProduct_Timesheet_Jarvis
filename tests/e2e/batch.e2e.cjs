@@ -141,7 +141,7 @@ async function drag(page, from, to) {
   await page.keyboard.press('Tab')
   await page.keyboard.press('Tab') // past the MID column
   await page.keyboard.type('INT | Daily_Scrum')
-  await page.getByRole('option', { name: /업무 빠른 등록에 추가/ }).waitFor()
+  await page.getByRole('option', { name: /빠른 등록에 추가/ }).waitFor()
   await page.keyboard.press('ArrowDown')
   await page.keyboard.press('Enter')
   await cell(21, 'category').click()

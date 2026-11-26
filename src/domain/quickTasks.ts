@@ -1,8 +1,9 @@
-// Quick tasks (업무 빠른 등록, formerly 반복 업무): saved Project · Type · Task combinations a user
+// Quick add (빠른 등록 in Korean; formerly 빠른 등록 / 반복 업무): saved Project · Type · Task combinations a user
 // applies to rows of the 30-min log in one click.
 import type { TaskTemplate } from './types'
 
-export const QUICK_TASKS = '업무 빠른 등록'
+/** the name inside Korean sentences; the window title follows the screen language (tr('Quick add')) */
+export const QUICK_TASKS = '빠른 등록'
 /** shown for a quick task saved without a Task (instead of falling back to the project's name) */
 export const EMPTY_TASK_LABEL = '(내용 없음)'
 

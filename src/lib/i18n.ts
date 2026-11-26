@@ -30,6 +30,7 @@ const KO = {
   Type: '유형',
   Task: '업무',
   Content: '업무내용',
+  'Quick add': '빠른 등록',
   'Non-work': '비업무',
   Today: '오늘',
   target: '목표',

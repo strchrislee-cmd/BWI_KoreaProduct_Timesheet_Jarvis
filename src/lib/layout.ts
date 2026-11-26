@@ -1,5 +1,5 @@
 // Daily Log window layout (Settings are per user, see data/preferences.ts → layout): the 30-min Log,
-// Today and the quick tasks (업무 빠른 등록) can be moved and resized on a dot grid, and Today / quick
+// Today and the quick tasks (빠른 등록) can be moved and resized on a dot grid, and Today / quick
 // tasks can live in a dock at the right edge of the screen. Pure helpers, tested in tests/layout.test.ts.
 
 export type PanelId = 'log' | 'today' | 'quick'

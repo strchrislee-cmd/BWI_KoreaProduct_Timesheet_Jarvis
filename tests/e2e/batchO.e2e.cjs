@@ -1,4 +1,4 @@
-// 2026-11-26 (4): quick tasks (업무 빠른 등록) with empty Task, auto-wrap checkbox, Today donut,
+// 2026-11-26 (4): quick tasks (빠른 등록) with empty Task, auto-wrap checkbox, Today donut,
 // window layout editing on a dot grid (move / resize / jiggle / save toast) and the right-edge dock.
 // REPORT=1 writes docs/test-reports/<date>-layout/ (see report.cjs).
 const { chromium } = require('playwright')
@@ -7,20 +7,21 @@ const BASE = process.env.BASE || 'http://localhost:4173'
 
 const report = createReport({
   id: 'layout',
-  title: '창 배치 편집 · 오른쪽 Dock · Today 그래프 · 자동 줄바꿈 · 업무 빠른 등록',
+  title: '창 배치 편집 · 오른쪽 Dock · Today 그래프 · 자동 줄바꿈 · 빠른 등록',
   suite: 'tests/e2e/batchO.e2e.cjs',
   request:
-    'Task 없이 저장하면 (내용 없음) 또는 확인. 반복 업무 → 업무 빠른 등록. 자동 줄바꿈 체크박스. 30-min Log · Today · 반복 업무 창의 크기·위치 조절(점 그리드, 아이폰처럼 흔들흔들, 저장/취소/기본 설정 토스트, 사용자마다 저장). Today 도넛 그래프. Today · 반복 업무를 아래 Dock처럼 오른쪽으로 숨기는 기능과 자석 체크박스.',
+    'Task 없이 저장하면 (내용 없음) 또는 확인. 반복 업무 → 빠른 등록. 자동 줄바꿈 체크박스. 30-min Log · Today · 반복 업무 창의 크기·위치 조절(점 그리드, 아이폰처럼 흔들흔들, 저장/취소/기본 설정 토스트, 사용자마다 저장). Today 도넛 그래프. Today · 반복 업무를 아래 Dock처럼 오른쪽으로 숨기는 기능과 자석 체크박스.',
   criteria: [
     'Task가 빈 행을 저장하려 하면 확인을 묻고, 저장하면 표에 (내용 없음)으로 보인다(프로젝트 이름이 아니라).',
-    '창 이름은 업무 빠른 등록.',
+    '창 이름은 빠른 등록(영문 화면은 Quick add).',
     '자동 줄바꿈을 끄면 긴 글이 한 줄로 줄고(행 높이 그대로) 마우스를 올리면 전체 글. 설정은 사람마다 저장.',
     'Today 그래프 보기: 도넛, 가운데 합계, 항목별 %. 마우스를 올린 항목의 %가 가운데에. 보기 선택은 저장.',
     '배치 편집(버튼 또는 제목줄 끌기): 점 그리드, 창이 흔들림, 옮기기·크기 조절이 그리드에 맞춰짐, 아래 토스트에 저장 / 취소 / 기본 설정으로.',
     '저장한 배치는 새로 고쳐도 그대로, 취소는 되돌림, 기본 설정으로는 처음 배치.',
-    '자석 켬: Today · 업무 빠른 등록을 오른쪽 끝에 놓으면 오른쪽 Dock으로. 자석 끔: 붙지 않음. 버튼으로도 넣고 꺼냄.',
+    '자석 켬: Today · 빠른 등록을 오른쪽 끝에 놓으면 오른쪽 Dock으로. 자석 끔: 붙지 않음. 버튼으로도 넣고 꺼냄.',
     '오른쪽 Dock은 평소 숨고, 마우스가 오른쪽 끝에 오면 나타나며, 멀어지면 다시 숨는다.',
     '휴대폰은 배치 편집 없이 고정 배치.',
+    '(추가) 저장 물음은 맨 아래 작은 한 줄(편집 중에는 아래 Dock이 숨음). Today 창을 넓히면 왼쪽에 그래프, 오른쪽에 시간. 좁은 창의 긴 이름은 앞 10글자 정도 + …(마우스를 올리면 전체).',
   ],
 })
 
@@ -63,7 +64,7 @@ const report = createReport({
 
   await page.goto(BASE + '/timesheets?date=2026-11-16')
   await quick.waitFor()
-  const c1 = report.check({ name: '창 이름: 업무 빠른 등록', expected: "제목 '업무 빠른 등록'", actual: `'${(await quick.locator('h2').innerText()).trim()}'`, how: "templates-panel h2 === '업무 빠른 등록'", pass: (await quick.locator('h2').innerText()).trim() === '업무 빠른 등록' })
+  const c1 = report.check({ name: '창 이름: Quick add (한국어 화면은 빠른 등록)', expected: "영문 화면 제목 'Quick add'", actual: `'${(await quick.locator('h2').innerText()).trim()}'`, how: "templates-panel h2 === 'Quick add'", pass: (await quick.locator('h2').innerText()).trim() === 'Quick add' })
 
   // ── empty Task ───────────────────────────────────────────────────────────
   await paste(18, 'category', '회의\t회의-INT\t주간 회의')
@@ -93,7 +94,7 @@ const report = createReport({
     await page.waitForTimeout(200)
   }
   await away()
-  await report.shot(page, { caption: '업무 빠른 등록: Task 없이 저장한 항목은 (내용 없음)', marks: [{ target: quick.locator('h2'), n: c1, label: '새 이름' }, { target: quick.getByTestId('template-row').first(), n: c2, label: '(내용 없음)' }] })
+  await report.shot(page, { caption: '빠른 등록: Task 없이 저장한 항목은 (내용 없음)', marks: [{ target: quick.locator('h2'), n: c1, label: '새 이름' }, { target: quick.getByTestId('template-row').first(), n: c2, label: '(내용 없음)' }] })
 
   // ── auto-wrap ────────────────────────────────────────────────────────────
   const rowH = async (slot = 19) => Math.round((await page.locator(`[data-slot="${slot}"]`).boundingBox()).height)
@@ -116,6 +117,17 @@ const report = createReport({
   await away()
   await report.shot(page, { caption: '자동 줄바꿈 끔: 긴 글이 한 줄로', marks: [{ target: page.locator('[data-slot="19"]'), n: c3, label: '한 줄 + …' }, { target: page.getByLabel('자동 줄바꿈'), n: c3, label: '체크박스' }] })
   await page.getByLabel('자동 줄바꿈').check()
+
+  // long names in the narrow Today window: about 10 characters and …, the full name on hover
+  const clip = await today.locator('.te-clip', { hasText: '회의(개발' }).evaluate((el) => ({ text: el.textContent, title: el.getAttribute('title'), cut: el.scrollWidth > el.clientWidth, w: el.clientWidth }))
+  const cClip = report.check({
+    name: '좁은 창의 긴 이름: 앞 10글자 정도 + …, 마우스를 올리면 전체',
+    expected: '긴 프로젝트 이름이 잘리고(…) 폭 ≤ 10글자(약 140px), title에 전체 이름',
+    actual: `'${clip.text}' ${clip.cut ? '잘림' : '안 잘림'}, 폭 ${clip.w}px, title ${clip.title === clip.text ? '전체 이름' : '없음'}`,
+    how: 'scrollWidth > clientWidth && clientWidth ≤ 10em && title === 전체 이름',
+    pass: clip.cut && clip.w <= 150 && clip.title === clip.text,
+  })
+  await report.shot(page, { caption: '좁은 Today 창: 긴 이름은 …로', marks: [{ target: today.locator('.te-clip', { hasText: '회의(개발' }), n: cClip, label: '앞 10글자 + …' }] })
 
   // ── Today donut ──────────────────────────────────────────────────────────
   await today.getByRole('button', { name: '그래프' }).click()
@@ -154,11 +166,20 @@ const report = createReport({
     how: "dot-grid === 1 && jiggle === 3 && 토스트 버튼 3개",
     pass: (await page.getByTestId('dot-grid').count()) === 1 && jiggling === 3 && (await toast.innerText()).includes('배치를 저장하겠습니까?') && (await toast.getByRole('button').count()) === 3,
   })
+  const bar = await toast.boundingBox()
+  const dockHidden = await page.getByTestId('dock').evaluate((el) => getComputedStyle(el.closest('.te-dock-root')).visibility === 'hidden')
+  report.check({
+    name: '저장 물음은 맨 아래 작은 한 줄, 아래 Dock은 숨음',
+    expected: '높이 ≤ 44px, 화면 아래에서 16px 안, Dock 숨김',
+    actual: `높이 ${Math.round(bar.height)}px, 아래 여백 ${Math.round(900 - bar.y - bar.height)}px, Dock ${dockHidden ? '숨김' : '보임'}`,
+    how: 'bar.height ≤ 44 && 900 − bottom ≤ 16 && dock visibility hidden',
+    pass: bar.height <= 44 && 900 - bar.y - bar.height <= 16 && dockHidden,
+  })
   // move the quick tasks window down and left, then resize Today from its corner
   const q0 = await rectOf('quick')
   const qh = await page.getByTestId('templates-panel-handle').boundingBox()
   await drag({ x: qh.x + 90, y: qh.y + 12 }, { x: qh.x + 90 - 500, y: qh.y + 12 + 230 })
-  await report.shot(page, { caption: '배치 편집 중: 업무 빠른 등록 창을 끄는 중', marks: [{ target: page.getByTestId('dot-grid'), n: c6, label: '점 그리드' }, { target: toast, n: c6, label: '저장 토스트' }] })
+  await report.shot(page, { caption: '배치 편집 중: 빠른 등록 창을 끄는 중', marks: [{ target: page.getByTestId('dot-grid'), n: c6, label: '점 그리드' }, { target: toast, n: c6, label: '저장 토스트' }] })
   await page.mouse.up()
   const q1 = await rectOf('quick')
   const t0 = await rectOf('today')
@@ -169,8 +190,8 @@ const report = createReport({
   const onGrid = [t1.x, t1.y, t1.w, t1.h, q1.x, q1.y].every((v) => v % 24 === 0)
   const c7 = report.check({
     name: '크기 조절과 옮기기가 점 간격(24px)에 맞춰짐',
-    expected: 'Today 폭 줄고 높이 늘어남, 업무 빠른 등록 왼쪽 아래로 이동, 모든 값이 24의 배수',
-    actual: `Today ${t0.w}×${t0.h} → ${t1.w}×${t1.h}, 업무 빠른 등록 (${q0.x},${q0.y}) → (${q1.x},${q1.y})`,
+    expected: 'Today 폭 줄고 높이 늘어남, 빠른 등록 왼쪽 아래로 이동, 모든 값이 24의 배수',
+    actual: `Today ${t0.w}×${t0.h} → ${t1.w}×${t1.h}, 빠른 등록 (${q0.x},${q0.y}) → (${q1.x},${q1.y})`,
     how: 't1.w < t0.w && t1.h > t0.h && q1.x < q0.x && q1.y > q0.y && 값 % 24 === 0',
     pass: t1.w < t0.w && t1.h > t0.h && q1.x < q0.x && q1.y > q0.y && onGrid,
   })
@@ -182,8 +203,8 @@ const report = createReport({
   const saved = { t: await rectOf('today'), q: await rectOf('quick') }
   const c8 = report.check({
     name: '저장한 배치는 새로 고쳐도 그대로, 흔들림 멈춤',
-    expected: `Today ${t1.w}×${t1.h}, 업무 빠른 등록 (${q1.x},${q1.y}), 흔들림 0`,
-    actual: `Today ${saved.t.w}×${saved.t.h}, 업무 빠른 등록 (${saved.q.x},${saved.q.y}), 흔들림 ${await page.locator('[data-jiggle="true"]').count()}`,
+    expected: `Today ${t1.w}×${t1.h}, 빠른 등록 (${q1.x},${q1.y}), 흔들림 0`,
+    actual: `Today ${saved.t.w}×${saved.t.h}, 빠른 등록 (${saved.q.x},${saved.q.y}), 흔들림 ${await page.locator('[data-jiggle="true"]').count()}`,
     how: '새로 고친 뒤 rect 가 저장 전과 같음 && data-jiggle=true 0개',
     pass: saved.t.w === t1.w && saved.t.h === t1.h && saved.q.x === q1.x && saved.q.y === q1.y && (await page.locator('[data-jiggle="true"]').count()) === 0,
   })
@@ -230,17 +251,17 @@ const report = createReport({
   const hintOff = await page.getByTestId('edge-drop-hint').count()
   await page.mouse.up()
   const place = await page.getByTestId('daily-log-page').getByTestId('templates-panel').getAttribute('data-place')
-  report.check({ name: '자석 끔: 오른쪽 끝에 놓아도 붙지 않음', expected: "강조 없음, 업무 빠른 등록은 그리드에 남음", actual: `강조 ${hintOff}개, 위치 '${place}'`, how: "edge-drop-hint 0개 && data-place === 'grid'", pass: hintOff === 0 && place === 'grid' })
+  report.check({ name: '자석 끔: 오른쪽 끝에 놓아도 붙지 않음', expected: "강조 없음, 빠른 등록은 그리드에 남음", actual: `강조 ${hintOff}개, 위치 '${place}'`, how: "edge-drop-hint 0개 && data-place === 'grid'", pass: hintOff === 0 && place === 'grid' })
   await page.getByTestId('layout-toast').getByRole('button', { name: '취소' }).click()
 
   // buttons: take Today out, put the quick tasks in
   await page.mouse.move(1440 - 6, 450)
   await edge.getByRole('button', { name: 'Take Today out of the right dock' }).click()
   await page.getByTestId('daily-log-page').getByTestId('today-panel').waitFor()
-  await quick.getByRole('button', { name: 'Put 업무 빠른 등록 in the right dock' }).click()
+  await quick.getByRole('button', { name: 'Put Quick add in the right dock' }).click()
   await page.getByTestId('edge-dock').getByTestId('templates-panel').waitFor()
   const swapped = (await page.getByTestId('daily-log-page').getByTestId('today-panel').count()) === 1 && (await page.getByTestId('edge-dock').getByTestId('templates-panel').count()) === 1
-  report.check({ name: '버튼으로 오른쪽 Dock에 넣고 꺼냄', expected: 'Today는 페이지로, 업무 빠른 등록은 오른쪽 Dock으로', actual: swapped ? '그대로 됨' : '안 됨', how: 'page 안 today-panel && edge-dock 안 templates-panel', pass: swapped })
+  report.check({ name: '버튼으로 오른쪽 Dock에 넣고 꺼냄', expected: 'Today는 페이지로, 빠른 등록은 오른쪽 Dock으로', actual: swapped ? '그대로 됨' : '안 됨', how: 'page 안 today-panel && edge-dock 안 templates-panel', pass: swapped })
 
   // back to the default arrangement
   await page.getByRole('button', { name: '배치 편집' }).click()
@@ -249,9 +270,31 @@ const report = createReport({
   await today.waitFor()
   const layoutAttr = await page.getByTestId('daily-log-page').getAttribute('data-layout')
   const edgeCount = await page.getByTestId('edge-dock').count()
-  const c15 = report.check({ name: '기본 설정으로: 처음 배치(왼쪽 30-min Log, 오른쪽 Today · 업무 빠른 등록)', expected: "data-layout 'default', 오른쪽 Dock 없음", actual: `'${layoutAttr}', 오른쪽 Dock ${edgeCount}개`, how: "data-layout === 'default' && edge-dock 0개", pass: layoutAttr === 'default' && edgeCount === 0 })
+  const c15 = report.check({ name: '기본 설정으로: 처음 배치(왼쪽 30-min Log, 오른쪽 Today · 빠른 등록)', expected: "data-layout 'default', 오른쪽 Dock 없음", actual: `'${layoutAttr}', 오른쪽 Dock ${edgeCount}개`, how: "data-layout === 'default' && edge-dock 0개", pass: layoutAttr === 'default' && edgeCount === 0 })
   await away()
   await report.shot(page, { caption: '기본 설정으로 되돌린 화면', marks: [{ target: page.getByTestId('daily-log-page'), n: c15, label: '기본 배치' }] })
+
+  // a wide Today window: graph on the left, hours on the right
+  await page.getByRole('button', { name: '배치 편집' }).click()
+  const wh = await page.getByTestId('today-panel-handle').boundingBox()
+  await drag({ x: wh.x + 60, y: wh.y + 10 }, { x: wh.x + 60 - 360, y: wh.y + 10 + 380 })
+  await page.mouse.up()
+  const wc = await page.getByTestId('today-resize').boundingBox()
+  await drag({ x: wc.x + 12, y: wc.y + 12 }, { x: wc.x + 12 + 300, y: wc.y + 12 })
+  await page.mouse.up()
+  const ring2 = await page.getByTestId('today-donut').locator('svg').boundingBox()
+  const legend = await page.getByTestId('today-donut').locator('ul').boundingBox()
+  const fullName = await today.locator('.te-clip', { hasText: '회의(개발' }).evaluate((el) => el.scrollWidth <= el.clientWidth)
+  const cWide = report.check({
+    name: 'Today 창을 넓히면 왼쪽 그래프, 오른쪽 시간(이름 전체)',
+    expected: '목록이 도넛 오른쪽에, 긴 이름도 잘리지 않음',
+    actual: `목록 x ${Math.round(legend.x)} / 도넛 오른쪽 끝 ${Math.round(ring2.x + ring2.width)}, 이름 ${fullName ? '전체' : '잘림'}`,
+    how: 'legend.x > donut.right && 이름 scrollWidth ≤ clientWidth',
+    pass: legend.x > ring2.x + ring2.width && fullName,
+  })
+  await page.mouse.move(700, 60)
+  await report.shot(page, { caption: '넓힌 Today 창(배치 편집 중, 아래 한 줄 저장 물음)', marks: [{ target: page.getByTestId('today-donut'), n: cWide, label: '그래프 | 시간' }] })
+  await page.getByTestId('layout-toast').getByRole('button', { name: '취소' }).click()
 
   // phones
   const phone = await browser.newPage({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true })

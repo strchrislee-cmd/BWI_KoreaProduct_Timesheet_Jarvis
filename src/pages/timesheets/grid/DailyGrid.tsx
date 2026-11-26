@@ -261,7 +261,7 @@ export function DailyGrid({
     if (activeCol === 'task') {
       const items: Option[] = templates
         .filter((t) => match(t.description, t.label, templateCategory(t, ctx)))
-        .map((t) => ({ key: t.id, group: 'template', groupLabel: QUICK_TASKS, label: quickTaskName(t), tooltip: templateCategory(t, ctx), color: colors.template(t), template: t }))
+        .map((t) => ({ key: t.id, group: 'template', groupLabel: tr('Quick add'), label: quickTaskName(t), tooltip: templateCategory(t, ctx), color: colors.template(t), template: t }))
       const created = new Map(templates.map((t) => [t.id, t.created_at]))
       list.push(...sortItems(items, api.sort.template, { key: (o) => o.key, name: (o) => o.label, created: (o) => created.get(o.key) ?? '' }, templates.map((t) => t.id)))
       if (text && !templates.some((t) => t.description === text))

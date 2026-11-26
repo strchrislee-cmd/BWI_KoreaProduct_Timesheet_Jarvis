@@ -44,7 +44,7 @@ export function Dock() {
   const initials = (user.engineer_code || user.name).slice(0, 2).toUpperCase()
 
   return (
-    <div className="pointer-events-none fixed inset-x-0 bottom-0 z-40 hidden justify-center md:flex">
+    <div className="te-dock-root pointer-events-none fixed inset-x-0 bottom-0 z-40 hidden justify-center md:flex">
       {/* always-visible hint of where the dock lives */}
       <div aria-hidden className={cx('absolute bottom-1.5 h-1.5 w-24 rounded-full bg-black/20 transition-opacity', shown ? 'opacity-0' : 'opacity-100')} />
       <nav

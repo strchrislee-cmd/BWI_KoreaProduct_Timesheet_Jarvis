@@ -1,7 +1,7 @@
-import { GripVertical, PanelRightClose, PanelRightOpen } from 'lucide-react'
-import { useCallback, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode, type RefObject } from 'react'
+import { GripVertical, Info, PanelRightClose, PanelRightOpen } from 'lucide-react'
+import { useCallback, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode, type RefObject } from 'react'
 import { createPortal } from 'react-dom'
-import { Button, cx } from '../../../components/ui'
+import { cx } from '../../../components/ui'
 import { DEFAULT_LAYOUT, type LayoutPrefs } from '../../../data/preferences'
 import { PANEL_IDS, dropTarget, moveRect, resizeRect, snapRect, type PanelId, type PanelRect, type PanelRects, type SidePanelId } from '../../../lib/layout'
 import { useAutoHide } from '../../../lib/useAutoHide'
@@ -267,7 +267,7 @@ export function SidePanel({
   const fixedSize = layout.canvas && !inEdge
   return (
     <section
-      className={cx('glass min-w-0 rounded-card p-4 md:p-5', fixedSize && 'h-full overflow-auto')}
+      className={cx('glass @container min-w-0 rounded-card p-4 md:p-5', fixedSize && 'h-full overflow-auto')}
       data-testid={testId}
       data-place={inEdge ? 'edge' : layout.canvas ? 'grid' : 'column'}
     >
@@ -314,30 +314,42 @@ export function EdgeDropHint() {
   )
 }
 
-/** The 배치를 저장하겠습니까? toast at the bottom while editing. */
+/** The 배치를 저장하겠습니까? bar: one small line at the very bottom, so it does not get in the way. */
 export function LayoutToast({ layout }: { layout: WindowLayout }) {
+  // the bottom Dock would come up under the bar: keep it hidden while editing
+  useEffect(() => {
+    document.body.dataset.layoutEditing = 'true'
+    return () => {
+      delete document.body.dataset.layoutEditing
+    }
+  }, [])
+  const btn = 'rounded-control px-2.5 py-1 text-xs font-semibold'
   return createPortal(
     <div
       role="dialog"
       aria-label="Save layout"
       data-testid="layout-toast"
-      className="glass-strong fixed bottom-24 left-1/2 z-50 w-[min(560px,calc(100vw-32px))] -translate-x-1/2 rounded-card p-4 shadow-2xl"
+      className="glass-strong fixed bottom-2 left-1/2 z-50 flex max-w-[calc(100vw-16px)] -translate-x-1/2 flex-wrap items-center gap-x-3 gap-y-1 whitespace-nowrap rounded-full py-1 pl-4 pr-1.5 text-xs shadow-xl"
     >
-      <p className="font-semibold">배치를 저장하겠습니까?</p>
-      <p className="mt-0.5 text-xs text-muted">제목줄을 끌어 옮기고, 오른쪽 아래 모서리를 끌어 크기를 바꿉니다. 점 간격에 맞춰 놓입니다.</p>
-      <label className="mt-2 flex cursor-pointer items-center gap-2 text-sm">
+      <span className="font-semibold">배치를 저장하겠습니까?</span>
+      <span title="제목줄을 끌어 옮기고, 오른쪽 아래 모서리를 끌어 크기를 바꿉니다. 점 간격에 맞춰 놓입니다." className="text-muted">
+        <Info size={13} aria-label="도움말" />
+      </span>
+      <label className="flex cursor-pointer items-center gap-1" title="Today · 빠른 등록을 오른쪽 끝에 놓으면 오른쪽 Dock으로">
         <input type="checkbox" checked={layout.cur.magnet} onChange={(e) => layout.setMagnet(e.target.checked)} />
-        자석처럼 붙이기 <span className="text-xs text-muted">Today · 업무 빠른 등록을 오른쪽 끝에 놓으면 오른쪽 Dock으로</span>
+        자석처럼 붙이기
       </label>
-      <div className="mt-3 flex flex-wrap justify-end gap-2">
-        <Button variant="ghost" onClick={layout.reset}>
+      <span className="flex items-center gap-1">
+        <button type="button" className={cx(btn, 'text-muted hover:bg-black/5')} onClick={layout.reset}>
           기본 설정으로
-        </Button>
-        <Button variant="outline" onClick={layout.cancel}>
+        </button>
+        <button type="button" className={cx(btn, 'border border-primary/30 bg-white/70 text-primary hover:bg-white')} onClick={layout.cancel}>
           취소
-        </Button>
-        <Button onClick={layout.save}>저장</Button>
-      </div>
+        </button>
+        <button type="button" className={cx(btn, 'bg-primary text-white hover:opacity-90')} onClick={layout.save}>
+          저장
+        </button>
+      </span>
     </div>,
     document.body,
   )

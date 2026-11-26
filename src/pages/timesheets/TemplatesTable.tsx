@@ -29,7 +29,8 @@ export interface TemplatesTableProps {
 }
 
 /**
- * Repeated tasks as a short table: No · Task (long names wrap, nothing is cut off). A click applies
+ * Repeated tasks as a short table: No · Task (long names show about 10 characters and …, the full
+ * name on hover; a wide window shows them whole). A click applies
  * the task to the selected rows of the log; drag a row, or double-click its No and type a number, to
  * move it (frequent ones up front); … shows the task's Project · Type, then name, colour and delete.
  */
@@ -144,8 +145,9 @@ export function TemplatesTable({ items, ctx, colorOf, canEdit, selectedCount, on
                       carries the task's colour, Project · Type are in the … menu */}
                   <button
                     type="button"
-                    className="inline-block max-w-full rounded-chip px-2 py-0.5 text-left text-[13px] font-semibold [overflow-wrap:anywhere] [word-break:keep-all]"
+                    className="te-clip rounded-chip px-2 py-0.5 text-left text-[13px] font-semibold"
                     style={{ backgroundColor: chipBg(colorOf(t)) }}
+                    title={name}
                     disabled={!canEdit}
                   >
                     {name}
