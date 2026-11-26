@@ -2,39 +2,13 @@ import { Clock, House, LogOut, Settings, Shield } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { NavLink, Outlet } from 'react-router'
 import { useStore, useUser } from '../data/StoreContext'
-import { roleLabel } from '../domain/roles'
 import { useT } from '../lib/i18n'
 import { BackgroundLayer } from './BackgroundLayer'
+import { Dock } from './Dock'
 import { ReminderScheduler } from './ReminderScheduler'
 import { cx } from './ui'
 
-/** `sub`: the small god's name under the label (Home · Olympus, Timesheets · Chronos, …). */
-function NavItem({ to, icon, label, sub, end }: { to: string; icon: ReactNode; label: string; sub: string; end?: boolean }) {
-  return (
-    <NavLink
-      to={to}
-      end={end}
-      className={({ isActive }) =>
-        cx(
-          'flex items-center gap-3 rounded-control px-3 py-2 text-sm font-semibold transition-colors',
-          isActive ? 'bg-primary text-white shadow-md' : 'text-ink hover:bg-white/60',
-        )
-      }
-    >
-      {({ isActive }) => (
-        <>
-          {icon}
-          <span className="flex min-w-0 flex-col leading-tight">
-            <span>{label}</span>
-            <span className={cx('text-[10px] font-medium', isActive ? 'text-white/75' : 'text-muted')}>{sub}</span>
-          </span>
-        </>
-      )}
-    </NavLink>
-  )
-}
-
-/** Phones: the left navigation moves to a tab bar at the bottom of the screen. */
+/** Phones: the navigation is a tab bar at the bottom of the screen. */
 function MobileTabBar({ isAdmin }: { isAdmin: boolean }) {
   const tr = useT()
   const items = [
@@ -72,44 +46,17 @@ function MobileTabBar({ isAdmin }: { isAdmin: boolean }) {
 export function Shell() {
   const { store } = useStore()
   const user = useUser()
-  const tr = useT()
   const initials = (user.engineer_code || user.name).slice(0, 2).toUpperCase()
 
   return (
-    <div className="flex min-h-full gap-5 p-3 pb-28 md:p-4">
+    <div className="flex min-h-full p-3 pb-28 md:p-4">
       <BackgroundLayer />
       <ReminderScheduler />
-      <nav className="glass sticky top-4 hidden h-[calc(100vh-2rem)] w-[168px] shrink-0 flex-col rounded-card p-3 md:flex">
-        <div className="mb-6 px-1 pt-1">
-          <div className="font-display font-extrabold tracking-tight text-primary">TeamEmbedded</div>
-          <div className="text-[11px] leading-tight text-muted">Gods of Team Embedded</div>
-        </div>
-        <div className="flex flex-col gap-1">
-          <NavItem to="/" end icon={<House size={18} />} label={tr('Home')} sub="Olympus" />
-          <NavItem to="/timesheets" icon={<Clock size={18} />} label="Timesheets" sub="Chronos" />
-        </div>
-        <div className="mt-auto flex flex-col gap-1 border-t border-dashed border-black/10 pt-3">
-          {user.role === 'admin' && <NavItem to="/admin" icon={<Shield size={18} />} label={tr('Admin')} sub="Zeus" />}
-          <NavItem to="/settings" icon={<Settings size={18} />} label={tr('Settings')} sub="Hephaestus" />
-        </div>
-        <div className="mt-3 flex items-center gap-2 border-t border-dashed border-black/10 px-1 pt-3">
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-sage text-xs font-bold text-primary">
-            {initials}
-          </div>
-          <div className="min-w-0 flex-1">
-            <div className="truncate text-sm font-semibold">{user.name}</div>
-            <div className="truncate text-[11px] text-muted">{roleLabel(user.role)}</div>
-          </div>
-          {store.mode === 'supabase' && (
-            <button onClick={() => void store.signOut()} aria-label="Sign out" className="rounded-control p-1 text-muted hover:bg-sage-light">
-              <LogOut size={16} />
-            </button>
-          )}
-        </div>
-      </nav>
+      {/* PC: the navigation is a dock at the bottom (appears at the bottom edge); phones: tab bar */}
+      <Dock />
 
       <main className="min-w-0 flex-1">
-        {/* phones: small top bar instead of the side navigation */}
+        {/* phones: small top bar (the dock is PC only) */}
         <div className="mb-3 flex items-center gap-2 md:hidden">
           <div className="font-display font-extrabold tracking-tight text-primary">TeamEmbedded</div>
           <div className="ml-auto flex h-8 w-8 items-center justify-center rounded-full bg-sage text-xs font-bold text-primary" title={user.name}>

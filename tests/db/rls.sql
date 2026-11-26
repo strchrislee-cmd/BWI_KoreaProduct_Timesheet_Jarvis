@@ -293,3 +293,36 @@ select pg_temp.check(not exists (select 1 from time_slots where user_id = '00000
   and not exists (select 1 from work_days where user_id = '00000000-0000-0000-0000-00000000000d'), '… and the person''s slots, templates, personal aliases, leave and work days');
 select pg_temp.check(exists (select 1 from time_slots where user_id = '00000000-0000-0000-0000-00000000000c')
   and exists (select 1 from profiles where id = '00000000-0000-0000-0000-00000000000a'), 'other people''s records stay');
+
+-- ── MID / work types (0011) ──────────────────────────────────────────────────
+select pg_temp.check((select count(*) from work_types) = 12, 'seed: 12 MID entries');
+select pg_temp.check((select string_agg(name, '|' order by sort_order) from work_types where sort_order in (1, 8, 12)) = '개발-신규|지원-8D|일반-이메일 및 일반업무', 'seed: MID names in order');
+set role authenticated;
+select pg_temp.login('00000000-0000-0000-0000-00000000000c');
+select pg_temp.check((select count(*) from work_types) = 12, 'L1 reads the MID list');
+select pg_temp.expect_error($$insert into work_types (name) values ('개발-기타')$$, 'L1 cannot add a MID');
+select pg_temp.check(pg_temp.affected($$update work_types set name = 'x' where name = '지원-8D'$$) = 0, 'L1 cannot rename a MID');
+select pg_temp.expect_error($$select remove_work_type((select id from work_types where name = '지원-8D'))$$, 'L1 cannot remove a MID');
+insert into time_slots (user_id, work_date, slot_index, label, work_type_id)
+  select '00000000-0000-0000-0000-00000000000c', '2026-11-25', 20, '일반', id from work_types where name = '지원-8D';
+select pg_temp.check((select w.name from time_slots s join work_types w on w.id = s.work_type_id where s.user_id = '00000000-0000-0000-0000-00000000000c' and s.work_date = '2026-11-25') = '지원-8D', 'L1 logs a slot with a MID');
+insert into task_templates (user_id, description, work_type_id)
+  select '00000000-0000-0000-0000-00000000000c', '8D 보고서', id from work_types where name = '지원-8D';
+select pg_temp.check((select count(*) from task_templates where description = '8D 보고서' and work_type_id is not null) = 1, 'L1 repeated task carries a MID');
+reset role;
+set role authenticated;
+select pg_temp.login('00000000-0000-0000-0000-00000000000a');
+insert into work_types (name, sort_order) values ('개발-원가절감', 13);
+select pg_temp.expect_error($$insert into work_types (name) values (' 개발 - 원가절감 ')$$, 'MID names are unique (same name key)');
+select pg_temp.check(remove_work_type((select id from work_types where name = '개발-원가절감')) = 'deleted', 'unused MID is deleted');
+select pg_temp.check(remove_work_type((select id from work_types where name = '지원-8D')) = 'hidden', 'used MID is hidden, not deleted');
+select pg_temp.check((select work_type_id is not null from time_slots where user_id = '00000000-0000-0000-0000-00000000000c' and work_date = '2026-11-25'), 'slots keep their hidden MID');
+select pg_temp.check(pg_temp.affected($$update work_types set hidden = false, color = '#112233' where name = '지원-8D'$$) = 1, 'admin restores and recolors a MID');
+select pg_temp.expect_error($$update work_types set color = 'red' where name = '지원-8D'$$, 'MID color must be #RRGGBB');
+reset role;
+set role anon;
+select pg_temp.login('');
+select set_config('request.jwt.claims', '{"role":"anon"}', false);
+select pg_temp.expect_error($$select count(*) from work_types$$, 'anon cannot read the MID list');
+select set_config('request.jwt.claims', '', false);
+reset role;

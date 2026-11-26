@@ -84,7 +84,7 @@ describe('A7/A8 preferences and backgrounds', () => {
     expect(p.background).toEqual({ mode: 'gradient', seed: null, animate: true, speed: 'normal' })
     expect(p.notifications).toBe(false)
     const q = readPrefs({ grid: { timeWidth: 999, categoryWidth: 'x', rowHeight: 44 }, sort: { category: 'name' }, background: { mode: 'upload', seed: 7 }, categoryOrder: ['a', 1] })
-    expect(q.grid).toEqual({ timeWidth: 160, categoryWidth: DEFAULT_GRID.categoryWidth, rowHeight: 44 })
+    expect(q.grid).toEqual({ timeWidth: 160, categoryWidth: DEFAULT_GRID.categoryWidth, midWidth: DEFAULT_GRID.midWidth, rowHeight: 44 })
     expect(q.sort.category).toBe('name')
     expect(q.background).toEqual({ mode: 'upload', seed: null, animate: true, speed: 'normal' })
     expect(q.categoryOrder).toEqual(['a'])
@@ -137,7 +137,7 @@ describe('A8 /api/background core', () => {
 
 describe('reminder toast: 이전 업무 계속', () => {
   const slot = (i: number, label: string): TimeSlot => ({
-    user_id: 'u', work_date: '2026-11-16', slot_index: i, kind: 'work', group_project_id: 'p1', label, description: '설계', details: '도면', focus: null,
+    user_id: 'u', work_date: '2026-11-16', slot_index: i, kind: 'work', group_project_id: 'p1', label, description: '설계', details: '도면', focus: null, work_type_id: 'w-design',
   })
   const opts = { start: '07:30', lunch: new Set([24, 25]) }
 

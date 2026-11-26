@@ -6,7 +6,8 @@ import { ErrorNote, Loading, cx } from '../../components/ui'
 import { useStore, useUser } from '../../data/StoreContext'
 import { sortProjects } from '../../domain/projects'
 import { addDays, isoWeek, shortLabel, todayLocal } from '../../domain/time'
-import type { GroupProject, MasterImport, Profile, ProjectAlias } from '../../domain/types'
+import type { GroupProject, MasterImport, Profile, ProjectAlias, WorkType } from '../../domain/types'
+import { sortWorkTypes } from '../../domain/workTypes'
 import { useAsync } from '../../lib/hooks'
 import { useT, type TextKey } from '../../lib/i18n'
 
@@ -18,6 +19,8 @@ interface TimesheetsValue {
   profiles: Profile[]
   projects: GroupProject[]
   aliases: ProjectAlias[]
+  /** MID (중분류) list in the admin's order, hidden ones included */
+  workTypes: WorkType[]
   latestImport: MasterImport | null
   reloadMaster: () => void
 }
@@ -53,13 +56,13 @@ export function TimesheetsLayout() {
   const canPickEngineer = user.role === 'admin'
 
   const master = useAsync(
-    () => Promise.all([store.listProjects(), store.listAliases(), store.latestImport(), store.listProfiles()]),
+    () => Promise.all([store.listProjects(), store.listAliases(), store.latestImport(), store.listProfiles(), store.listWorkTypes()]),
     [store],
   )
 
   const value = useMemo<TimesheetsValue | null>(() => {
     if (!master.data) return null
-    const [projects, aliases, latestImport, profiles] = master.data
+    const [projects, aliases, latestImport, profiles, workTypes] = master.data
     const engineerId = (canPickEngineer && params.get('eng')) || user.id
     return {
       date,
@@ -69,6 +72,7 @@ export function TimesheetsLayout() {
       projects: sortProjects(projects),
       // team aliases + the viewed person's personal ones (theirs decide how their own labels map)
       aliases: aliases.filter((a) => !a.user_id || a.user_id === engineerId),
+      workTypes: sortWorkTypes(workTypes),
       latestImport,
       reloadMaster: master.reload,
     }

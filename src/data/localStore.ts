@@ -1,6 +1,7 @@
 import { aliasConflict, diffMaster, projectNameKey, sheetNameAfterRename } from '../domain/projects'
 import { deleteUserProblem, normalizeRole } from '../domain/roles'
 import { SEED_ALIASES, SEED_PROJECTS } from '../domain/seed'
+import { DEFAULT_WORK_TYPES, WORK_TYPE_GRAY, workTypeNameProblem } from '../domain/workTypes'
 import type {
   GroupProject,
   Invitation,
@@ -14,6 +15,7 @@ import type {
   TaskTemplate,
   TimeSlot,
   WorkDay,
+  WorkType,
 } from '../domain/types'
 import type { DataStore } from './store'
 import type { ProjectImportPlan } from '../domain/projectFile'
@@ -34,6 +36,7 @@ interface DemoState {
   leaves: LeaveRequest[]
   invitations: Invitation[]
   templates: TaskTemplate[]
+  workTypes: WorkType[]
   workDays: WorkDay[]
   backgrounds: Record<string, string>
 }
@@ -87,9 +90,14 @@ function seed(): DemoState {
     leaves: [],
     invitations: [],
     templates: [],
+    workTypes: seedWorkTypes(),
     workDays: [],
     backgrounds: {},
   }
+}
+
+function seedWorkTypes(): WorkType[] {
+  return DEFAULT_WORK_TYPES.map((w, i) => ({ id: uid(), name: w.name, sort_order: i + 1, color: w.color, hidden: false, created_at: new Date().toISOString() }))
 }
 
 export class LocalStore implements DataStore {
@@ -100,14 +108,15 @@ export class LocalStore implements DataStore {
     const legacy = localStorage.getItem(LEGACY_KEY)
     const raw = localStorage.getItem(KEY) ?? legacy
     if (raw) {
-      const saved = JSON.parse(raw) as Partial<DemoState> & Omit<DemoState, 'templates' | 'workDays' | 'backgrounds'>
+      const saved = JSON.parse(raw) as Partial<DemoState> & Omit<DemoState, 'templates' | 'workDays' | 'backgrounds' | 'workTypes'>
       // demo data saved by older versions lacks these collections / fields
       const epoch = '2026-01-01T00:00:00.000Z'
       this.state = {
         ...saved,
         projects: saved.projects.map((p) => ({ ...p, created_at: p.created_at ?? epoch, hidden: p.hidden ?? false, manual: p.manual ?? false, sheet_name: p.sheet_name ?? null })),
-        templates: (saved.templates ?? []).map((t) => ({ ...t, color: t.color ?? null, created_at: t.created_at ?? epoch })),
-        slots: saved.slots.map((x) => ({ ...x, details: x.details ?? '' })),
+        templates: (saved.templates ?? []).map((t) => ({ ...t, color: t.color ?? null, created_at: t.created_at ?? epoch, work_type_id: t.work_type_id ?? null })),
+        slots: saved.slots.map((x) => ({ ...x, details: x.details ?? '', work_type_id: x.work_type_id ?? null })),
+        workTypes: saved.workTypes ?? seedWorkTypes(),
         workDays: saved.workDays ?? [],
         backgrounds: saved.backgrounds ?? {},
         profiles: saved.profiles.map((p) => ({ ...p, email: ['demo@jarvis.local', 'demo@timecrumbs.local'].includes(p.email) ? DEMO_EMAIL : p.email, role: normalizeRole(p.role) })),
@@ -372,6 +381,49 @@ export class LocalStore implements DataStore {
       s.workDays = s.workDays.filter((w) => !(w.user_id === day.user_id && w.work_date === day.work_date))
       s.workDays.push({ ...day })
     })
+  }
+
+  async listWorkTypes() {
+    return this.state.workTypes.map((w) => ({ ...w }))
+  }
+  async addWorkType(name: string) {
+    const problem = workTypeNameProblem(name, this.state.workTypes)
+    if (problem) throw new Error(problem)
+    const sort_order = Math.max(0, ...this.state.workTypes.map((w) => w.sort_order)) + 1
+    this.mutate((s) =>
+      s.workTypes.push({ id: uid(), name: name.replace(/\s+/g, ' ').trim(), sort_order, color: WORK_TYPE_GRAY, hidden: false, created_at: new Date().toISOString() }),
+    )
+  }
+  async updateWorkType(id: string, patch: Partial<Pick<WorkType, 'name' | 'color' | 'hidden'>>) {
+    const clean = { ...patch }
+    if (patch.name !== undefined) {
+      const problem = workTypeNameProblem(patch.name, this.state.workTypes, id)
+      if (problem) throw new Error(problem)
+      clean.name = patch.name.replace(/\s+/g, ' ').trim()
+    }
+    this.mutate((s) => {
+      const w = s.workTypes.find((x) => x.id === id)
+      if (w) Object.assign(w, clean)
+    })
+  }
+  async reorderWorkTypes(updates: { id: string; sort_order: number }[]) {
+    this.mutate((s) => {
+      for (const u of updates) {
+        const w = s.workTypes.find((x) => x.id === u.id)
+        if (w) w.sort_order = u.sort_order
+      }
+    })
+  }
+  async removeWorkType(id: string): Promise<'deleted' | 'hidden'> {
+    // same rule as remove_work_type() in 0011: delete when unused, otherwise hide
+    const used = this.state.slots.some((x) => x.work_type_id === id) || this.state.templates.some((t) => t.work_type_id === id)
+    this.mutate((s) => {
+      if (used) {
+        const w = s.workTypes.find((x) => x.id === id)
+        if (w) w.hidden = true
+      } else s.workTypes = s.workTypes.filter((x) => x.id !== id)
+    })
+    return used ? 'hidden' : 'deleted'
   }
 
   async listTemplates(userId: string) {

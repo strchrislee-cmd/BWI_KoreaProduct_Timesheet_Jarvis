@@ -113,6 +113,19 @@ export interface TimeSlot {
   details: string
   /** 몰입도 0..3 from the old personal sheet; kept and imported, no longer shown in the grid */
   focus: number | null
+  /** MID (중분류): the kind of work, from the admin's list (WorkType); null = not chosen */
+  work_type_id: string | null
+}
+
+/** MID (중분류) list entry, kept by admins (Projects → MID). */
+export interface WorkType {
+  id: string
+  name: string
+  sort_order: number
+  color: string | null // #RRGGBB
+  /** removed while still used: old slots keep showing it, dropdowns no longer offer it */
+  hidden: boolean
+  created_at: string
 }
 
 /** A personal "repeated task" (Notion-style select option): category + task text. */
@@ -123,6 +136,8 @@ export interface TaskTemplate {
   group_project_id: string | null
   label: string
   description: string
+  /** MID filled in when the repeated task is applied (null = leave the row's MID) */
+  work_type_id: string | null
   sort_order: number
   color: string | null // #RRGGBB; null = category color
   created_at: string

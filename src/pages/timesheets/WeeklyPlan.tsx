@@ -7,6 +7,7 @@ import { WEEKDAY_SHORT, isoWeek, slotToTime, weekDates } from '../../domain/time
 import { downloadWorkbook, loadExcel } from '../../lib/files'
 import { useAsync } from '../../lib/hooks'
 import { useT } from '../../lib/i18n'
+import { WORK_TYPE_GRAY } from '../../domain/workTypes'
 import { categoryColor, chipBg, rowBg } from './colors'
 import { displayName } from './projectUi'
 import { useTimesheets } from './TimesheetsLayout'
@@ -16,13 +17,14 @@ export function WeeklyPlanPage() {
   const tr = useT()
   const { store } = useStore()
   const user = useUser()
-  const { date, engineer, projects } = useTimesheets()
+  const { date, engineer, projects, workTypes } = useTimesheets()
   const dates = weekDates(date)
   const { week } = isoWeek(date)
   const [error, setError] = useState<Error | null>(null)
 
   const q = useAsync(() => store.listSlots(engineer.id, dates[0], dates[6]), [store, engineer.id, dates[0]])
-  const rows = useMemo(() => (q.data ? buildWeeklyPlan(q.data, projects) : []), [q.data, projects])
+  const rows = useMemo(() => (q.data ? buildWeeklyPlan(q.data, projects, workTypes) : []), [q.data, projects, workTypes])
+  const workTypeById = useMemo(() => new Map(workTypes.map((w) => [w.id, w])), [workTypes])
   const { prefs } = useColorPrefs()
   const byId = useMemo(() => new Map(projects.map((p) => [p.id, p])), [projects])
   /** Local Project as the Daily Log's Category column shows it, in the user's color for that category */
@@ -103,7 +105,17 @@ export function WeeklyPlanPage() {
                       </span>
                     </td>
                     <td className="max-w-[260px] truncate">{r.groupProjectName ? r.groupProjectName : <Pill tone="orange">{tr('Unmapped')}</Pill>}</td>
-                    <td>{r.work === '회의' ? <Pill tone="yellow">회의</Pill> : <Pill>기타</Pill>}</td>
+                    <td>
+                      {r.workTypeId ? (
+                        <span className="inline-block rounded-chip px-1.5 py-0.5 text-xs font-semibold" style={{ backgroundColor: chipBg(workTypeById.get(r.workTypeId)?.color ?? WORK_TYPE_GRAY) }} data-testid="work-mid">
+                          {r.work}
+                        </span>
+                      ) : r.work === '회의' ? (
+                        <Pill tone="yellow">회의</Pill>
+                      ) : (
+                        <Pill>기타</Pill>
+                      )}
+                    </td>
                     <td>{r.item}</td>
                     <td className="num font-semibold">{r.hours.toFixed(1)}</td>
                   </tr>

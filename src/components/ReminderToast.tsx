@@ -4,6 +4,7 @@ import { createPortal } from 'react-dom'
 import { useStore, useUser } from '../data/StoreContext'
 import { isSelectable, projectNumbers, sortProjects } from '../domain/projects'
 import { continuePlan } from '../domain/reminders'
+import { selectableWorkTypes } from '../domain/workTypes'
 import { slotToTime, timeToSlot } from '../domain/time'
 import type { TimeSlot } from '../domain/types'
 import { useAsync } from '../lib/hooks'
@@ -27,10 +28,12 @@ export function ReminderToast({ date, slot, onClose }: { date: string; slot: num
   const { store } = useStore()
   const user = useUser()
   const data = useAsync(
-    () => Promise.all([store.listProjects(), store.listAliases(), store.listSlots(user.id, date, date), store.getWorkDay(user.id, date)]),
+    () =>
+      Promise.all([store.listProjects(), store.listAliases(), store.listSlots(user.id, date, date), store.getWorkDay(user.id, date), store.listWorkTypes()]),
     [store, user.id, date],
   )
   const [category, setCategory] = useState('')
+  const [mid, setMid] = useState('')
   const [task, setTask] = useState('')
   const [details, setDetails] = useState('')
   const [error, setError] = useState<Error | null>(null)
@@ -45,14 +48,16 @@ export function ReminderToast({ date, slot, onClose }: { date: string; slot: num
 
   const ctxFor = (saved: TimeSlot[]): GridContext | null => {
     if (!data.data) return null
-    const [projects, aliases] = data.data
+    const [projects, aliases, , , workTypes] = data.data
     return {
       projects,
       aliases: aliases.filter((a) => !a.user_id || a.user_id === user.id),
       byId: new Map(projects.map((p) => [p.id, p])),
+      workTypes,
+      workTypeById: new Map(workTypes.map((w) => [w.id, w])),
       saved: new Map(saved.map((s) => [s.slot_index, s])),
       lunch,
-      blank: (index) => ({ user_id: user.id, work_date: date, slot_index: index, kind: 'work', group_project_id: null, label: '', description: '', details: '', focus: null }),
+      blank: (index) => ({ user_id: user.id, work_date: date, slot_index: index, kind: 'work', group_project_id: null, label: '', description: '', details: '', focus: null, work_type_id: null }),
       color: () => '', // not shown here
     }
   }
@@ -91,6 +96,7 @@ export function ReminderToast({ date, slot, onClose }: { date: string; slot: num
       buildChanges(
         [
           { index: slot, col: 'category', text: category },
+          { index: slot, col: 'mid', text: mid },
           { index: slot, col: 'task', text: task },
           { index: slot, col: 'details', text: details },
         ],
@@ -107,7 +113,13 @@ export function ReminderToast({ date, slot, onClose }: { date: string; slot: num
   const planLabel = (() => {
     if (!plan || !data.data) return ''
     const ctx = ctxFor(data.data[2])
-    const what = [ctx ? cellText(plan.from, 'category', ctx.byId) : plan.from.label, plan.from.description].filter(Boolean).join(' · ')
+    const what = [
+      ctx ? cellText(plan.from, 'category', ctx.byId) : plan.from.label,
+      ctx ? cellText(plan.from, 'mid', ctx.byId, ctx.workTypeById) : '',
+      plan.from.description,
+    ]
+      .filter(Boolean)
+      .join(' · ')
     const until = plan.targets[plan.targets.length - 1] + 1
     return `${what} → ${slotToTime(plan.targets[0])}–${slotToTime(until)}${plan.targets.length > 1 ? ` (${plan.targets.length}칸)` : ''}`
   })()
@@ -160,10 +172,18 @@ export function ReminderToast({ date, slot, onClose }: { date: string; slot: num
             ))}
           </optgroup>
         </select>
+        <select aria-label="MID" className="field" value={mid} onChange={(e) => setMid(e.target.value)}>
+          <option value="">중분류 (MID)</option>
+          {selectableWorkTypes(data.data?.[4] ?? []).map((w) => (
+            <option key={w.id} value={w.name}>
+              {w.name}
+            </option>
+          ))}
+        </select>
         <input aria-label="Sub Category" className="field" placeholder="업무분류 (Sub Category)" value={task} onChange={(e) => setTask(e.target.value)} />
         <input aria-label="Content" className="field" placeholder="업무내용 (Content)" value={details} onChange={(e) => setDetails(e.target.value)} />
         <div className="flex gap-2 pt-1">
-          <Button type="submit" className="flex-1" disabled={busy || !data.data || !(category || task.trim() || details.trim())}>
+          <Button type="submit" className="flex-1" disabled={busy || !data.data || !(category || mid || task.trim() || details.trim())}>
             저장
           </Button>
           <Button type="button" variant="ghost" onClick={onClose}>

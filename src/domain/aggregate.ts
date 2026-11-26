@@ -1,6 +1,6 @@
 import { isSelectable, sortProjects } from './projects.js'
 import { SLOT_HOURS, isWeekend, isoWeek } from './time.js'
-import type { GroupProject, LeaveRequest, LeaveType, SystemKey, TimeSlot } from './types.js'
+import type { GroupProject, LeaveRequest, LeaveType, SystemKey, TimeSlot, WorkType } from './types.js'
 
 // ── Weekly plan (업무진행세부계획) ────────────────────────────────────────────
 
@@ -11,7 +11,9 @@ export interface WeeklyPlanRow {
   localProject: string
   groupProjectId: string | null
   groupProjectName: string
-  work: '회의' | '기타'
+  /** the MID (중분류) name when one is chosen, otherwise 회의 / 기타 as in the original weekly sheet */
+  work: string
+  workTypeId: string | null
   item: string
   label: string
   hours: number
@@ -19,9 +21,10 @@ export interface WeeklyPlanRow {
   endSlot: number // exclusive
 }
 
-/** Merge consecutive work slots with the same project/label/description into one row. */
-export function buildWeeklyPlan(slots: TimeSlot[], projects: GroupProject[]): WeeklyPlanRow[] {
+/** Merge consecutive work slots with the same project/label/MID/description into one row. */
+export function buildWeeklyPlan(slots: TimeSlot[], projects: GroupProject[], workTypes: WorkType[] = []): WeeklyPlanRow[] {
   const byId = new Map(projects.map((p) => [p.id, p]))
+  const workTypeById = new Map(workTypes.map((w) => [w.id, w]))
   const work = slots
     .filter((s) => s.kind === 'work')
     .sort((a, b) => a.work_date.localeCompare(b.work_date) || a.slot_index - b.slot_index)
@@ -36,6 +39,7 @@ export function buildWeeklyPlan(slots: TimeSlot[], projects: GroupProject[]): We
       cur.endSlot === s.slot_index &&
       cur.groupProjectId === s.group_project_id &&
       cur.label === s.label &&
+      cur.workTypeId === (s.work_type_id ?? null) &&
       cur.item === (item || s.label)
     if (continues && cur) {
       cur.endSlot += 1
@@ -50,7 +54,8 @@ export function buildWeeklyPlan(slots: TimeSlot[], projects: GroupProject[]): We
       localProject: isGeneral ? '일반업무' : s.label || project?.name || '',
       groupProjectId: s.group_project_id,
       groupProjectName: project?.name ?? '',
-      work: project?.system_key === 'meeting' ? '회의' : '기타',
+      work: (s.work_type_id && workTypeById.get(s.work_type_id)?.name) || (project?.system_key === 'meeting' ? '회의' : '기타'),
+      workTypeId: s.work_type_id ?? null,
       item: item || s.label,
       label: s.label,
       hours: SLOT_HOURS,

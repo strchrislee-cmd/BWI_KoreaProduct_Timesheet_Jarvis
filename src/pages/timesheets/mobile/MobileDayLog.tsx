@@ -6,6 +6,7 @@ import { createPortal } from 'react-dom'
 import { cx } from '../../../components/ui'
 import { isSelectable, projectNumbers } from '../../../domain/projects'
 import { SLOTS_PER_DAY, slotToTime } from '../../../domain/time'
+import { selectableWorkTypes } from '../../../domain/workTypes'
 import type { TaskTemplate } from '../../../domain/types'
 import { chipBg, rowBg } from '../colors'
 import { NONWORK_CHOICES, templateCategory } from '../grid/DailyGrid'
@@ -15,6 +16,8 @@ import { useT } from '../../../lib/i18n'
 
 interface Draft {
   category: string
+  /** MID name ('' = none) */
+  mid: string
   task: string
   details: string
 }
@@ -77,6 +80,7 @@ export function MobileDayLog({
                   {s ? (unmapped ? `⚠ ${category || '카테고리 없음'}` : category) : '—'}
                   {lunch && <span className="ml-1 text-xs font-normal">(기본)</span>}
                 </span>
+                {s?.work_type_id && <span className="block truncate text-xs font-semibold text-ink/70">{cellText(s, 'mid', ctx.byId, ctx.workTypeById)}</span>}
                 {s?.description && <span className="block truncate text-xs text-ink/80">{s.description}</span>}
                 {s?.details && <span className="block truncate text-xs text-muted">{s.details}</span>}
               </span>
@@ -126,6 +130,7 @@ function SlotSheet({
   const current = effectiveSlot(ctx, index)
   const [draft, setDraft] = useState<Draft>({
     category: current ? cellText(current, 'category', ctx.byId) : '',
+    mid: current ? cellText(current, 'mid', ctx.byId, ctx.workTypeById) : '',
     task: current?.description ?? '',
     details: current?.details ?? '',
   })
@@ -157,13 +162,15 @@ function SlotSheet({
   function changesFor(d: Draft): CellChange[] {
     const ops: CellOp[] = targets.flatMap((i) => [
       { index: i, col: 'category' as const, text: d.category },
+      { index: i, col: 'mid' as const, text: d.mid },
       { index: i, col: 'task' as const, text: d.task },
       { index: i, col: 'details' as const, text: d.details },
     ])
     return buildChanges(ops, ctx)
   }
 
-  const applyTemplate = (t: TaskTemplate) => set({ category: templateCategory(t, ctx), task: t.description })
+  const applyTemplate = (t: TaskTemplate) =>
+    set({ category: templateCategory(t, ctx), task: t.description, ...(t.work_type_id ? { mid: ctx.workTypeById.get(t.work_type_id)?.name ?? '' } : {}) })
 
   // portal: inside a glass card (backdrop-filter) `fixed` would be relative to the card, not the screen
   return createPortal(
@@ -240,6 +247,17 @@ function SlotSheet({
         </section>
 
         <label className="mb-3 block">
+          <span className="mb-1.5 block text-xs font-semibold text-muted">{tr('MID')}</span>
+          <select className="field !py-2 text-[16px]" aria-label="MID" value={draft.mid} onChange={(e) => set({ mid: e.target.value })}>
+            <option value="">—</option>
+            {selectableWorkTypes(ctx.workTypes).map((w) => (
+              <option key={w.id} value={w.name}>
+                {w.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="mb-3 block">
           <span className="mb-1.5 block text-xs font-semibold text-muted">{tr('Sub Category')}</span>
           <input className="field !py-2 text-[16px]" aria-label="Task" value={draft.task} onChange={(e) => set({ task: e.target.value })} placeholder="예: INT | Daily_Scrum" />
         </label>
@@ -264,7 +282,7 @@ function SlotSheet({
         </div>
 
         <div className="grid grid-cols-[auto_1fr_1fr] gap-2">
-          <button className="rounded-control bg-black/5 px-3 py-3 text-sm font-semibold text-[#9a3a0e]" onClick={() => onSave(changesFor({ category: '', task: '', details: '' }), null)}>
+          <button className="rounded-control bg-black/5 px-3 py-3 text-sm font-semibold text-[#9a3a0e]" onClick={() => onSave(changesFor({ category: '', mid: '', task: '', details: '' }), null)}>
             지우기
           </button>
           <button className="rounded-control border border-primary bg-white/80 px-3 py-3 text-sm font-semibold text-primary" onClick={() => onSave(changesFor(draft), null)}>

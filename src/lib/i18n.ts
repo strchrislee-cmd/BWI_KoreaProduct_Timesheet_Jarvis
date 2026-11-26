@@ -27,6 +27,7 @@ const KO = {
   '30-min Log': '30분 간격 기록',
   Time: '시간',
   Category: '대분류',
+  MID: '중분류',
   'Sub Category': '업무분류',
   Content: '업무내용',
   'Non-work': '비업무',

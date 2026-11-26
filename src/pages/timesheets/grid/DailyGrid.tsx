@@ -1,10 +1,11 @@
-import { ChevronDown, GripVertical, MoreHorizontal } from 'lucide-react'
+import { ChevronDown, GripVertical, MoreHorizontal, Plus } from 'lucide-react'
 import { useEffect, useRef, useState, type ClipboardEvent, type FocusEvent, type KeyboardEvent, type MouseEvent, type PointerEvent } from 'react'
 import { ColorMenu } from '../../../components/ColorMenu'
 import { cx } from '../../../components/ui'
 import { DEFAULT_GRID, GRID_LIMITS, ROW_HEIGHTS, type GridPrefs } from '../../../data/preferences'
 import { isSelectable, projectNumbers } from '../../../domain/projects'
 import { slotToTime } from '../../../domain/time'
+import { WORK_TYPE_GRAY, findWorkType, selectableWorkTypes } from '../../../domain/workTypes'
 import type { ProjectKind, TaskTemplate, TimeSlot } from '../../../domain/types'
 import { useT } from '../../../lib/i18n'
 import { SORT_LABELS, moveItem, sortItems, type SortMode } from '../../../lib/ordering'
@@ -33,6 +34,15 @@ import {
 // composition works), becomes the visible editor while editing, and gets copy/paste events.
 
 export const NONWORK_CHOICES = ['점심', '휴식', '퇴근']
+/** what this grid last put on the clipboard: pasting it back keeps its columns (see planPaste) */
+let lastCopied = ''
+const sameText = (a: string, b: string) => !!b && a.replace(/\r\n/g, '\n').trimEnd() === b.replace(/\r\n/g, '\n').trimEnd()
+
+/** the narrow column in front of Time with each row's + (add to repeated tasks) */
+const GUTTER = 24
+/** columns whose width can be dragged: Time, Category, MID */
+const RESIZABLE = ['timeWidth', 'categoryWidth', 'midWidth'] as const
+
 const GROUPS: { id: ProjectKind | 'nonwork'; label: string }[] = [
   { id: 'project', label: KIND_LABEL.project },
   { id: 'timelog', label: KIND_LABEL.timelog },
@@ -100,7 +110,9 @@ export interface DailyGridProps {
   readOnly: boolean
   onChange: (changes: CellChange[]) => void
   onUndo: () => void
-  onCreateTemplate: (t: Pick<TaskTemplate, 'kind' | 'group_project_id' | 'label' | 'description'>) => void
+  onCreateTemplate: (t: Pick<TaskTemplate, 'kind' | 'group_project_id' | 'label' | 'description' | 'work_type_id'>) => void
+  /** the + in front of a row: save its category, MID and sub category as a repeated task; resolves to a status line */
+  onRowToTemplate?: (index: number) => Promise<string>
   onSelectionChange: (indexes: number[], active: number) => void
 }
 
@@ -125,6 +137,7 @@ export function DailyGrid({
   onChange,
   onUndo,
   onCreateTemplate,
+  onRowToTemplate,
   onSelectionChange,
 }: DailyGridProps) {
   const tr = useT()
@@ -142,7 +155,7 @@ export function DailyGrid({
   const popRef = useRef<HTMLDivElement>(null)
   const cellRefs = useRef(new Map<string, HTMLDivElement>())
   const size = live ?? layout
-  const gridColumns = `${size.timeWidth}px ${size.categoryWidth}px minmax(180px, 1fr) minmax(200px, 1.4fr)`
+  const gridColumns = `${GUTTER}px ${size.timeWidth}px ${size.categoryWidth}px ${size.midWidth}px minmax(140px, 1fr) minmax(160px, 1.4fr)`
 
   // Selection is stored by slot index so it survives rows being added (e.g. pasting past 16:30).
   const pos = (i: number) => {
@@ -235,6 +248,15 @@ export function DailyGrid({
       return list
     }
 
+    if (activeCol === 'mid') {
+      // the admin's list in its own order (Projects → MID); no create, reorder or option menu here
+      for (const w of selectableWorkTypes(ctx.workTypes).filter((x) => match(x.name)))
+        list.push({ key: w.id, group: 'mid', groupLabel: tr('MID'), label: w.name, color: w.color ?? WORK_TYPE_GRAY, value: w.name })
+      if (!text && effectiveSlot(ctx, activeIndex)?.work_type_id)
+        list.push({ key: 'mid-clear', group: 'mid-clear', groupLabel: '', label: '— 비우기', value: '' })
+      return list
+    }
+
     if (activeCol === 'task') {
       const items: Option[] = templates
         .filter((t) => match(t.description, t.label, templateCategory(t, ctx)))
@@ -291,13 +313,13 @@ export function DailyGrid({
 
   function openEditor() {
     if (readOnly) return
-    if (activeCol === 'category') {
+    if (activeCol === 'category' || activeCol === 'mid') {
       const state = { text: '', dirty: false }
-      const current = cellText(effectiveSlot(ctx, activeIndex), 'category', ctx.byId)
+      const current = cellText(effectiveSlot(ctx, activeIndex), activeCol, ctx.byId, ctx.workTypeById)
       setEditing(state)
       setHi(buildOptions(state).findIndex((o) => o.value === current))
     } else {
-      setEditing({ text: cellText(effectiveSlot(ctx, activeIndex), activeCol, ctx.byId), dirty: false })
+      setEditing({ text: cellText(effectiveSlot(ctx, activeIndex), activeCol, ctx.byId, ctx.workTypeById), dirty: false })
       setHi(-1)
     }
     inputRef.current?.focus({ preventScroll: true })
@@ -315,7 +337,13 @@ export function DailyGrid({
         const text = opt?.value ?? editing.text
         if (opt?.create === 'template') {
           const base = effectiveSlot(ctx, activeIndex)
-          onCreateTemplate({ kind: base?.kind ?? 'work', group_project_id: base?.group_project_id ?? null, label: base?.label ?? '', description: text.trim() })
+          onCreateTemplate({
+            kind: base?.kind ?? 'work',
+            group_project_id: base?.group_project_id ?? null,
+            label: base?.label ?? '',
+            description: text.trim(),
+            work_type_id: base?.work_type_id ?? null,
+          })
         }
         onChange(buildChanges(selRows.map((i) => ({ index: i, col: activeCol, text })), ctx))
         if (selRows.length > 1) setStatus(`${selRows.length}칸에 적용`)
@@ -338,7 +366,7 @@ export function DailyGrid({
     const top = effectiveSlot(ctx, rows[sel.r1])
     const ops: CellOp[] = []
     for (let r = sel.r1 + 1; r <= sel.r2; r++)
-      for (let c = sel.c1; c <= sel.c2; c++) ops.push({ index: rows[r], col: COLS[c], text: cellText(top, COLS[c], ctx.byId) })
+      for (let c = sel.c1; c <= sel.c2; c++) ops.push({ index: rows[r], col: COLS[c], text: cellText(top, COLS[c], ctx.byId, ctx.workTypeById) })
     onChange(buildChanges(ops, ctx))
     setStatus(`${sel.r2 - sel.r1}행 아래로 채움`)
   }
@@ -405,9 +433,11 @@ export function DailyGrid({
     const cols = COLS.slice(sel.c1, sel.c2 + 1)
     const matrix = selRows.map((i) => {
       const s = effectiveSlot(ctx, i)
-      return cols.map((col) => cellText(s, col, ctx.byId))
+      return cols.map((col) => cellText(s, col, ctx.byId, ctx.workTypeById))
     })
-    e.clipboardData.setData('text/plain', toTsv(matrix))
+    const tsv = toTsv(matrix)
+    e.clipboardData.setData('text/plain', tsv)
+    lastCopied = tsv
     setStatus(`${selRows.length * cols.length}칸 복사됨`)
   }
 
@@ -422,7 +452,8 @@ export function DailyGrid({
     e.preventDefault()
     const matrix = parseClipboard(e.clipboardData.getData('text/plain'))
     if (!matrix.length) return
-    const ops = planPaste(matrix, sel, rows)
+    const fromGrid = sameText(e.clipboardData.getData('text/plain'), lastCopied) // copied here: columns are known
+    const ops = planPaste(matrix, sel, rows, (t) => !!findWorkType(t, ctx.workTypes), fromGrid)
     onChange(buildChanges(ops, ctx))
     if (matrix.length > 1 || matrix[0].length > 1) {
       setAnchor({ i: rows[sel.r1], c: sel.c1 })
@@ -436,7 +467,9 @@ export function DailyGrid({
     // focus moved into the dropdown / an option menu (e.g. renaming) → keep editing
     const to = e.relatedTarget as HTMLElement | null
     if (to && (popRef.current?.contains(to) || to.closest('[data-grid-popover]'))) return
-    if (editing) commit('none')
+    // typed text is saved; a dropdown only looked at closes without applying the hovered option
+    if (editing?.dirty) commit('none')
+    else if (editing) setEditing(null)
   }
 
   // ── mouse ─────────────────────────────────────────────────────────────────
@@ -465,7 +498,7 @@ export function DailyGrid({
   }
 
   // ── column resize ─────────────────────────────────────────────────────────
-  function startResize(e: PointerEvent<HTMLDivElement>, which: 'timeWidth' | 'categoryWidth') {
+  function startResize(e: PointerEvent<HTMLDivElement>, which: (typeof RESIZABLE)[number]) {
     e.preventDefault()
     e.stopPropagation()
     const startX = e.clientX
@@ -515,6 +548,15 @@ export function DailyGrid({
 
   function renderCell(col: (typeof COLS)[number], s: TimeSlot | undefined, lunchDefault: boolean) {
     if (col === 'details') return s?.details ? <span title={s.details}>{s.details}</span> : ''
+    if (col === 'mid') {
+      const w = s?.work_type_id ? ctx.workTypeById.get(s.work_type_id) : undefined
+      if (!w) return ''
+      return (
+        <span className={cx('rounded-chip px-1.5 py-0.5 text-[12.5px] font-medium', w.hidden && 'opacity-60')} style={{ backgroundColor: chipBg(w.color ?? WORK_TYPE_GRAY) }}>
+          {w.name}
+        </span>
+      )
+    }
     if (col === 'task') return s?.description ?? ''
     if (!s) return <span className="text-muted/60">—</span>
     const text = cellText(s, 'category', ctx.byId)
@@ -536,16 +578,17 @@ export function DailyGrid({
     <div>
       <div className={cx('relative select-none text-[13px]', readOnly ? 'cursor-default' : 'cursor-cell')} role="grid" aria-label="30-min log">
         <div className="sticky top-0 z-10 grid rounded-t-control bg-sage-light/90 font-semibold backdrop-blur" style={{ gridTemplateColumns: gridColumns }}>
-          {(['Time', 'Category', 'Sub Category', 'Content'] as const).map((h, k) => (
+          <div aria-hidden />
+          {(['Time', 'Category', 'MID', 'Sub Category', 'Content'] as const).map((h, k) => (
             <div key={h} className={cx('relative px-2.5 py-2', k > 0 && 'border-l border-dashed border-black/10')}>
               {tr(h)}
-              {k < 2 && (
+              {k < RESIZABLE.length && (
                 <div
                   role="separator"
                   aria-label={`Resize ${h} column`}
                   className="absolute -right-1 top-0 z-10 h-full w-2 cursor-col-resize hover:bg-primary/30"
-                  onPointerDown={(e) => startResize(e, k === 0 ? 'timeWidth' : 'categoryWidth')}
-                  onDoubleClick={() => onLayoutChange({ ...layout, [k === 0 ? 'timeWidth' : 'categoryWidth']: DEFAULT_GRID[k === 0 ? 'timeWidth' : 'categoryWidth'] })}
+                  onPointerDown={(e) => startResize(e, RESIZABLE[k])}
+                  onDoubleClick={() => onLayoutChange({ ...layout, [RESIZABLE[k]]: DEFAULT_GRID[RESIZABLE[k]] })}
                 />
               )}
             </div>
@@ -561,9 +604,25 @@ export function DailyGrid({
               key={i}
               data-slot={i}
               role="row"
-              className={cx('relative grid border-t border-dashed border-black/15', lunchDefault && 'text-muted')}
+              className={cx('group/row relative grid border-t border-dashed border-black/15', lunchDefault && 'text-muted')}
               style={{ gridTemplateColumns: gridColumns, backgroundColor: s ? rowBg(ctx.color(s.kind, s.group_project_id)) : undefined }}
             >
+              <div className="flex items-center justify-center" style={rowStyle}>
+                {onRowToTemplate && !readOnly && s && !lunchDefault && (s.label || s.group_project_id || s.description) && (
+                  <button
+                    aria-label={`Add ${slotToTime(i)} to repeated tasks`}
+                    title="이 행을 반복 업무로 추가 (대분류·MID·업무분류, 업무내용은 제외)"
+                    className="flex h-5 w-5 items-center justify-center rounded-chip text-muted opacity-40 hover:bg-white hover:text-primary group-hover/row:opacity-100"
+                    onMouseDown={(e) => {
+                      e.preventDefault()
+                      e.stopPropagation()
+                    }}
+                    onClick={() => void onRowToTemplate(i).then(setStatus)}
+                  >
+                    <Plus size={14} />
+                  </button>
+                )}
+              </div>
               <div
                 className={cx('flex cursor-pointer items-center px-2.5 font-mono text-[12.5px] font-semibold tabular-nums', isNow && 'text-now')}
                 style={rowStyle}
@@ -621,7 +680,7 @@ export function DailyGrid({
                   aria-hidden
                   data-testid="now-line"
                   className="pointer-events-none absolute right-0 z-0 h-0 border-t-2 border-now"
-                  style={{ top: `${now!.frac * 100}%`, left: size.timeWidth }}
+                  style={{ top: `${now!.frac * 100}%`, left: GUTTER + size.timeWidth }}
                 >
                   <span className="absolute -left-1 -top-[5px] h-2 w-2 rounded-full bg-now" />
                   <span className="absolute -top-[9px] right-1 rounded-chip bg-now px-1.5 font-mono text-[10px] font-bold leading-4 text-white">{now!.time}</span>
@@ -637,12 +696,12 @@ export function DailyGrid({
           autoComplete="off"
           spellCheck={false}
           value={editing?.text ?? ''}
-          placeholder={editing && activeCol === 'category' ? cellText(effectiveSlot(ctx, activeIndex), 'category', ctx.byId) || '옵션 검색…' : ''}
+          placeholder={editing && (activeCol === 'category' || activeCol === 'mid') ? cellText(effectiveSlot(ctx, activeIndex), activeCol, ctx.byId, ctx.workTypeById) || '옵션 검색…' : ''}
           readOnly={readOnly}
           onChange={(e) => {
             if (readOnly) return
             setEditing({ text: e.target.value, dirty: true })
-            setHi(activeCol === 'category' ? 0 : -1)
+            setHi(activeCol === 'category' || activeCol === 'mid' ? 0 : -1)
           }}
           onCompositionStart={() => !editing && !readOnly && setEditing({ text: '', dirty: true })}
           onKeyDown={onKeyDown}
@@ -659,7 +718,7 @@ export function DailyGrid({
           style={{ top: box.top, left: box.left, width: Math.max(box.width, 200), height: box.height }}
         />
 
-        {editing && (activeCol === 'category' || activeCol === 'task') && (
+        {editing && activeCol !== 'details' && (
           <div
             ref={popRef}
             className="glass-strong absolute z-30 rounded-menu p-1"
@@ -673,11 +732,11 @@ export function DailyGrid({
             onMouseDown={(e) => e.preventDefault()}
           >
             <div className="relative flex items-center justify-between px-2 pb-1 pt-1.5 text-[11px] font-semibold text-muted">
-              <span>옵션 선택 또는 생성</span>
+              <span>{activeCol === 'mid' ? `${tr('MID')} 선택 · 목록은 Projects 화면에서 관리` : '옵션 선택 또는 생성'}</span>
               <button
                 aria-label="Sort options"
                 title={`정렬: ${SORT_LABELS[api.sort[listKind]]}`}
-                className="rounded-chip p-0.5 hover:bg-black/5"
+                className={cx('rounded-chip p-0.5 hover:bg-black/5', activeCol === 'mid' && 'hidden')}
                 onClick={() => setSortOpen((o) => !o)}
               >
                 <MoreHorizontal size={16} />
@@ -704,13 +763,17 @@ export function DailyGrid({
               )}
             </div>
             <div ref={listRef} role="listbox" className="max-h-72 overflow-auto">
-              {options.length === 0 && <p className="px-2 py-2 text-xs text-muted">{activeCol === 'task' ? '등록된 반복 업무가 없습니다. 입력하면 새로 만들 수 있어요.' : '일치하는 옵션이 없습니다.'}</p>}
+              {options.length === 0 && (
+                <p className="px-2 py-2 text-xs text-muted">
+                  {activeCol === 'task' ? '등록된 반복 업무가 없습니다. 입력하면 새로 만들 수 있어요.' : activeCol === 'mid' ? '목록에 없는 이름입니다. MID 목록은 관리자가 Projects 화면에서 관리합니다.' : '일치하는 옵션이 없습니다.'}
+                </p>
+              )}
               {options.map((o, k) => {
                 const gi = groupIndex.get(o.key) ?? 0
                 const d = reorder.state
                 const dragging = d?.group === o.group && d.from === gi
                 const dropLine = d && d.group === o.group && d.over === gi && d.over !== d.from ? (d.over > d.from ? 'after' : 'before') : null
-                const canReorder = !filtering && !readOnly && o.group !== 'create'
+                const canReorder = !filtering && !readOnly && o.group !== 'create' && o.group !== 'mid' && o.group !== 'mid-clear'
                 const hasMenu = !!o.colorKey || !!o.template
                 return (
                   <div key={o.key}>

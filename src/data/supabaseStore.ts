@@ -15,8 +15,10 @@ import type {
   TaskTemplate,
   TimeSlot,
   WorkDay,
+  WorkType,
 } from '../domain/types'
 import { aliasConflict, projectNameKey } from '../domain/projects'
+import { WORK_TYPE_GRAY, workTypeNameProblem } from '../domain/workTypes'
 import type { DataStore } from './store'
 import type { ProjectImportPlan } from '../domain/projectFile'
 
@@ -29,7 +31,7 @@ function must<T>(res: Result<T>): T {
 
 const PROJECT_COLUMNS =
   'id, code, name, kind, system_key, counts_toward_total, sort_order, status, hidden, manual, sheet_name, first_seen_import_id, last_seen_import_id, created_at'
-const SLOT_COLUMNS = 'user_id, work_date, slot_index, kind, group_project_id, label, description, details, focus'
+const SLOT_COLUMNS = 'user_id, work_date, slot_index, kind, group_project_id, label, description, details, focus, work_type_id'
 
 export class SupabaseStore implements DataStore {
   readonly mode = 'supabase' as const
@@ -173,11 +175,37 @@ export class SupabaseStore implements DataStore {
     must(await this.sb.from('work_days').upsert(day, { onConflict: 'user_id,work_date' }))
   }
 
+  async listWorkTypes() {
+    return must<WorkType[]>(await this.sb.from('work_types').select('id, name, sort_order, color, hidden, created_at'))
+  }
+  async addWorkType(name: string) {
+    const list = await this.listWorkTypes()
+    const problem = workTypeNameProblem(name, list)
+    if (problem) throw new Error(problem)
+    const sort_order = Math.max(0, ...list.map((w) => w.sort_order)) + 1
+    must(await this.sb.from('work_types').insert({ name: name.replace(/\s+/g, ' ').trim(), sort_order, color: WORK_TYPE_GRAY }))
+  }
+  async updateWorkType(id: string, patch: Partial<Pick<WorkType, 'name' | 'color' | 'hidden'>>) {
+    const clean = { ...patch }
+    if (patch.name !== undefined) {
+      const problem = workTypeNameProblem(patch.name, await this.listWorkTypes(), id)
+      if (problem) throw new Error(problem)
+      clean.name = patch.name.replace(/\s+/g, ' ').trim()
+    }
+    must(await this.sb.from('work_types').update(clean).eq('id', id))
+  }
+  async reorderWorkTypes(updates: { id: string; sort_order: number }[]) {
+    for (const u of updates) must(await this.sb.from('work_types').update({ sort_order: u.sort_order }).eq('id', u.id))
+  }
+  async removeWorkType(id: string) {
+    return must<'deleted' | 'hidden'>(await this.sb.rpc('remove_work_type', { p_id: id }))
+  }
+
   async listTemplates(userId: string) {
     return must<TaskTemplate[]>(
       await this.sb
         .from('task_templates')
-        .select('id, user_id, kind, group_project_id, label, description, sort_order, color, created_at')
+        .select('id, user_id, kind, group_project_id, label, description, work_type_id, sort_order, color, created_at')
         .eq('user_id', userId)
         .order('sort_order')
         .order('created_at'),

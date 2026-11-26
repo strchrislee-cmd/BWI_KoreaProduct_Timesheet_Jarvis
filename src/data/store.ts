@@ -14,6 +14,7 @@ import type {
   TaskTemplate,
   TimeSlot,
   WorkDay,
+  WorkType,
 } from '../domain/types'
 import type { ProjectImportPlan } from '../domain/projectFile'
 
@@ -66,6 +67,17 @@ export interface DataStore {
   saveWorkDay(day: WorkDay): Promise<void>
 
   /** The signed-in user's repeated tasks. */
+  /** MID (중분류) list, hidden ones included (old slots still show them) */
+  listWorkTypes(): Promise<WorkType[]>
+  /** Admins: add at the end of the list */
+  addWorkType(name: string): Promise<void>
+  /** Admins: rename, recolor, or restore (hidden: false) */
+  updateWorkType(id: string, patch: Partial<Pick<WorkType, 'name' | 'color' | 'hidden'>>): Promise<void>
+  /** Admins: new order */
+  reorderWorkTypes(updates: { id: string; sort_order: number }[]): Promise<void>
+  /** Admins: delete if nobody used it yet, otherwise hide it */
+  removeWorkType(id: string): Promise<'deleted' | 'hidden'>
+
   listTemplates(userId: string): Promise<TaskTemplate[]>
   addTemplate(template: Omit<TaskTemplate, 'id' | 'created_at'>): Promise<void>
   updateTemplate(id: string, patch: Partial<Pick<TaskTemplate, 'color' | 'description' | 'sort_order'>>): Promise<void>

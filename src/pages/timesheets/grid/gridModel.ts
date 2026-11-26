@@ -2,10 +2,12 @@
 // Kept free of React so it can be unit-tested (tests/grid.test.ts).
 import { resolveLabel } from '../../../domain/labels'
 import { SLOTS_PER_DAY } from '../../../domain/time'
-import type { GroupProject, ProjectAlias, SlotKind, TaskTemplate, TimeSlot } from '../../../domain/types'
+import type { GroupProject, ProjectAlias, SlotKind, TaskTemplate, TimeSlot, WorkType } from '../../../domain/types'
+import { findWorkType } from '../../../domain/workTypes'
 import { displayName, labelFor } from '../projectUi'
 
-export const COLS = ['category', 'task', 'details'] as const
+/** category · MID (중분류) · sub category · content */
+export const COLS = ['category', 'mid', 'task', 'details'] as const
 export type Col = (typeof COLS)[number]
 
 /** Grid coordinate: r = row position in the displayed rows, c = column index. */
@@ -37,6 +39,9 @@ export interface GridContext {
   projects: GroupProject[]
   aliases: ProjectAlias[]
   byId: Map<string, GroupProject>
+  /** MID list (hidden ones too: old slots still show them) */
+  workTypes: WorkType[]
+  workTypeById: Map<string, WorkType>
   /** Saved slots of the day. */
   saved: Map<number, TimeSlot>
   /** Slot indexes that default to lunch when nothing is saved. */
@@ -61,8 +66,9 @@ export function isLunchDefault(ctx: GridContext, index: number): boolean {
 }
 
 /** Text shown in / copied from a cell. */
-export function cellText(slot: TimeSlot | undefined, col: Col, byId: Map<string, GroupProject>): string {
+export function cellText(slot: TimeSlot | undefined, col: Col, byId: Map<string, GroupProject>, workTypeById?: Map<string, WorkType>): string {
   if (!slot) return ''
+  if (col === 'mid') return (slot.work_type_id && workTypeById?.get(slot.work_type_id)?.name) || ''
   if (col === 'task') return slot.description
   if (col === 'details') return slot.details
   if (slot.kind === 'nonwork') return slot.label
@@ -70,9 +76,9 @@ export function cellText(slot: TimeSlot | undefined, col: Col, byId: Map<string,
   return p ? displayName(p) : slot.label
 }
 
-/** A slot with nothing left in it (no category, task or details) is deleted. */
+/** A slot with nothing left in it (no category, MID, task or details) is deleted. */
 function orDelete(slot: TimeSlot): TimeSlot | null {
-  const empty = slot.kind === 'work' && !slot.group_project_id && !slot.label && !slot.description && !slot.details
+  const empty = slot.kind === 'work' && !slot.group_project_id && !slot.label && !slot.work_type_id && !slot.description && !slot.details
   return empty ? null : slot
 }
 
@@ -94,6 +100,12 @@ export function applyText(base: TimeSlot | undefined, index: number, col: Col, t
     if (p) return { ...b, kind: 'work', group_project_id: p.id, label: labelFor(p, ctx.aliases) }
     return { ...b, kind: 'work', group_project_id: null, label: t }
   }
+  if (col === 'mid') {
+    if (!t) return base ? orDelete({ ...base, work_type_id: null }) : undefined
+    const w = findWorkType(t, ctx.workTypes)
+    if (!w) return undefined // not a MID in the list: left as it was
+    return { ...(base ?? ctx.blank(index)), work_type_id: w.id }
+  }
   if (col === 'task') {
     if (!base) return t ? { ...ctx.blank(index), description: t } : undefined
     return orDelete({ ...base, description: t })
@@ -104,7 +116,9 @@ export function applyText(base: TimeSlot | undefined, index: number, col: Col, t
 }
 
 export function applyTemplate(base: TimeSlot | undefined, index: number, t: TaskTemplate, ctx: GridContext): TimeSlot {
-  return { ...(base ?? ctx.blank(index)), kind: t.kind, group_project_id: t.group_project_id, label: t.label, description: t.description }
+  const b = base ?? ctx.blank(index)
+  // a repeated task without a MID leaves the row's MID alone
+  return { ...b, kind: t.kind, group_project_id: t.group_project_id, label: t.label, description: t.description, work_type_id: t.work_type_id ?? b.work_type_id }
 }
 
 export interface CellOp {
@@ -142,20 +156,26 @@ export function slotAt(rows: number[], r: number): number | null {
 /**
  * Where pasted cells go. A single value fills the whole selection (like Excel);
  * a block is placed from the selection's top-left cell.
+ * A 2- or 3-column block pasted into the Category column is the layout from before MID existed
+ * (category, sub category[, content]), unless its second column holds MID names (`isMid`) or the
+ * block was copied from this grid (`fromGrid`: its columns are known, so it goes back in order).
  */
-export function planPaste(matrix: string[][], sel: Range, rows: number[]): CellOp[] {
+export function planPaste(matrix: string[][], sel: Range, rows: number[], isMid: (text: string) => boolean = () => false, fromGrid = false): CellOp[] {
   const ops: CellOp[] = []
   if (matrix.length === 1 && matrix[0].length === 1) {
     for (let r = sel.r1; r <= sel.r2; r++)
       for (let c = sel.c1; c <= sel.c2; c++) ops.push({ index: rows[r], col: COLS[c], text: matrix[0][0] })
     return ops
   }
+  const width = Math.max(...matrix.map((cells) => cells.length))
+  const second = matrix.map((cells) => (cells[1] ?? '').trim()).filter(Boolean)
+  const oldLayout = !fromGrid && sel.c1 === 0 && (width === 2 || width === 3) && !(second.length && second.every(isMid))
+  const cols: readonly Col[] = oldLayout ? ['category', 'task', 'details'] : COLS.slice(sel.c1)
   matrix.forEach((cells, i) => {
     const index = slotAt(rows, sel.r1 + i)
     if (index === null) return
     cells.forEach((text, j) => {
-      const c = sel.c1 + j
-      if (c < COLS.length) ops.push({ index, col: COLS[c], text })
+      if (j < cols.length) ops.push({ index, col: cols[j], text })
     })
   })
   return ops

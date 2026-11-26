@@ -10,6 +10,8 @@ import { readColorPrefs, type ColorPrefs } from '../pages/timesheets/colors'
 export interface GridPrefs {
   timeWidth: number
   categoryWidth: number
+  /** MID (중분류) column */
+  midWidth: number
   rowHeight: number
 }
 
@@ -42,8 +44,8 @@ export interface Prefs extends ColorPrefs {
 }
 
 // 좁게 (30px) by default so a whole working day fits on one screen
-export const DEFAULT_GRID: GridPrefs = { timeWidth: 64, categoryWidth: 260, rowHeight: 30 }
-export const GRID_LIMITS = { timeWidth: [52, 160], categoryWidth: [160, 520] } as const
+export const DEFAULT_GRID: GridPrefs = { timeWidth: 64, categoryWidth: 240, midWidth: 130, rowHeight: 30 }
+export const GRID_LIMITS = { timeWidth: [52, 160], categoryWidth: [160, 520], midWidth: [90, 320] } as const
 export const ROW_HEIGHTS = [
   { label: '좁게', value: 30 },
   { label: '보통', value: 36 },
@@ -69,6 +71,7 @@ export function readPrefs(preferences: Profile['preferences']): Prefs {
     grid: {
       timeWidth: num(grid.timeWidth, ...GRID_LIMITS.timeWidth, DEFAULT_GRID.timeWidth),
       categoryWidth: num(grid.categoryWidth, ...GRID_LIMITS.categoryWidth, DEFAULT_GRID.categoryWidth),
+      midWidth: num(grid.midWidth, ...GRID_LIMITS.midWidth, DEFAULT_GRID.midWidth),
       rowHeight: ROW_HEIGHTS.some((r) => r.value === grid.rowHeight) ? (grid.rowHeight as number) : DEFAULT_GRID.rowHeight,
     },
     notifications: p.notifications === true,

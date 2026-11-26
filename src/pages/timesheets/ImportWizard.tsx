@@ -75,6 +75,7 @@ export function ImportWizard({ onClose, onDone }: { onClose: () => void; onDone:
             description: e.description,
             details: '',
             focus: e.focus,
+            work_type_id: null, // the old personal sheets have no MID
           })
         }
         await store.replaceDay(engineerId, d.dateValue, [...bySlot.values()])

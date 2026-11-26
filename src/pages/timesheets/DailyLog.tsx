@@ -2,6 +2,7 @@ import { CircleAlert, MoreHorizontal, Plus, Upload } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useLocation } from 'react-router'
 import { ColorMenu } from '../../components/ColorMenu'
+import { DockablePanel } from '../../components/DockablePanel'
 import { SLOTS_CHANGED } from '../../components/ReminderToast'
 import { TimeRangePicker } from '../../components/TimeRangePicker'
 import { Button, Card, ErrorNote, Loading, Pill, cx } from '../../components/ui'
@@ -15,7 +16,7 @@ import { moveItem, sortItems } from '../../lib/ordering'
 import { useDragReorder } from '../../lib/useDragReorder'
 import { categoryColor, chipBg, templateColor } from './colors'
 import { DailyGrid, templateCategory, type GridColors, type GridOptionsApi } from './grid/DailyGrid'
-import { applyTemplate, effectiveSlot, type CellChange, type GridContext } from './grid/gridModel'
+import { applyTemplate, cellText, effectiveSlot, type CellChange, type GridContext } from './grid/gridModel'
 import { ImportWizard } from './ImportWizard'
 import { MobileDayLog } from './mobile/MobileDayLog'
 import { displayName } from './projectUi'
@@ -27,7 +28,7 @@ export function DailyLog() {
   const { store } = useStore()
   const user = useUser()
   const { search } = useLocation()
-  const { date, engineer, projects, aliases, latestImport, reloadMaster } = useTimesheets()
+  const { date, engineer, projects, aliases, workTypes, latestImport, reloadMaster } = useTimesheets()
   const canEdit = engineer.id === user.id || user.role === 'admin'
 
   const q = useAsync(() => store.listSlots(engineer.id, date, date), [store, engineer.id, date])
@@ -92,6 +93,7 @@ export function DailyLog() {
   }, [date, engineer.id])
 
   const byId = useMemo(() => new Map(projects.map((p) => [p.id, p])), [projects])
+  const workTypeById = useMemo(() => new Map(workTypes.map((w) => [w.id, w])), [workTypes])
   const newProjects = projects.filter((p) => !p.hidden && isNewProject(p, latestImport))
 
   // Lunch (Settings → Work hours, default 12:00–13:00) shows as 점심 unless something else is saved.
@@ -106,12 +108,14 @@ export function DailyLog() {
       projects,
       aliases,
       byId,
+      workTypes,
+      workTypeById,
       saved: slots,
       lunch,
-      blank: (index) => ({ user_id: engineer.id, work_date: date, slot_index: index, kind: 'work', group_project_id: null, label: '', description: '', details: '', focus: null }),
+      blank: (index) => ({ user_id: engineer.id, work_date: date, slot_index: index, kind: 'work', group_project_id: null, label: '', description: '', details: '', focus: null, work_type_id: null }),
       color: (kind, projectId) => categoryColor(kind, projectId ? byId.get(projectId) : undefined, prefs),
     }),
-    [projects, aliases, byId, slots, lunch, engineer.id, date, prefs],
+    [projects, aliases, byId, workTypes, workTypeById, slots, lunch, engineer.id, date, prefs],
   )
 
   const colorOfTemplate = (t: TaskTemplate) => templateColor(t, t.group_project_id ? byId.get(t.group_project_id) : undefined, prefs)
@@ -160,17 +164,34 @@ export function DailyLog() {
 
   const onSelectionChange = useCallback((rowsSel: number[], active: number) => setSelection({ rows: rowsSel, active }), [])
 
-  async function createTemplate(t: Pick<TaskTemplate, 'kind' | 'group_project_id' | 'label' | 'description'>) {
+  /** Save a repeated task (category, MID, sub category — never the content); returns false when it already exists. */
+  async function createTemplate(t: Pick<TaskTemplate, 'kind' | 'group_project_id' | 'label' | 'description' | 'work_type_id'>): Promise<boolean> {
     const exists = templates.some(
-      (x) => x.kind === t.kind && x.group_project_id === t.group_project_id && x.label === t.label && x.description === t.description,
+      (x) =>
+        x.kind === t.kind &&
+        x.group_project_id === t.group_project_id &&
+        x.label === t.label &&
+        x.description === t.description &&
+        x.work_type_id === t.work_type_id,
     )
-    if (exists) return
+    if (exists) return false
     try {
       await store.addTemplate({ ...t, user_id: user.id, sort_order: templates.length + 1, color: null })
       templatesQ.reload()
+      return true
     } catch (e) {
       setError(e as Error)
+      return false
     }
+  }
+
+  /** the + in front of a row: everything but the time and the content becomes a repeated task */
+  async function rowToTemplate(index: number): Promise<string> {
+    const s = effectiveSlot(ctx, index)
+    if (!s || (!s.description.trim() && !s.label.trim() && !s.group_project_id)) return ''
+    const t = { kind: s.kind, group_project_id: s.group_project_id, label: s.label, description: s.description, work_type_id: s.work_type_id }
+    const name = [cellText(s, 'category', ctx.byId), cellText(s, 'mid', ctx.byId, ctx.workTypeById), s.description].filter(Boolean).join(' · ')
+    return (await createTemplate(t)) ? `반복 업무에 추가: ${name}` : `이미 반복 업무에 있습니다: ${name}`
   }
 
   function saveSelectedRowAsTemplate() {
@@ -179,7 +200,7 @@ export function DailyLog() {
       setError(new Error('선택한 행에 카테고리나 업무 내용이 없습니다.'))
       return
     }
-    void createTemplate({ kind: s.kind, group_project_id: s.group_project_id, label: s.label, description: s.description })
+    void createTemplate({ kind: s.kind, group_project_id: s.group_project_id, label: s.label, description: s.description, work_type_id: s.work_type_id })
   }
 
   async function updateTemplate(id: string, patch: Parameters<typeof store.updateTemplate>[1]) {
@@ -317,6 +338,7 @@ export function DailyLog() {
               onChange={(changes) => void persist(changes)}
               onUndo={undo}
               onCreateTemplate={(t) => void createTemplate(t)}
+              onRowToTemplate={rowToTemplate}
               onSelectionChange={onSelectionChange}
             />
           </div>
@@ -324,7 +346,7 @@ export function DailyLog() {
       </Card>
 
       <div className={cx('flex flex-col gap-4', filled && 'min-h-0 overflow-y-auto')}>
-        <Card title={tr('Today')}>
+        <DockablePanel storageKey="te-panel:today" title={tr('Today')} testId="today-panel">
           <div className="font-display text-5xl font-extrabold text-primary" data-testid="today-total">
             {Math.floor(total)}h {total % 1 ? '30m' : '00m'}
           </div>
@@ -340,7 +362,7 @@ export function DailyLog() {
                 </li>
               ))}
           </ul>
-        </Card>
+        </DockablePanel>
 
         {/* phones apply repeated tasks from the entry sheet; managing them stays on the desktop layout */}
         <Card

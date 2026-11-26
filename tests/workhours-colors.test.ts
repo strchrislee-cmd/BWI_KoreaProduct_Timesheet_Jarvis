@@ -67,7 +67,7 @@ describe('colors', () => {
   })
 
   it('templates use their own color, else their category color', () => {
-    const t: TaskTemplate = { id: 't', user_id: 'u', kind: 'work', group_project_id: 'wl', label: '', description: 'x', sort_order: 1, color: null, created_at: '2026-01-01T00:00:00Z' }
+    const t: TaskTemplate = { id: 't', user_id: 'u', kind: 'work', group_project_id: 'wl', label: '', description: 'x', work_type_id: null, sort_order: 1, color: null, created_at: '2026-01-01T00:00:00Z' }
     const prefs = { categoryColors: { wl: '#112233' }, palette: [] }
     expect(templateColor(t, wl, prefs)).toBe('#112233')
     expect(templateColor({ ...t, color: '#ABCDEF' }, wl, prefs)).toBe('#ABCDEF')

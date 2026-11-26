@@ -13,6 +13,7 @@ import { categoryColor } from './colors'
 import { GroupColorControl } from './GroupColor'
 import { KIND_LABEL } from './projectUi'
 import { useTimesheets } from './TimesheetsLayout'
+import { WorkTypesCard } from './WorkTypesCard'
 import { useColorPrefs } from './useColorPrefs'
 
 const KINDS = ['project', 'timelog', 'local_section'] as const
@@ -585,6 +586,10 @@ export function ProjectsPage() {
           </table>
         </div>
       </Card>
+
+      <div className="mt-4">
+        <WorkTypesCard />
+      </div>
 
       {colorOf && (
         <ColorMenu
