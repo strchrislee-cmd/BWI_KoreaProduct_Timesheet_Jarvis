@@ -11,7 +11,7 @@
     "휴대폰은 하단 탭 바를 쓰고 Dock이 없다."
   ],
   "date": "2026-11-26",
-  "commit": "4f827fa",
+  "commit": "26679be",
   "env": {
     "browser": "Chromium 157.0.8103.78",
     "viewport": "1440×900 (휴대폰 390×844)"
@@ -48,7 +48,7 @@
       "n": 4,
       "name": "아이콘에 마우스를 올리면 커지고 이름이 뜸",
       "expected": "높이 1.2배 이상, \"Timesheets Chronos\"",
-      "actual": "48px → 64px, \"Timesheets Chronos\"",
+      "actual": "48px → 65px, \"Timesheets Chronos\"",
       "how": "after > before × 1.2 && tooltip 에 'Chronos'",
       "pass": true,
       "shot": 2

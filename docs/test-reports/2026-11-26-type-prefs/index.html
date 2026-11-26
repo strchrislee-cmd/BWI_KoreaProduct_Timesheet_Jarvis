@@ -1,0 +1,58 @@
+<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><title>드롭다운 잘림 수정 · Type 순서·색 (개인) 검증 보고서</title><meta name="claude:viewport-fit-sides" content="cover"><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;700&family=IBM+Plex+Sans+KR:wght@400;600;700&display=swap"><style>
+:root {
+  /* QA sheet: summary band, a table of test cases, then the evidence; red marks match the screenshots */
+  --bg: #F6F7F8; --surface: #FFFFFF; --ink: #1B2228; --muted: #5E6A73; --line: #DDE2E6;
+  --pass: #1E7B4D; --pass-bg: #E3F3EA; --fail: #B4232B; --fail-bg: #FBE6E7; --mark: #E5484D; --accent: #1F4D3A;
+  --font: 'IBM Plex Sans KR', system-ui, -apple-system, 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
+  --mono: 'IBM Plex Mono', ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #12171B; --surface: #1A2126; --ink: #E7ECEF; --muted: #9AA7B0; --line: #2C363D;
+  --pass: #5FD39A; --pass-bg: #173528; --fail: #FF8A8F; --fail-bg: #3A1D20; --accent: #8FD1B2; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #12171B; --surface: #1A2126; --ink: #E7ECEF; --muted: #9AA7B0; --line: #2C363D;
+  --pass: #5FD39A; --pass-bg: #173528; --fail: #FF8A8F; --fail-bg: #3A1D20; --accent: #8FD1B2; color-scheme: dark }
+* { box-sizing: border-box }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.6 var(--font) }
+.wrap { max-width: 1180px; margin: 0 auto; padding-block: 28px 64px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: grid; gap: 28px }
+h1, h2, h3 { line-height: 1.25; text-wrap: balance; margin: 0 }
+h1 { font-size: 1.9rem; font-weight: 700 }
+h2 { font-size: 1.25rem; font-weight: 700 }
+.eyebrow { font: 600 12px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted) }
+.head { display: grid; gap: 10px }
+.meta { display: flex; flex-wrap: wrap; gap: 6px 18px; color: var(--muted); font-size: 13px }
+.meta code, td code, .assert { font-family: var(--mono); font-size: 12.5px }
+.pill { display: inline-flex; align-items: center; gap: 6px; padding: 2px 10px; border-radius: 999px; font: 700 12px/20px var(--mono); letter-spacing: .03em }
+.pill.pass { background: var(--pass-bg); color: var(--pass) } .pill.fail { background: var(--fail-bg); color: var(--fail) }
+.summary { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 14px 18px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px }
+.summary strong { font-size: 1.5rem; font-variant-numeric: tabular-nums }
+.req { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)) }
+.box { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px; min-width: 0 }
+.box p { margin: 6px 0 0; max-width: 68ch } .box ol { margin: 8px 0 0; padding-left: 1.3em; display: grid; gap: 4px }
+.tablewrap { overflow-x: auto; background: var(--surface); border: 1px solid var(--line); border-radius: 12px }
+table { border-collapse: collapse; width: 100%; min-width: 860px; font-size: 13.5px }
+th { text-align: left; font-weight: 600; color: var(--muted); font-size: 12px; letter-spacing: .04em; padding: 10px 12px; border-bottom: 1px solid var(--line); background: var(--surface); position: sticky; top: 0 }
+td { padding: 10px 12px; border-top: 1px solid var(--line); vertical-align: top }
+td.n { font: 700 13px var(--mono); color: var(--mark); width: 44px } td.n a { color: inherit; text-decoration: none }
+tr.fail td { background: var(--fail-bg) }
+.shots { display: grid; gap: 22px }
+figure { margin: 0; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; scroll-margin-top: 16px }
+figure img { display: block; width: 100%; height: auto; border-bottom: 1px solid var(--line) }
+figcaption { padding: 12px 16px; display: grid; gap: 6px }
+.marks { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 13px; color: var(--muted) }
+.badge { display: inline-flex; align-items: center; justify-content: center; min-width: 22px; height: 22px; padding: 0 5px; border-radius: 11px; background: var(--mark); color: #fff; font: 700 12px/22px var(--mono); margin-right: 4px }
+details { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 12px 18px }
+summary { cursor: pointer; font-weight: 600 }
+dl { display: grid; grid-template-columns: max-content 1fr; gap: 6px 18px; margin: 12px 0 4px } dt { font-weight: 600 } dd { margin: 0; color: var(--muted) }
+a { color: var(--accent) } a:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px }
+.list { display: grid; gap: 12px } .row { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: baseline; justify-content: space-between }
+@media (max-width: 640px) { dl { grid-template-columns: 1fr } h1 { font-size: 1.5rem } }
+</style></head><body><div class="wrap">
+<header class="head"><a href="../index.html" class="eyebrow">← 검증 보고서 목록</a><p class="eyebrow">검증 보고서 · E2E</p><h1>드롭다운 잘림 수정 · Type 순서·색 (개인)</h1>
+<div class="meta"><span>날짜 2026-11-26</span><span>커밋 <code>26679be</code></span><span>스위트 <code>tests/e2e/batchP.e2e.cjs</code></span><span>Chromium 157.0.8103.78 · 1440×760</span><span>데모 모드(가상 데이터)</span></div></header>
+<section class="summary" aria-label="결과 요약"><span class="pill pass">PASS</span><strong>9 / 9</strong><span>테스트 케이스 통과 · 증적 화면 4장</span></section>
+<section class="req"><div class="box"><h2>요청</h2><p>(버그) 아래쪽 행에서 Type 드롭다운을 열면 위쪽 컨트롤이 안 보임. Type도 Project·Task처럼 순서와 색상을 바꿀 수 있게.</p></div><div class="box"><h2>인수 기준</h2><ol><li>드롭다운이 위로 열리든 아래로 열리든 표의 보이는 영역 안에 다 들어가고, 맨 위 안내 줄과 정렬 버튼이 보인다.</li><li>Type 드롭다운에도 끌기 손잡이, 정렬 메뉴, 항목별 … 메뉴가 있다.</li><li>끌어서 바꾼 순서와 고른 정렬이 사람마다 저장된다(새로 고쳐도 유지).</li><li>… 메뉴에서 고른 색이 드롭다운과 표의 Type 칩, Weekly Result에 보이고, 관리자의 팀 색(Projects)은 그대로다.</li></ol></div></section>
+<section style="display:grid;gap:12px"><h2>테스트 케이스</h2><div class="tablewrap"><table><thead><tr><th>#</th><th>테스트 케이스</th><th>기대 결과</th><th>실제 결과</th><th>판정 근거 (Assertion)</th><th>결과</th><th>증적</th></tr></thead><tbody><tr class=""><td class="n"><a href="#shot-1" title="증적 보기">1</a></td><td>드롭다운이 표 안에 다 들어가고 맨 위 안내 줄이 보임(위로·아래로 열 때 모두)</td><td>세 행 모두 top ≥ 표 위쪽, bottom ≤ 표 아래쪽, &quot;Type 선택&quot; 줄 보임</td><td>20:down 414~715 (표 189~723) / 22:up 197~438 (표 189~723) / 24:up 197~500 (표 189~723)</td><td><code>popover rect ⊂ scroll area rect &amp;&amp; header visible</code></td><td><span class="pill pass">PASS</span></td><td><a href="#shot-1">화면 1</a></td></tr><tr class=""><td class="n"><a href="#shot-2" title="증적 보기">2</a></td><td>Type에도 끌기 손잡이·정렬 버튼·… 메뉴</td><td>손잡이 12개, … 12개, 정렬 버튼 보임</td><td>손잡이 12개, … 12개, 정렬 버튼 보임</td><td><code>Drag/Options for 12개씩 &amp;&amp; Sort options visible</code></td><td><span class="pill pass">PASS</span></td><td><a href="#shot-2">화면 2</a></td></tr><tr class=""><td class="n"><a href="#shot-2" title="증적 보기">3</a></td><td>끌어서 회의-INT를 맨 위로</td><td>첫 항목 '회의-INT' (전: '개발-신규')</td><td>첫 항목 '회의-INT'</td><td><code>options[0] === '회의-INT'</code></td><td><span class="pill pass">PASS</span></td><td><a href="#shot-2">화면 2</a></td></tr><tr class=""><td class="n">4</td><td>새로 고쳐도 순서 유지</td><td>첫 항목 '회의-INT'</td><td>'회의-INT'</td><td><code>새로 고친 뒤 options[0] === '회의-INT'</code></td><td><span class="pill pass">PASS</span></td><td>—</td></tr><tr class=""><td class="n">5</td><td>정렬: 이름순</td><td>개발-선행검토, 개발-설계변경, 개발-신규 …</td><td>개발-선행검토, 개발-설계변경, 개발-신규 …</td><td><code>옵션 순서 === ko 이름순</code></td><td><span class="pill pass">PASS</span></td><td>—</td></tr><tr class=""><td class="n"><a href="#shot-3" title="증적 보기">6</a></td><td>… 메뉴에서 고른 색이 드롭다운에 바로 보임</td><td>메뉴 제목 '지원-8D', 칩 분홍색</td><td>제목 '지원-8D', 칩 분홍색</td><td><code>menu 첫 줄 === '지원-8D' &amp;&amp; chip bg === chipBg(분홍)</code></td><td><span class="pill pass">PASS</span></td><td><a href="#shot-3">화면 3</a></td></tr><tr class=""><td class="n"><a href="#shot-4" title="증적 보기">7</a></td><td>표의 Type 칩도 고른 색, 새로 고쳐도 유지</td><td>12:00 행 지원-8D 칩 분홍색</td><td>분홍색</td><td><code>cell(24, mid) chip bg === chipBg(분홍)</code></td><td><span class="pill pass">PASS</span></td><td><a href="#shot-4">화면 4</a></td></tr><tr class=""><td class="n">8</td><td>Weekly Result도 개인 색, Projects의 팀 색은 그대로</td><td>Weekly Result 칩 분홍색, Projects 팀 색은 분홍색 아님</td><td>Weekly 분홍색, 팀 색 그대로</td><td><code>work-mid bg === chipBg(분홍) &amp;&amp; Projects swatch ≠ 분홍</code></td><td><span class="pill pass">PASS</span></td><td>—</td></tr><tr class=""><td class="n">9</td><td>페이지 오류 없음</td><td>0건</td><td>0건</td><td><code>pageerror 수 === 0</code></td><td><span class="pill pass">PASS</span></td><td>—</td></tr></tbody></table></div></section>
+<section class="shots"><h2>증적 (주석 스크린샷)</h2><p style="margin:0;color:var(--muted)">빨간 테두리와 번호는 표의 테스트 케이스 번호입니다. 그 요소를 확인해 판정했습니다.</p><figure id="shot-1"><img src="shot-01.jpg" alt="아래쪽 행(12:00)에서 위로 연 Type 드롭다운: 위쪽까지 다 보임" loading="lazy" width="1440" height="760"><figcaption><strong>화면 1. 아래쪽 행(12:00)에서 위로 연 Type 드롭다운: 위쪽까지 다 보임</strong><div class="marks"><span><span class="badge">1</span>드롭다운이 표 안에 다 들어가고 맨 위 안내 줄이 보임(위로·아래로 열 때 모두)</span></div></figcaption></figure><figure id="shot-2"><img src="shot-02.jpg" alt="순서를 바꾼 Type 드롭다운(손잡이·… 메뉴·정렬 버튼)" loading="lazy" width="1440" height="760"><figcaption><strong>화면 2. 순서를 바꾼 Type 드롭다운(손잡이·… 메뉴·정렬 버튼)</strong><div class="marks"><span><span class="badge">3</span>끌어서 회의-INT를 맨 위로</span><span><span class="badge">2</span>Type에도 끌기 손잡이·정렬 버튼·… 메뉴</span></div></figcaption></figure><figure id="shot-3"><img src="shot-03.jpg" alt="Type … 메뉴에서 색 고르기(나에게만 적용)" loading="lazy" width="1440" height="760"><figcaption><strong>화면 3. Type … 메뉴에서 색 고르기(나에게만 적용)</strong><div class="marks"><span><span class="badge">6</span>… 메뉴에서 고른 색이 드롭다운에 바로 보임</span></div></figcaption></figure><figure id="shot-4"><img src="shot-04.jpg" alt="표의 Type 칩에 개인 색" loading="lazy" width="1440" height="760"><figcaption><strong>화면 4. 표의 Type 칩에 개인 색</strong><div class="marks"><span><span class="badge">7</span>표의 Type 칩도 고른 색, 새로 고쳐도 유지</span></div></figcaption></figure></section>
+<details><summary>용어</summary><dl><dt>테스트 리포트 (Test Report)</dt><dd>무엇을 어떻게 확인했고 결과가 어땠는지 정리한 검증 보고서. 이 문서.</dd><dt>테스트 케이스 (Test Case)</dt><dd>확인 항목 하나. 표의 한 줄.</dd><dt>인수 기준 (Acceptance Criteria)</dt><dd>요청이 &quot;다 됐다&quot;고 볼 조건. 테스트 케이스는 여기서 나온다.</dd><dt>기대 결과 / 실제 결과 (Expected / Actual)</dt><dd>나와야 하는 것과 실제로 나온 것. 판정 근거의 조건을 만족하면 PASS.</dd><dt>단언 (Assertion)</dt><dd>판정 조건을 코드로 쓴 것. 표의 &quot;판정 근거&quot; 열.</dd><dt>증적 (Test Evidence)</dt><dd>통과를 보여 주는 증거. 여기서는 주석 스크린샷.</dd><dt>주석 스크린샷 (Annotated Screenshot)</dt><dd>확인한 요소에 빨간 테두리와 테스트 케이스 번호를 그린 화면.</dd><dt>E2E 테스트 (End-to-End)</dt><dd>실제 브라우저(Chromium)로 사용자처럼 눌러 보며 확인하는 테스트. 이 보고서의 테스트.</dd><dt>단위 테스트 (Unit Test)</dt><dd>함수 하나를 따로 확인하는 테스트(npm test).</dd><dt>회귀 테스트 (Regression Test)</dt><dd>새 기능 때문에 예전 기능이 깨지지 않았는지 전체를 다시 돌리는 것(npm run test:e2e).</dd><dt>추적성 (Traceability)</dt><dd>요청 ↔ 테스트 ↔ 커밋을 서로 찾아갈 수 있게 연결해 두는 것. 머리말의 커밋·스위트 정보.</dd></dl></details>
+</div></body></html>

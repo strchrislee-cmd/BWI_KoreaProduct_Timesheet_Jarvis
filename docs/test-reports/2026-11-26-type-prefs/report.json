@@ -1,0 +1,161 @@
+{
+  "id": "type-prefs",
+  "title": "드롭다운 잘림 수정 · Type 순서·색 (개인)",
+  "suite": "tests/e2e/batchP.e2e.cjs",
+  "request": "(버그) 아래쪽 행에서 Type 드롭다운을 열면 위쪽 컨트롤이 안 보임. Type도 Project·Task처럼 순서와 색상을 바꿀 수 있게.",
+  "criteria": [
+    "드롭다운이 위로 열리든 아래로 열리든 표의 보이는 영역 안에 다 들어가고, 맨 위 안내 줄과 정렬 버튼이 보인다.",
+    "Type 드롭다운에도 끌기 손잡이, 정렬 메뉴, 항목별 … 메뉴가 있다.",
+    "끌어서 바꾼 순서와 고른 정렬이 사람마다 저장된다(새로 고쳐도 유지).",
+    "… 메뉴에서 고른 색이 드롭다운과 표의 Type 칩, Weekly Result에 보이고, 관리자의 팀 색(Projects)은 그대로다."
+  ],
+  "date": "2026-11-26",
+  "commit": "26679be",
+  "env": {
+    "browser": "Chromium 157.0.8103.78",
+    "viewport": "1440×760"
+  },
+  "checks": [
+    {
+      "n": 1,
+      "name": "드롭다운이 표 안에 다 들어가고 맨 위 안내 줄이 보임(위로·아래로 열 때 모두)",
+      "expected": "세 행 모두 top ≥ 표 위쪽, bottom ≤ 표 아래쪽, \"Type 선택\" 줄 보임",
+      "actual": "20:down 414~715 (표 189~723) / 22:up 197~438 (표 189~723) / 24:up 197~500 (표 189~723)",
+      "how": "popover rect ⊂ scroll area rect && header visible",
+      "pass": true,
+      "shot": 1
+    },
+    {
+      "n": 2,
+      "name": "Type에도 끌기 손잡이·정렬 버튼·… 메뉴",
+      "expected": "손잡이 12개, … 12개, 정렬 버튼 보임",
+      "actual": "손잡이 12개, … 12개, 정렬 버튼 보임",
+      "how": "Drag/Options for 12개씩 && Sort options visible",
+      "pass": true,
+      "shot": 2
+    },
+    {
+      "n": 3,
+      "name": "끌어서 회의-INT를 맨 위로",
+      "expected": "첫 항목 '회의-INT' (전: '개발-신규')",
+      "actual": "첫 항목 '회의-INT'",
+      "how": "options[0] === '회의-INT'",
+      "pass": true,
+      "shot": 2
+    },
+    {
+      "n": 4,
+      "name": "새로 고쳐도 순서 유지",
+      "expected": "첫 항목 '회의-INT'",
+      "actual": "'회의-INT'",
+      "how": "새로 고친 뒤 options[0] === '회의-INT'",
+      "pass": true,
+      "shot": null
+    },
+    {
+      "n": 5,
+      "name": "정렬: 이름순",
+      "expected": "개발-선행검토, 개발-설계변경, 개발-신규 …",
+      "actual": "개발-선행검토, 개발-설계변경, 개발-신규 …",
+      "how": "옵션 순서 === ko 이름순",
+      "pass": true,
+      "shot": null
+    },
+    {
+      "n": 6,
+      "name": "… 메뉴에서 고른 색이 드롭다운에 바로 보임",
+      "expected": "메뉴 제목 '지원-8D', 칩 분홍색",
+      "actual": "제목 '지원-8D', 칩 분홍색",
+      "how": "menu 첫 줄 === '지원-8D' && chip bg === chipBg(분홍)",
+      "pass": true,
+      "shot": 3
+    },
+    {
+      "n": 7,
+      "name": "표의 Type 칩도 고른 색, 새로 고쳐도 유지",
+      "expected": "12:00 행 지원-8D 칩 분홍색",
+      "actual": "분홍색",
+      "how": "cell(24, mid) chip bg === chipBg(분홍)",
+      "pass": true,
+      "shot": 4
+    },
+    {
+      "n": 8,
+      "name": "Weekly Result도 개인 색, Projects의 팀 색은 그대로",
+      "expected": "Weekly Result 칩 분홍색, Projects 팀 색은 분홍색 아님",
+      "actual": "Weekly 분홍색, 팀 색 그대로",
+      "how": "work-mid bg === chipBg(분홍) && Projects swatch ≠ 분홍",
+      "pass": true,
+      "shot": null
+    },
+    {
+      "n": 9,
+      "name": "페이지 오류 없음",
+      "expected": "0건",
+      "actual": "0건",
+      "how": "pageerror 수 === 0",
+      "pass": true,
+      "shot": null
+    }
+  ],
+  "shots": [
+    {
+      "id": 1,
+      "file": "shot-01.jpg",
+      "width": 1440,
+      "height": 760,
+      "caption": "아래쪽 행(12:00)에서 위로 연 Type 드롭다운: 위쪽까지 다 보임",
+      "marks": [
+        {
+          "n": 1,
+          "label": "잘리지 않음"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "file": "shot-02.jpg",
+      "width": 1440,
+      "height": 760,
+      "caption": "순서를 바꾼 Type 드롭다운(손잡이·… 메뉴·정렬 버튼)",
+      "marks": [
+        {
+          "n": 3,
+          "label": "맨 위로"
+        },
+        {
+          "n": 2,
+          "label": "정렬"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "file": "shot-03.jpg",
+      "width": 1440,
+      "height": 760,
+      "caption": "Type … 메뉴에서 색 고르기(나에게만 적용)",
+      "marks": [
+        {
+          "n": 6,
+          "label": "개인 색"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "file": "shot-04.jpg",
+      "width": 1440,
+      "height": 760,
+      "caption": "표의 Type 칩에 개인 색",
+      "marks": [
+        {
+          "n": 7,
+          "label": "분홍색"
+        }
+      ]
+    }
+  ],
+  "passed": 9,
+  "total": 9
+}
