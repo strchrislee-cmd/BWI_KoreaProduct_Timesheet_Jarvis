@@ -3,6 +3,7 @@ import { useRef, useState } from 'react'
 import { ColorMenu } from '../../components/ColorMenu'
 import { cx } from '../../components/ui'
 import type { TaskTemplate } from '../../domain/types'
+import { quickTaskName } from '../../domain/quickTasks'
 import { WORK_TYPE_GRAY } from '../../domain/workTypes'
 import { useT } from '../../lib/i18n'
 import { moveItem } from '../../lib/ordering'
@@ -42,7 +43,7 @@ export function TemplatesTable({ items, ctx, colorOf, canEdit, selectedCount, on
   const menuItem = menu ? items.find((t) => t.id === menu.id) : undefined
 
   const typeOf = (t: TaskTemplate) => (t.work_type_id ? ctx.workTypeById.get(t.work_type_id) : undefined)
-  const nameOf = (t: TaskTemplate) => t.description || t.label
+  const nameOf = quickTaskName
 
   function commitNo(t: TaskTemplate) {
     const edit = editingNo
@@ -181,7 +182,7 @@ export function TemplatesTable({ items, ctx, colorOf, canEdit, selectedCount, on
               {typeChip(menuItem)}
             </>
           }
-          title={nameOf(menuItem)}
+          title={menuItem.description}
           onRename={(n) => onRename(menuItem.id, n)}
           onDelete={() => {
             onDelete(menuItem.id)

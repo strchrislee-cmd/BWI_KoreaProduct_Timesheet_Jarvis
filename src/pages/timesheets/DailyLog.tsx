@@ -1,7 +1,6 @@
-import { CircleAlert, Plus, Upload } from 'lucide-react'
+import { ChartPie, CircleAlert, GripVertical, LayoutDashboard, List, Plus, Upload } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useLocation } from 'react-router'
-import { DockablePanel } from '../../components/DockablePanel'
 import { SLOTS_CHANGED } from '../../components/ReminderToast'
 import { TimeRangePicker } from '../../components/TimeRangePicker'
 import { Button, Card, ErrorNote, Loading, Pill, cx } from '../../components/ui'
@@ -17,10 +16,14 @@ import { DailyGrid, type GridColors, type GridOptionsApi } from './grid/DailyGri
 import { applyTemplate, cellText, effectiveSlot, type CellChange, type GridContext } from './grid/gridModel'
 import { ImportWizard } from './ImportWizard'
 import { TemplatesTable } from './TemplatesTable'
+import { TodayDonut } from './TodayDonut'
+import { DotGrid, EdgeDock, EdgeDropHint, LayoutToast, LayoutWindow, SidePanel, useWindowLayout } from './layout/WindowLayout'
+import { canvasHeight, type PanelId, type SidePanelId } from '../../lib/layout'
 import { MobileDayLog } from './mobile/MobileDayLog'
 import { displayName } from './projectUi'
 import { useTimesheets } from './TimesheetsLayout'
 import { useColorPrefs } from './useColorPrefs'
+import { EMPTY_TASK_CONFIRM, QUICK_TASKS, quickTaskName } from '../../domain/quickTasks'
 
 export function DailyLog() {
   const tr = useT()
@@ -187,16 +190,18 @@ export function DailyLog() {
     const s = effectiveSlot(ctx, index)
     if (!s || (!s.description.trim() && !s.label.trim() && !s.group_project_id)) return ''
     const t = { kind: s.kind, group_project_id: s.group_project_id, label: s.label, description: s.description, work_type_id: s.work_type_id }
-    const name = [cellText(s, 'category', ctx.byId), cellText(s, 'mid', ctx.byId, ctx.workTypeById), s.description].filter(Boolean).join(' · ')
-    return (await createTemplate(t)) ? `반복 업무에 추가: ${name}` : `이미 반복 업무에 있습니다: ${name}`
+    if (!s.description.trim() && !window.confirm(EMPTY_TASK_CONFIRM)) return ''
+    const name = [cellText(s, 'category', ctx.byId), cellText(s, 'mid', ctx.byId, ctx.workTypeById), quickTaskName(s)].filter(Boolean).join(' · ')
+    return (await createTemplate(t)) ? `${QUICK_TASKS}에 추가: ${name}` : `이미 ${QUICK_TASKS}에 있습니다: ${name}`
   }
 
   function saveSelectedRowAsTemplate() {
     const s = effectiveSlot(ctx, selection.active)
     if (!s || (!s.description.trim() && !s.label.trim() && !s.group_project_id)) {
-      setError(new Error('선택한 행에 카테고리나 업무 내용이 없습니다.'))
+      setError(new Error('선택한 행에 프로젝트나 업무 내용이 없습니다.'))
       return
     }
+    if (!s.description.trim() && !window.confirm(EMPTY_TASK_CONFIRM)) return
     void createTemplate({ kind: s.kind, group_project_id: s.group_project_id, label: s.label, description: s.description, work_type_id: s.work_type_id })
   }
 
@@ -241,7 +246,7 @@ export function DailyLog() {
   }
 
   // the repeated-task table on the right follows the same sort as the Task dropdown
-  const chips = sortItems(templates, prefs.sort.template, { key: (t) => t.id, name: (t) => t.description || t.label, created: (t) => t.created_at }, templates.map((t) => t.id))
+  const chips = sortItems(templates, prefs.sort.template, { key: (t) => t.id, name: quickTaskName, created: (t) => t.created_at }, templates.map((t) => t.id))
 
   async function deleteTemplate(id: string) {
     try {
@@ -266,6 +271,18 @@ export function DailyLog() {
     }
   }
 
+  // windows on a dot grid (move / resize / right-edge dock), saved per user; phones keep the fixed layout
+  const layout = useWindowLayout({
+    saved: prefs.layout,
+    onSave: (next) => void colorPrefs.update((p) => ({ ...p, layout: next })),
+    page,
+    enabled: !isMobile,
+  })
+  const inEdge = (id: SidePanelId) => layout.enabled && layout.cur.edge[id]
+  const onPage: PanelId[] = ['log', ...(['today', 'quick'] as const).filter((id) => !inEdge(id))]
+  const canvas = layout.canvas && layout.rects
+  const fitHeight = filled || !!canvas
+
   const work = [...slots.values()].filter((s) => s.kind === 'work')
   const total = work.length * SLOT_HOURS
   const breakdown = new Map<string, { hours: number; color: string }>()
@@ -276,72 +293,122 @@ export function DailyLog() {
   }
   const unmappedLabels = [...new Set(work.filter((s) => !s.group_project_id && s.label).map((s) => s.label))]
 
-  return (
-    <div ref={page} className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_340px]" style={filled ? { height: fillHeight } : undefined} data-testid="daily-log-page">
-      <Card
-        className={cx('flex min-h-0 flex-col', filled && 'h-full')}
-        title={tr('30-min Log')}
-        action={
-          <div className="flex flex-wrap items-center justify-end gap-2">
-            <TimeRangePicker
-              start={hours.start}
-              end={hours.end}
-              targetHours={engineer.daily_target_hours}
-              lunchStart={engineer.lunch_start}
-              lunchEnd={engineer.lunch_end}
-              disabled={!canEdit}
-              onChange={(r) => void changeHours(r)}
-            />
-            <label className="flex items-center gap-1 text-sm text-muted">
-              <input type="checkbox" checked={showAll} onChange={(e) => setShowAll(e.target.checked)} /> 24h
-            </label>
-            {canEdit && (
-              <Button variant="outline" onClick={() => setImporting(true)}>
-                <Upload size={16} /> Import .xlsx
-              </Button>
-            )}
-          </div>
-        }
-      >
-        <ErrorNote error={error ?? q.error ?? colorPrefs.error} />
-        {q.loading && !q.data ? (
-          <Loading />
-        ) : isMobile ? (
-          <MobileDayLog
+  const logCard = (
+    <Card
+      className={cx('flex min-h-0 flex-col', fitHeight && 'h-full')}
+      title={
+        <span
+          className={cx('flex items-center gap-2', layout.enabled && 'cursor-grab touch-none select-none')}
+          onPointerDown={(e) => layout.startMove('log', e)}
+          title={layout.enabled ? '끌어서 옮기기 (배치 편집)' : undefined}
+          data-testid="log-handle"
+        >
+          {layout.enabled && <GripVertical size={16} className="-ml-1 text-muted" aria-hidden />}
+          {tr('30-min Log')}
+        </span>
+      }
+      action={
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          <TimeRangePicker
+            start={hours.start}
+            end={hours.end}
+            targetHours={engineer.daily_target_hours}
+            lunchStart={engineer.lunch_start}
+            lunchEnd={engineer.lunch_end}
+            disabled={!canEdit}
+            onChange={(r) => void changeHours(r)}
+          />
+          <label className="flex items-center gap-1 text-sm text-muted">
+            <input type="checkbox" checked={showAll} onChange={(e) => setShowAll(e.target.checked)} /> 24h
+          </label>
+          {canEdit && (
+            <Button variant="outline" onClick={() => setImporting(true)}>
+              <Upload size={16} /> Import .xlsx
+            </Button>
+          )}
+          {layout.enabled && !layout.editing && (
+            <Button variant="ghost" onClick={layout.beginEdit} title="창을 옮기고 크기를 바꿉니다">
+              <LayoutDashboard size={16} /> 배치 편집
+            </Button>
+          )}
+        </div>
+      }
+    >
+      <ErrorNote error={error ?? q.error ?? colorPrefs.error} />
+      {q.loading && !q.data ? (
+        <Loading />
+      ) : isMobile ? (
+        <MobileDayLog
+          key={`${engineer.id}-${date}`}
+          rows={rows}
+          ctx={ctx}
+          templates={templates}
+          templateColor={colorOfTemplate}
+          now={now}
+          readOnly={!canEdit}
+          onChange={(changes) => void persist(changes)}
+        />
+      ) : (
+        <div className={cx('min-h-0 flex-1 overflow-auto', !fitHeight && 'max-h-[70vh]')} data-testid="grid-scroll">
+          <DailyGrid
             key={`${engineer.id}-${date}`}
             rows={rows}
             ctx={ctx}
             templates={templates}
-            templateColor={colorOfTemplate}
+            colors={gridColors}
+            options={optionsApi}
+            layout={prefs.grid}
+            onLayoutChange={(grid) => void colorPrefs.update((p) => ({ ...p, grid }))}
             now={now}
             readOnly={!canEdit}
             onChange={(changes) => void persist(changes)}
+            onUndo={undo}
+            onCreateTemplate={(t) => void createTemplate(t)}
+            onRowToTemplate={rowToTemplate}
+            onSelectionChange={onSelectionChange}
           />
-        ) : (
-          <div className={cx('min-h-0 flex-1 overflow-auto', !filled && 'max-h-[70vh]')} data-testid="grid-scroll">
-            <DailyGrid
-              key={`${engineer.id}-${date}`}
-              rows={rows}
-              ctx={ctx}
-              templates={templates}
-              colors={gridColors}
-              options={optionsApi}
-              layout={prefs.grid}
-              onLayoutChange={(grid) => void colorPrefs.update((p) => ({ ...p, grid }))}
-              now={now}
-              readOnly={!canEdit}
-              onChange={(changes) => void persist(changes)}
-              onUndo={undo}
-              onCreateTemplate={(t) => void createTemplate(t)}
-              onRowToTemplate={rowToTemplate}
-              onSelectionChange={onSelectionChange}
-            />
-          </div>
-        )}
-      </Card>
-
-      <div className={cx('flex flex-col gap-4', filled && 'min-h-0 overflow-y-auto')}>
-        <DockablePanel storageKey="te-panel:today" title={tr('Today')} testId="today-panel">
+        </div>
+      )}
+    </Card>
+  )
+  const todayPanel = (
+    <SidePanel
+      id="today"
+      layout={layout}
+      title={tr('Today')}
+      testId="today-panel"
+      actions={
+        <span className="flex rounded-control bg-black/5 p-0.5" role="group" aria-label="Today view">
+          {(
+            [
+              ['list', '목록', <List key="l" size={14} />],
+              ['graph', '그래프', <ChartPie key="g" size={14} />],
+            ] as const
+          ).map(([v, label, icon]) => (
+            <button
+              key={v}
+              type="button"
+              aria-pressed={prefs.todayView === v}
+              aria-label={label}
+              title={label}
+              className={cx('rounded-[7px] p-1', prefs.todayView === v ? 'bg-white text-primary shadow-sm' : 'text-muted hover:text-ink')}
+              onClick={() => void colorPrefs.update((p) => ({ ...p, todayView: v }))}
+            >
+              {icon}
+            </button>
+          ))}
+        </span>
+      }
+    >
+      {prefs.todayView === 'graph' ? (
+        <>
+          <TodayDonut items={[...breakdown].map(([name, v]) => ({ name, hours: v.hours, color: v.color }))} total={total} />
+          <p className="mt-2 text-center text-xs text-muted">
+            {tr('target')} {engineer.daily_target_hours}h · % = 오늘 기록한 시간 중 비율
+          </p>
+        </>
+      ) : (
+        <>
           <div className="font-display text-5xl font-extrabold text-primary" data-testid="today-total">
             {Math.floor(total)}h {total % 1 ? '30m' : '00m'}
           </div>
@@ -357,44 +424,50 @@ export function DailyLog() {
                 </li>
               ))}
           </ul>
-        </DockablePanel>
+        </>
+      )}
+    </SidePanel>
+  )
 
-        {/* phones apply repeated tasks from the entry sheet; managing them stays on the desktop layout */}
-        <div className="max-md:hidden">
-          <DockablePanel
-            storageKey="te-panel:templates"
-            title="반복 업무"
-            testId="templates-panel"
-            action={
-              canEdit && (
-                <Button variant="ghost" className="!px-2 !py-1 text-xs" onClick={saveSelectedRowAsTemplate}>
-                  <Plus size={14} /> 선택한 행 저장
-                </Button>
-              )
-            }
-          >
-            {templates.length === 0 ? (
-              <p className="text-sm text-muted">
-                자주 하는 업무를 등록해 두세요. 행을 고르고 <strong>선택한 행 저장</strong>을 누르거나, {tr('Task')} 칸에 입력한 뒤 <strong>+ 반복 업무로 등록</strong>을 고르면 됩니다.
-              </p>
-            ) : (
-              <TemplatesTable
-                items={chips}
-                ctx={ctx}
-                colorOf={colorOfTemplate}
-                canEdit={canEdit}
-                selectedCount={selection.rows.length}
-                onApply={(t) => void persist(selection.rows.map((r) => ({ index: r, slot: applyTemplate(effectiveSlot(ctx, r), r, t, ctx) })))}
-                onReorder={(ids) => void reorderTemplates(ids)}
-                onRename={(id, n) => void updateTemplate(id, { description: n })}
-                onDelete={(id) => void deleteTemplate(id)}
-                onColor={(id, hex) => void updateTemplate(id, { color: hex })}
-                palette={{ saved: prefs.palette, onSave: (hex) => void colorPrefs.savePreset(hex), onRemove: (hex) => void colorPrefs.removePreset(hex) }}
-              />
-            )}
-          </DockablePanel>
-        </div>
+  const quickPanel = (
+    <SidePanel
+      id="quick"
+      layout={layout}
+      title={QUICK_TASKS}
+      testId="templates-panel"
+      actions={
+        canEdit && (
+          <Button variant="ghost" className="!px-2 !py-1 text-xs" onClick={saveSelectedRowAsTemplate}>
+            <Plus size={14} /> 선택한 행 저장
+          </Button>
+        )
+      }
+    >
+      {templates.length === 0 ? (
+        <p className="text-sm text-muted">
+          자주 하는 업무를 등록해 두세요. 행 앞 <strong>+</strong>를 누르거나, 행을 고르고 <strong>선택한 행 저장</strong>, 또는 {tr('Task')} 칸에 입력한 뒤 <strong>{QUICK_TASKS}에 추가</strong>를 고르면 됩니다.
+        </p>
+      ) : (
+        <TemplatesTable
+          items={chips}
+          ctx={ctx}
+          colorOf={colorOfTemplate}
+          canEdit={canEdit}
+          selectedCount={selection.rows.length}
+          onApply={(t) => void persist(selection.rows.map((r) => ({ index: r, slot: applyTemplate(effectiveSlot(ctx, r), r, t, ctx) })))}
+          onReorder={(ids) => void reorderTemplates(ids)}
+          onRename={(id, n) => void updateTemplate(id, { description: n })}
+          onDelete={(id) => void deleteTemplate(id)}
+          onColor={(id, hex) => void updateTemplate(id, { color: hex })}
+          palette={{ saved: prefs.palette, onSave: (hex) => void colorPrefs.savePreset(hex), onRemove: (hex) => void colorPrefs.removePreset(hex) }}
+        />
+      )}
+    </SidePanel>
+  )
 
+  // shown under the windows (default layout: in the right column)
+  const notices = (
+    <>
         {newProjects.length > 0 && (
           <Card tone="accent" title={`${newProjects.length} new group project${newProjects.length > 1 ? 's' : ''} detected`}>
             <ul className="mb-3 space-y-1.5">
@@ -442,7 +515,70 @@ export function DailyLog() {
             </ul>
           </Card>
         )}
-      </div>
+    </>
+  )
+
+  return (
+    <>
+      {canvas ? (
+        <>
+          <div
+            ref={page}
+            className="relative"
+            style={{ height: Math.max(canvasHeight(canvas, onPage), layout.editing ? (fillHeight ?? 0) : 0) }}
+            data-testid="daily-log-page"
+            data-layout="grid"
+          >
+            {layout.editing && <DotGrid />}
+            {onPage.map((id) => (
+              <LayoutWindow key={id} id={id} layout={layout}>
+                {id === 'log' ? logCard : id === 'today' ? todayPanel : quickPanel}
+              </LayoutWindow>
+            ))}
+          </div>
+          {(newProjects.length > 0 || unmappedLabels.length > 0) && <div className="mt-4 grid items-start gap-4 md:grid-cols-2 xl:grid-cols-3">{notices}</div>}
+        </>
+      ) : (
+        <div
+          ref={page}
+          className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_340px]"
+          style={filled ? { height: fillHeight } : undefined}
+          data-testid="daily-log-page"
+          data-layout="default"
+        >
+          <LayoutWindow id="log" layout={layout} flowClassName={cx('flex min-h-0 flex-col', filled && 'h-full')}>
+            {logCard}
+          </LayoutWindow>
+          <div className={cx('flex flex-col gap-4', filled && 'min-h-0 overflow-y-auto')}>
+            {!inEdge('today') && (
+              <LayoutWindow id="today" layout={layout}>
+                {todayPanel}
+              </LayoutWindow>
+            )}
+            {/* phones apply quick tasks from the entry sheet; managing them stays on the desktop layout */}
+            {!inEdge('quick') && (
+              <LayoutWindow id="quick" layout={layout} flowClassName="max-md:hidden">
+                {quickPanel}
+              </LayoutWindow>
+            )}
+            {notices}
+          </div>
+        </div>
+      )}
+
+      {layout.enabled && (inEdge('today') || inEdge('quick')) && (
+        <EdgeDock>
+          {(['today', 'quick'] as const)
+            .filter(inEdge)
+            .map((id) => (
+              <div key={id} ref={layout.register(id)} data-window={id}>
+                {id === 'today' ? todayPanel : quickPanel}
+              </div>
+            ))}
+        </EdgeDock>
+      )}
+      {layout.editing && <LayoutToast layout={layout} />}
+      {layout.near && <EdgeDropHint />}
 
       {importing && (
         <ImportWizard
@@ -454,6 +590,6 @@ export function DailyLog() {
           }}
         />
       )}
-    </div>
+    </>
   )
 }

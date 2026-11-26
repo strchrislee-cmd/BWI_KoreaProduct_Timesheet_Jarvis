@@ -614,7 +614,7 @@ export function ProjectsPage() {
           </p>
           <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-muted">
             <li>아직 아무도 기록하지 않았다면 <strong className="text-ink">완전히 삭제</strong>되고 되돌릴 수 없습니다.</li>
-            <li>이미 기록이나 반복 업무에 쓰였다면 숨김 처리되고, 숨긴 항목 보기에서 되돌릴 수 있습니다.</li>
+            <li>이미 기록이나 업무 빠른 등록에 쓰였다면 숨김 처리되고, 숨긴 항목 보기에서 되돌릴 수 있습니다.</li>
           </ul>
           <div className="mt-5 flex justify-end gap-2">
             <Button variant="outline" onClick={() => setConfirmDelete(null)}>

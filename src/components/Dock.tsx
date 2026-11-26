@@ -1,15 +1,12 @@
 import { Clock, House, LogOut, Settings, Shield } from 'lucide-react'
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import { NavLink, useLocation } from 'react-router'
 import { useStore, useUser } from '../data/StoreContext'
 import { roleLabel } from '../domain/roles'
 import { useT } from '../lib/i18n'
+import { useAutoHide } from '../lib/useAutoHide'
 import { cx } from './ui'
 
-/** how close to the bottom edge the pointer must come to bring the dock up (px) */
-const EDGE = 28
-/** how long the dock stays after the pointer leaves it (ms) */
-const HIDE_DELAY = 700
 /** icon box size at rest (px); hovered icons grow in the layout, so neighbours move aside */
 const ICON = 48
 
@@ -32,11 +29,9 @@ export function Dock() {
   const user = useUser()
   const tr = useT()
   const { pathname } = useLocation()
-  // shown for a moment on load, so it is clear where the menu went
-  const [shown, setShown] = useState(true)
   const [hovered, setHovered] = useState<number | null>(null)
-  const over = useRef(false)
-  const timer = useRef(0)
+  // shown for a moment on load, so it is clear where the menu went
+  const { shown, bind } = useAutoHide('bottom', { initiallyShown: true, onLeaveWindow: () => setHovered(null) })
 
   const items: DockItem[] = [
     { to: '/', end: true, icon: <House size={24} />, label: tr('Home'), sub: 'Olympus' },
@@ -44,41 +39,6 @@ export function Dock() {
     ...(user.role === 'admin' ? [{ to: '/admin', icon: <Shield size={24} />, label: tr('Admin'), sub: 'Zeus' }] : []),
     { to: '/settings', icon: <Settings size={24} />, label: tr('Settings'), sub: 'Hephaestus' },
   ]
-
-  useEffect(() => {
-    const hideLater = () => {
-      window.clearTimeout(timer.current)
-      timer.current = window.setTimeout(() => !over.current && setShown(false), HIDE_DELAY)
-    }
-    const onMove = (e: MouseEvent) => {
-      if (window.innerHeight - e.clientY <= EDGE) {
-        window.clearTimeout(timer.current)
-        setShown(true)
-      } else if (!over.current) hideLater()
-    }
-    // the pointer left the window (e.g. down onto the taskbar) or another app took focus: no more
-    // mouse moves will come, so hide now instead of waiting for one
-    const onOut = (e: MouseEvent) => {
-      if (e.relatedTarget) return
-      over.current = false
-      setHovered(null)
-      hideLater()
-    }
-    const onBlur = () => {
-      over.current = false
-      hideLater()
-    }
-    hideLater() // the first look on load
-    window.addEventListener('mousemove', onMove)
-    document.addEventListener('mouseout', onOut)
-    window.addEventListener('blur', onBlur)
-    return () => {
-      window.removeEventListener('mousemove', onMove)
-      document.removeEventListener('mouseout', onOut)
-      window.removeEventListener('blur', onBlur)
-      window.clearTimeout(timer.current)
-    }
-  }, [])
 
   const scale = (i: number) => (hovered === null ? 1 : i === hovered ? 1.35 : Math.abs(i - hovered) === 1 ? 1.15 : 1)
   const initials = (user.engineer_code || user.name).slice(0, 2).toUpperCase()
@@ -95,19 +55,13 @@ export function Dock() {
           'glass-strong pointer-events-auto mb-3 flex items-end gap-1.5 rounded-[22px] px-3 pb-2 pt-2 shadow-xl transition-all duration-300 ease-out',
           shown ? 'translate-y-0 opacity-100' : 'translate-y-[calc(100%+12px)] opacity-0',
         )}
-        onMouseEnter={() => {
-          over.current = true
-          window.clearTimeout(timer.current)
-          setShown(true)
-        }}
+        onMouseEnter={bind.onMouseEnter}
         onMouseLeave={() => {
-          over.current = false
           setHovered(null)
-          window.clearTimeout(timer.current)
-          timer.current = window.setTimeout(() => setShown(false), HIDE_DELAY)
+          bind.onMouseLeave()
         }}
-        onFocus={() => setShown(true)}
-        onBlur={(e) => !e.currentTarget.contains(e.relatedTarget as Node | null) && !over.current && setShown(false)}
+        onFocus={bind.onFocus}
+        onBlur={bind.onBlur}
       >
         <div className="mr-1 self-center pr-2 text-left leading-tight">
           <div className="font-display text-sm font-extrabold tracking-tight text-primary">TeamEmbedded</div>

@@ -4,6 +4,7 @@ import type { Profile } from '../domain/types'
 import { isSortMode, type SortMode } from '../lib/ordering'
 import { isFontChoice, type FontChoice } from '../lib/fonts'
 import type { Lang } from '../lib/i18n'
+import { readRects, type PanelRects } from '../lib/layout'
 import { PANEL_OPACITY_DEFAULT, PANEL_OPACITY_MIN } from '../lib/panelOpacity'
 import { readColorPrefs, type ColorPrefs } from '../pages/timesheets/colors'
 
@@ -13,6 +14,8 @@ export interface GridPrefs {
   /** MID (중분류) column */
   midWidth: number
   rowHeight: number
+  /** 자동 줄바꿈: long text wraps and the row grows (default); off = one line, cut with … */
+  wrap: boolean
 }
 
 export type BackgroundMode = 'gradient' | 'unsplash' | 'upload'
@@ -41,10 +44,25 @@ export interface Prefs extends ColorPrefs {
   font: FontChoice
   /** screen language for menus, tabs, titles and table headers */
   language: Lang
+  /** Daily Log windows (30-min Log, Today, 업무 빠른 등록): where they sit and how big they are */
+  layout: LayoutPrefs
+  /** Today window: list of hours or the donut graph */
+  todayView: 'list' | 'graph'
 }
 
+export interface LayoutPrefs {
+  /** null = the default arrangement (30-min Log on the left, Today and quick tasks on the right) */
+  rects: PanelRects | null
+  /** windows kept in the dock at the right edge of the screen (slides in at the edge) */
+  edge: { today: boolean; quick: boolean }
+  /** while moving Today / quick tasks, dropping at the right edge puts them in that dock */
+  magnet: boolean
+}
+
+export const DEFAULT_LAYOUT: LayoutPrefs = { rects: null, edge: { today: false, quick: false }, magnet: true }
+
 // 좁게 (30px) by default so a whole working day fits on one screen
-export const DEFAULT_GRID: GridPrefs = { timeWidth: 64, categoryWidth: 240, midWidth: 130, rowHeight: 30 }
+export const DEFAULT_GRID: GridPrefs = { timeWidth: 64, categoryWidth: 240, midWidth: 130, rowHeight: 30, wrap: true }
 export const GRID_LIMITS = { timeWidth: [52, 160], categoryWidth: [160, 520], midWidth: [90, 320] } as const
 export const ROW_HEIGHTS = [
   { label: '좁게', value: 30 },
@@ -61,6 +79,8 @@ export function readPrefs(preferences: Profile['preferences']): Prefs {
   const grid = (p.grid ?? {}) as Record<string, unknown>
   const bg = (p.background ?? {}) as Record<string, unknown>
   const opacity = (p.panelOpacity ?? {}) as Record<string, unknown>
+  const layout = (p.layout ?? {}) as Record<string, unknown>
+  const edge = (layout.edge ?? {}) as Record<string, unknown>
   return {
     ...readColorPrefs(preferences),
     categoryOrder: Array.isArray(p.categoryOrder) ? p.categoryOrder.filter((x): x is string => typeof x === 'string') : [],
@@ -73,6 +93,7 @@ export function readPrefs(preferences: Profile['preferences']): Prefs {
       categoryWidth: num(grid.categoryWidth, ...GRID_LIMITS.categoryWidth, DEFAULT_GRID.categoryWidth),
       midWidth: num(grid.midWidth, ...GRID_LIMITS.midWidth, DEFAULT_GRID.midWidth),
       rowHeight: ROW_HEIGHTS.some((r) => r.value === grid.rowHeight) ? (grid.rowHeight as number) : DEFAULT_GRID.rowHeight,
+      wrap: grid.wrap !== false,
     },
     notifications: p.notifications === true,
     background: {
@@ -88,5 +109,11 @@ export function readPrefs(preferences: Profile['preferences']): Prefs {
     },
     font: isFontChoice(p.font) ? p.font : 'pretendard',
     language: p.language === 'ko' ? 'ko' : 'en',
+    layout: {
+      rects: readRects(layout.rects),
+      edge: { today: edge.today === true, quick: edge.quick === true },
+      magnet: layout.magnet !== false,
+    },
+    todayView: p.todayView === 'graph' ? 'graph' : 'list',
   }
 }

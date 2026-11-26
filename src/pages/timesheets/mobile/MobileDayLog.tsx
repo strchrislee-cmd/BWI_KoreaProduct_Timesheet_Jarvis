@@ -8,6 +8,7 @@ import { isSelectable, projectNumbers } from '../../../domain/projects'
 import { SLOTS_PER_DAY, slotToTime } from '../../../domain/time'
 import { selectableWorkTypes } from '../../../domain/workTypes'
 import type { TaskTemplate } from '../../../domain/types'
+import { QUICK_TASKS, quickTaskName } from '../../../domain/quickTasks'
 import { chipBg, rowBg } from '../colors'
 import { NONWORK_CHOICES, templateCategory } from '../grid/DailyGrid'
 import { buildChanges, cellText, effectiveSlot, isLunchDefault, type CellChange, type CellOp, type GridContext } from '../grid/gridModel'
@@ -195,7 +196,7 @@ function SlotSheet({
 
         {templates.length > 0 && (
           <section className="mb-3">
-            <h3 className="mb-1.5 text-xs font-semibold text-muted">반복 업무</h3>
+            <h3 className="mb-1.5 text-xs font-semibold text-muted">{QUICK_TASKS}</h3>
             <div className="no-scrollbar -mx-4 flex gap-1.5 overflow-x-auto px-4" data-testid="sheet-templates">
               {templates.map((t) => (
                 <button
@@ -204,7 +205,7 @@ function SlotSheet({
                   className="shrink-0 rounded-chip px-2.5 py-1.5 text-sm font-semibold"
                   style={{ backgroundColor: chipBg(templateColor(t)) }}
                 >
-                  {t.description || t.label}
+                  {quickTaskName(t)}
                 </button>
               ))}
             </div>

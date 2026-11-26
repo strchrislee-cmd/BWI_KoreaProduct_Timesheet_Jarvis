@@ -7,6 +7,7 @@ import { isSelectable, projectNumbers } from '../../../domain/projects'
 import { slotToTime } from '../../../domain/time'
 import { WORK_TYPE_GRAY, findWorkType, selectableWorkTypes } from '../../../domain/workTypes'
 import type { ProjectKind, TaskTemplate, TimeSlot } from '../../../domain/types'
+import { QUICK_TASKS, quickTaskName } from '../../../domain/quickTasks'
 import { useT } from '../../../lib/i18n'
 import { SORT_LABELS, moveItem, sortItems, type SortMode } from '../../../lib/ordering'
 import { useDragReorder } from '../../../lib/useDragReorder'
@@ -260,11 +261,11 @@ export function DailyGrid({
     if (activeCol === 'task') {
       const items: Option[] = templates
         .filter((t) => match(t.description, t.label, templateCategory(t, ctx)))
-        .map((t) => ({ key: t.id, group: 'template', groupLabel: '반복 업무', label: t.description || t.label, tooltip: templateCategory(t, ctx), color: colors.template(t), template: t }))
+        .map((t) => ({ key: t.id, group: 'template', groupLabel: QUICK_TASKS, label: quickTaskName(t), tooltip: templateCategory(t, ctx), color: colors.template(t), template: t }))
       const created = new Map(templates.map((t) => [t.id, t.created_at]))
       list.push(...sortItems(items, api.sort.template, { key: (o) => o.key, name: (o) => o.label, created: (o) => created.get(o.key) ?? '' }, templates.map((t) => t.id)))
       if (text && !templates.some((t) => t.description === text))
-        list.push({ key: 'create', group: 'create', groupLabel: '', label: `+ “${text}” 생성 · 반복 업무로 등록`, create: 'template' })
+        list.push({ key: 'create', group: 'create', groupLabel: '', label: `+ “${text}” 생성 · ${QUICK_TASKS}에 추가`, create: 'template' })
       return list
     }
     return []
@@ -572,7 +573,8 @@ export function DailyGrid({
   const menuOption = menu ? options.find((o) => o.key === menu.key) : undefined
   const menuCategoryKey = menuOption?.colorKey
   // the chosen row height is the minimum: long text wraps inside its cell and the whole row grows
-  const rowStyle = { minHeight: size.rowHeight }
+  // 자동 줄바꿈 on: rows grow with long text; off: every row keeps its height and text is cut with …
+  const rowStyle = size.wrap ? { minHeight: size.rowHeight } : { height: size.rowHeight }
 
   return (
     <div>
@@ -611,8 +613,8 @@ export function DailyGrid({
               <div className="flex items-center justify-center border-r border-dashed border-black/10" style={rowStyle} data-row-add>
                 {onRowToTemplate && !readOnly && s && !lunchDefault && (s.label || s.group_project_id || s.description) && (
                   <button
-                    aria-label={`Add ${slotToTime(i)} to repeated tasks`}
-                    title="이 행을 반복 업무로 추가 (프로젝트·유형·업무, 업무내용은 제외)"
+                    aria-label={`Add ${slotToTime(i)} to quick tasks`}
+                    title={`이 행을 ${QUICK_TASKS}에 추가 (프로젝트·유형·업무, 업무내용은 제외)`}
                     className="flex h-5 w-5 items-center justify-center rounded-chip text-muted opacity-40 hover:bg-white hover:text-primary group-hover/row:opacity-100"
                     onMouseDown={(e) => {
                       e.preventDefault()
@@ -647,6 +649,7 @@ export function DailyGrid({
                     data-cell={`${i}:${col}`}
                     className={cx(
                       'relative flex items-center border-l border-dashed border-black/10 px-2.5 py-1',
+                      !size.wrap && 'overflow-hidden',
                       selected && 'shadow-[inset_0_0_0_9999px_rgba(31,77,58,0.12)]',
                       active && 'outline outline-2 -outline-offset-2 outline-primary',
                     )}
@@ -655,7 +658,12 @@ export function DailyGrid({
                     onMouseEnter={() => onCellEnter(i, c)}
                     onDoubleClick={openEditor}
                   >
-                    <span className={cx('relative z-[1] min-w-0 whitespace-pre-wrap break-words', active && !editing && col !== 'details' && 'pr-5')}>{renderCell(col, s, lunchDefault)}</span>
+                    <span
+                      className={cx('relative z-[1] min-w-0', size.wrap ? 'whitespace-pre-wrap break-words' : 'truncate', active && !editing && col !== 'details' && 'pr-5')}
+                      title={size.wrap ? undefined : cellText(s, col, ctx.byId, ctx.workTypeById) || undefined}
+                    >
+                      {renderCell(col, s, lunchDefault)}
+                    </span>
                     {active && !editing && col !== 'details' && (
                       <span className="absolute right-1 top-1/2 flex -translate-y-1/2 items-center gap-1" onMouseDown={(e) => e.stopPropagation()}>
                         {!readOnly && (
@@ -766,7 +774,7 @@ export function DailyGrid({
             <div ref={listRef} role="listbox" className="max-h-72 overflow-auto">
               {options.length === 0 && (
                 <p className="px-2 py-2 text-xs text-muted">
-                  {activeCol === 'task' ? '등록된 반복 업무가 없습니다. 입력하면 새로 만들 수 있어요.' : activeCol === 'mid' ? '목록에 없는 이름입니다. 유형 목록은 관리자가 Projects 화면에서 관리합니다.' : '일치하는 옵션이 없습니다.'}
+                  {activeCol === 'task' ? `${QUICK_TASKS}에 등록된 업무가 없습니다. 입력하면 새로 만들 수 있어요.` : activeCol === 'mid' ? '목록에 없는 이름입니다. 유형 목록은 관리자가 Projects 화면에서 관리합니다.' : '일치하는 옵션이 없습니다.'}
                 </p>
               )}
               {options.map((o, k) => {
@@ -904,6 +912,10 @@ export function DailyGrid({
             </button>
           ))}
         </span>
+        <label className="flex cursor-pointer items-center gap-1">
+          <input type="checkbox" checked={size.wrap} onChange={(e) => onLayoutChange({ ...layout, wrap: e.target.checked })} />
+          자동 줄바꿈
+        </label>
         <span>열 경계를 끌어 너비 조절</span>
         <span>클릭·드래그·Shift로 여러 칸 선택 · 입력/Enter → 선택한 칸 모두 적용</span>
         <span>Ctrl+C / Ctrl+V · Delete · Ctrl+D · Ctrl+Z</span>

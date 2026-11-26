@@ -84,7 +84,7 @@ describe('A7/A8 preferences and backgrounds', () => {
     expect(p.background).toEqual({ mode: 'gradient', seed: null, animate: true, speed: 'normal' })
     expect(p.notifications).toBe(false)
     const q = readPrefs({ grid: { timeWidth: 999, categoryWidth: 'x', rowHeight: 44 }, sort: { category: 'name' }, background: { mode: 'upload', seed: 7 }, categoryOrder: ['a', 1] })
-    expect(q.grid).toEqual({ timeWidth: 160, categoryWidth: DEFAULT_GRID.categoryWidth, midWidth: DEFAULT_GRID.midWidth, rowHeight: 44 })
+    expect(q.grid).toEqual({ timeWidth: 160, categoryWidth: DEFAULT_GRID.categoryWidth, midWidth: DEFAULT_GRID.midWidth, rowHeight: 44, wrap: true })
     expect(q.sort.category).toBe('name')
     expect(q.background).toEqual({ mode: 'upload', seed: null, animate: true, speed: 'normal' })
     expect(q.categoryOrder).toEqual(['a'])

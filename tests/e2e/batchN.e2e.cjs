@@ -1,5 +1,6 @@
-// 2026-11-26 (3): column names Project / Type / Task, a line after the row + column, the repeated-task
-// menu shows Project · Type, and repeated tasks as a numbered table in a docking window.
+// 2026-11-26 (3): column names Project / Type / Task, a line after the row + column, the quick-task
+// menu shows Project · Type, and quick tasks (업무 빠른 등록, was 반복 업무) as a numbered table. Moving
+// the window is in batchO.
 // REPORT=1 writes docs/test-reports/<date>-templates-table/ (see report.cjs).
 const { chromium } = require('playwright')
 const { createReport } = require('./report.cjs')
@@ -18,7 +19,6 @@ const report = createReport({
     '행을 누르면 고른 칸에 그 반복 업무가 들어간다.',
     '행을 끌거나 No를 더블클릭해 번호를 입력하면 그 자리로 옮겨지고, 새로 고쳐도 유지된다.',
     '… 메뉴 맨 윗줄에 그 반복 업무의 Project · Type이 보인다.',
-    '반복 업무 창은 Today처럼 떼어 낼 수 있고 오른쪽에 다시 붙는다.',
   ],
 })
 
@@ -68,8 +68,8 @@ const report = createReport({
   await page.mouse.click(5, 5)
   for (const [slot, time] of [[18, '09:00'], [19, '09:30'], [20, '10:00']]) {
     await page.locator(`[data-slot="${slot}"]`).hover()
-    await page.getByRole('button', { name: `Add ${time} to repeated tasks` }).click()
-    await page.getByText('반복 업무에 추가:', { exact: false }).last().waitFor()
+    await page.getByRole('button', { name: `Add ${time} to quick tasks` }).click()
+    await page.getByText('업무 빠른 등록에 추가:', { exact: false }).last().waitFor()
   }
   await rows.nth(2).waitFor()
   await page.mouse.move(700, 120)
@@ -91,7 +91,7 @@ const report = createReport({
     how: "thead === 'No|Task' && row1 = ['1','주간 회의'] && No === 1,2,3",
     pass: th.join('|') === 'No|Task' && first.slice(0, 2).join('|') === '1|주간 회의' && (await nos()).join(',') === '1,2,3',
   })
-  await report.shot(page, { caption: '반복 업무 표(오른쪽 도킹 창)', marks: [{ target: panel.locator('table'), n: c3, label: 'No · Task' }] })
+  await report.shot(page, { caption: '업무 빠른 등록 표(오른쪽 열)', marks: [{ target: panel.locator('table'), n: c3, label: 'No · Task' }] })
 
   // click applies to the selected cells
   await cell(24, 'category').click()
@@ -137,25 +137,6 @@ const report = createReport({
   await report.shot(page, { caption: '반복 업무 … 메뉴', marks: [{ target: ctxLine, n: c7, label: 'Project · Type' }] })
   await page.keyboard.press('Escape')
   await page.mouse.click(5, 5)
-
-  // ── docking window ───────────────────────────────────────────────────────
-  const docked0 = await panel.getAttribute('data-docked')
-  const h = await page.getByTestId('templates-panel-handle').boundingBox()
-  await page.mouse.move(h.x + 60, h.y + 10)
-  await page.mouse.down()
-  await page.mouse.move(520, 300, { steps: 8 })
-  await page.mouse.up()
-  await page.waitForTimeout(150)
-  const floatRows = await rows.count()
-  const c8 = report.check({ name: '반복 업무 창을 떼어 내면 떠서 표를 보여 줌', expected: "처음 'true' → 'false', 표 3행", actual: `'${docked0}' → '${await panel.getAttribute('data-docked')}', 표 ${floatRows}행`, how: "docked 'true' → 'false' && 행 수 === 3", pass: docked0 === 'true' && (await panel.getAttribute('data-docked')) === 'false' && floatRows === 3 })
-  await report.shot(page, { caption: '떼어 낸 반복 업무 창', marks: [{ target: panel, n: c8, label: '떠 있는 창' }] })
-  const h2 = await page.getByTestId('templates-panel-handle').boundingBox()
-  await page.mouse.move(h2.x + 60, h2.y + 10)
-  await page.mouse.down()
-  await page.mouse.move(1440 - 30, 400, { steps: 10 })
-  await page.mouse.up()
-  await page.waitForTimeout(150)
-  report.check({ name: '오른쪽 끝에 놓으면 다시 붙음', expected: "data-docked = 'true'", actual: `'${await panel.getAttribute('data-docked')}'`, how: "panel.dataset.docked === 'true'", pass: (await panel.getAttribute('data-docked')) === 'true' })
 
   // ── Korean names ─────────────────────────────────────────────────────────
   await page.goto(BASE + '/settings')

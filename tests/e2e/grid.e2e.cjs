@@ -155,7 +155,7 @@ const expect = (cond, msg) => {
   await page.keyboard.press('Enter')
   await cell(30, 'task').click()
   await page.keyboard.type('이메일 및 일반업무')
-  await page.getByRole('option', { name: /반복 업무로 등록/ }).waitFor()
+  await page.getByRole('option', { name: /업무 빠른 등록에 추가/ }).waitFor()
   await page.keyboard.press('ArrowDown')
   await page.keyboard.press('Enter')
   await page.getByTestId('templates').getByRole('button', { name: '이메일 및 일반업무', exact: true }).waitFor()
