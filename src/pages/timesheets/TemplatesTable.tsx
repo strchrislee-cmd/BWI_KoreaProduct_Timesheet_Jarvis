@@ -28,9 +28,9 @@ export interface TemplatesTableProps {
 }
 
 /**
- * Repeated tasks as a table: No · Project · Type · Task (long names wrap, nothing is cut off). A click applies the task to the selected
- * rows of the log; drag a row, or double-click its No and type a number, to move it (frequent ones
- * up front); … for name, colour and delete, with the task's Project · Type on top.
+ * Repeated tasks as a short table: No · Task (long names wrap, nothing is cut off). A click applies
+ * the task to the selected rows of the log; drag a row, or double-click its No and type a number, to
+ * move it (frequent ones up front); … shows the task's Project · Type, then name, colour and delete.
  */
 export function TemplatesTable({ items, ctx, colorOf, canEdit, selectedCount, onApply, onReorder, onRename, onDelete, onColor, palette }: TemplatesTableProps) {
   const tr = useT()
@@ -75,16 +75,12 @@ export function TemplatesTable({ items, ctx, colorOf, canEdit, selectedCount, on
       <table className="sheet table-fixed" aria-label="Repeated tasks" data-testid="templates">
         <colgroup>
           <col style={{ width: 36 }} />
-          <col style={{ width: '28%' }} />
-          <col style={{ width: '24%' }} />
           <col />
           <col style={{ width: 28 }} />
         </colgroup>
         <thead>
           <tr>
             <th className="num !px-1.5">No</th>
-            <th className="!px-1.5">{tr('Project')}</th>
-            <th className="!px-1.5">{tr('Type')}</th>
             <th className="!px-1.5">{tr('Task')}</th>
             <th aria-label="Options" />
           </tr>
@@ -142,11 +138,15 @@ export function TemplatesTable({ items, ctx, colorOf, canEdit, selectedCount, on
                     </span>
                   )}
                 </td>
-                <td className="!px-1.5 !py-1.5">{projectChip(t)}</td>
-                <td className="!px-1.5 !py-1.5">{typeChip(t)}</td>
-                <td className="!px-1.5">
-                  {/* a button so the keyboard can apply it too (Enter bubbles to the row) */}
-                  <button type="button" className="block w-full text-left font-semibold [overflow-wrap:anywhere] [word-break:keep-all]" disabled={!canEdit}>
+                <td className="!px-1.5 !py-1.5">
+                  {/* a button so the keyboard can apply it too (Enter bubbles to the row); the chip
+                      carries the task's colour, Project · Type are in the … menu */}
+                  <button
+                    type="button"
+                    className="inline-block max-w-full rounded-chip px-2 py-0.5 text-left text-[13px] font-semibold [overflow-wrap:anywhere] [word-break:keep-all]"
+                    style={{ backgroundColor: chipBg(colorOf(t)) }}
+                    disabled={!canEdit}
+                  >
                     {name}
                   </button>
                 </td>

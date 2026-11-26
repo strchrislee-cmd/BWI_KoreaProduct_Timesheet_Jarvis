@@ -10,11 +10,11 @@ const report = createReport({
   title: '반복 업무 표 · 칸 이름 Project/Type/Task · + 칸 줄',
   suite: 'tests/e2e/batchN.e2e.cjs',
   request:
-    '칸 이름을 Project / Type / Task로(한국어 프로젝트 / 유형 / 업무). 행 앞 + 옆에 세로 줄. 반복 업무 … 메뉴 맨 위에 Project · Type. 반복 업무를 표로, 오른쪽 도킹 창에, 번호는 1부터, 끌기와 No 더블클릭으로 순서 변경.',
+    '칸 이름을 Project / Type / Task로(한국어 프로젝트 / 유형 / 업무). 행 앞 + 옆에 세로 줄. 반복 업무 … 메뉴 맨 위에 Project · Type. 반복 업무를 표로, 오른쪽 도킹 창에, 번호는 1부터, 끌기와 No 더블클릭으로 순서 변경. (추가 요청) 표에는 No와 Task만, Project · Type은 … 메뉴에서만.',
   criteria: [
     '표 머리글이 Time · Project · Type · Task · Content(한국어: 시간 · 프로젝트 · 유형 · 업무 · 업무내용).',
     '+ 칸 오른쪽에 다른 칸 사이와 같은 세로 줄이 머리글부터 모든 행에 있다.',
-    '반복 업무는 No · Project · Type · Task 표로 보이고 No는 1부터.',
+    '반복 업무는 No · Task 두 칸 표로 간단히 보이고(Project · Type은 … 메뉴에서) No는 1부터.',
     '행을 누르면 고른 칸에 그 반복 업무가 들어간다.',
     '행을 끌거나 No를 더블클릭해 번호를 입력하면 그 자리로 옮겨지고, 새로 고쳐도 유지된다.',
     '… 메뉴 맨 윗줄에 그 반복 업무의 Project · Type이 보인다.',
@@ -41,7 +41,7 @@ const report = createReport({
   const headRow = page.locator('[role=grid] > div').first()
   const panel = page.getByTestId('templates-panel')
   const rows = page.getByTestId('template-row')
-  const tasks = async () => (await rows.locator('td:nth-child(4)').allInnerTexts()).map((t) => t.trim())
+  const tasks = async () => (await rows.locator('td:nth-child(2)').allInnerTexts()).map((t) => t.trim())
   const nos = async () => (await rows.locator('td:nth-child(1)').allInnerTexts()).map((t) => t.trim())
 
   await page.goto(BASE + '/timesheets?date=2026-11-16')
@@ -85,17 +85,17 @@ const report = createReport({
   const th = (await panel.locator('thead th').allInnerTexts()).map((t) => t.trim()).filter(Boolean)
   const first = (await rows.first().locator('td').allInnerTexts()).map((t) => t.trim())
   const c3 = report.check({
-    name: '반복 업무가 No · Project · Type · Task 표로, No는 1부터',
-    expected: "머리글 No|Project|Type|Task, 1번 행 '1 · 회의… · 회의-INT · 주간 회의'(회의는 데모의 회의 프로젝트로 연결), No 1,2,3",
-    actual: `머리글 ${th.join('|')}, 1번 행 '${first.slice(0, 4).join(' · ')}', No ${(await nos()).join(',')}`,
-    how: "thead === 'No|Project|Type|Task' && row1 = ['1','회의…','회의-INT','주간 회의'] && No === 1,2,3",
-    pass: th.join('|') === 'No|Project|Type|Task' && first[0] === '1' && first[1].startsWith('회의') && first.slice(2, 4).join('|') === '회의-INT|주간 회의' && (await nos()).join(',') === '1,2,3',
+    name: '반복 업무가 No · Task 두 칸 표로, No는 1부터',
+    expected: "머리글 No|Task, 1번 행 '1 · 주간 회의', No 1,2,3",
+    actual: `머리글 ${th.join('|')}, 1번 행 '${first.slice(0, 2).join(' · ')}', No ${(await nos()).join(',')}`,
+    how: "thead === 'No|Task' && row1 = ['1','주간 회의'] && No === 1,2,3",
+    pass: th.join('|') === 'No|Task' && first.slice(0, 2).join('|') === '1|주간 회의' && (await nos()).join(',') === '1,2,3',
   })
-  await report.shot(page, { caption: '반복 업무 표(오른쪽 도킹 창)', marks: [{ target: panel.locator('table'), n: c3, label: 'No · Project · Type · Task' }] })
+  await report.shot(page, { caption: '반복 업무 표(오른쪽 도킹 창)', marks: [{ target: panel.locator('table'), n: c3, label: 'No · Task' }] })
 
   // click applies to the selected cells
   await cell(24, 'category').click()
-  await rows.nth(1).locator('td').nth(3).click()
+  await rows.nth(1).locator('td').nth(1).click()
   await cell(24, 'task').filter({ hasText: '도면 검토' }).waitFor()
   // ⚠ = the existing "not mapped to a project yet" mark in front of a free-text label
   const applied = [(await text(24, 'category')).replace(/^⚠\s*/, ''), await text(24, 'mid'), await text(24, 'task')]
@@ -109,7 +109,7 @@ const report = createReport({
   await page.mouse.down()
   await page.mouse.move(to.x + to.width * 0.6, to.y + to.height / 2 - 2, { steps: 8 })
   await page.mouse.up()
-  await page.waitForFunction(() => document.querySelector('[data-testid="template-row"] td:nth-child(4)')?.textContent.includes('8D 보고'))
+  await page.waitForFunction(() => document.querySelector('[data-testid="template-row"] td:nth-child(2)')?.textContent.includes('8D 보고'))
   const afterDrag = await tasks()
   const c5 = report.check({ name: '행을 끌어 맨 위로', expected: '8D 보고 · 주간 회의 · 도면 검토', actual: afterDrag.join(' · '), how: "Task 순서 === ['8D 보고','주간 회의','도면 검토']", pass: afterDrag.join('|') === '8D 보고|주간 회의|도면 검토' })
 
@@ -118,7 +118,7 @@ const report = createReport({
   const noInput = page.getByLabel('No of 도면 검토')
   await noInput.fill('1')
   await noInput.press('Enter')
-  await page.waitForFunction(() => document.querySelector('[data-testid="template-row"] td:nth-child(4)')?.textContent.includes('도면 검토'))
+  await page.waitForFunction(() => document.querySelector('[data-testid="template-row"] td:nth-child(2)')?.textContent.includes('도면 검토'))
   const afterNo = await tasks()
   const c6 = report.check({ name: 'No를 더블클릭해 1을 입력하면 1번으로', expected: '도면 검토 · 8D 보고 · 주간 회의', actual: afterNo.join(' · '), how: "Task 순서 === ['도면 검토','8D 보고','주간 회의']", pass: afterNo.join('|') === '도면 검토|8D 보고|주간 회의' })
   await page.reload()
@@ -164,7 +164,7 @@ const report = createReport({
   await rows.first().waitFor()
   const headKo = (await headRow.innerText()).split('\n').map((t) => t.trim()).filter(Boolean)
   const thKo = (await panel.locator('thead th').allInnerTexts()).map((t) => t.trim()).filter(Boolean)
-  const c10 = report.check({ name: '한국어 이름: 프로젝트 · 유형 · 업무', expected: '머리글 시간|프로젝트|유형|업무|업무내용, 반복 업무 No|프로젝트|유형|업무', actual: `머리글 ${headKo.join('|')}, 반복 업무 ${thKo.join('|')}`, how: '두 머리글 텍스트가 기대와 같음', pass: headKo.join('|') === '시간|프로젝트|유형|업무|업무내용' && thKo.join('|') === 'No|프로젝트|유형|업무' })
+  const c10 = report.check({ name: '한국어 이름: 프로젝트 · 유형 · 업무', expected: '머리글 시간|프로젝트|유형|업무|업무내용, 반복 업무 No|업무', actual: `머리글 ${headKo.join('|')}, 반복 업무 ${thKo.join('|')}`, how: '두 머리글 텍스트가 기대와 같음', pass: headKo.join('|') === '시간|프로젝트|유형|업무|업무내용' && thKo.join('|') === 'No|업무' })
   await page.mouse.move(700, 120)
   await report.shot(page, { caption: '한국어 화면', marks: [{ target: headRow, n: c10, label: '프로젝트 · 유형 · 업무' }, { target: panel.locator('thead'), n: c10 }] })
   await page.goto(BASE + '/settings')
