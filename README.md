@@ -43,6 +43,17 @@ npm run dev
 | `npm test` | 도메인 로직, 엑셀 입출력, ingest 핸들러 단위 테스트(Vitest) |
 | `npm run test:db` | 마이그레이션을 임시 로컬 Postgres(15+)에 적용하고 권한(RLS)·트리거·마스터 반영 동작 테스트 |
 | `npm run typecheck` / `npm run build` | 타입 검사 / 프로덕션 빌드 |
+| `npm run test:e2e` | 브라우저 테스트(Playwright·Chromium). 데모 빌드와 가상 Supabase 빌드를 띄우고 `tests/e2e/*.e2e.cjs`를 모두 실행. `npm run test:e2e -- batchL batchM`처럼 이름을 주면 그것만 |
+| `REPORT=1 npm run test:e2e -- batchL` | 위와 같고, 검증 보고서도 만듭니다(아래) |
+
+### 검증 보고서 (`docs/test-reports/`)
+기능마다 **무엇을 확인했고 어떻게 PASS로 판정했는지**를 남긴 HTML입니다. `docs/test-reports/index.html`이 목록이고, 기능별 폴더에 보고서와 증적 화면이 있습니다.
+- 머리말: 날짜, 확인한 커밋, 테스트 파일(스위트), 브라우저·화면 크기.
+- 요청과 인수 기준(통과 조건), 테스트 케이스 표(기대 결과 / 실제 결과 / 판정 근거 / PASS·FAIL).
+- 주석 스크린샷: 확인한 요소에 빨간 테두리와 테스트 케이스 번호. 표의 번호를 누르면 그 화면으로 갑니다.
+- 끝에 용어 설명(테스트 케이스, 인수 기준, 단언, 증적, 회귀 테스트 등).
+
+보고서를 만드는 테스트는 `tests/e2e/report.cjs`의 `report.check({ name, expected, actual, how, pass })`와 `report.shot(page, { caption, marks })`로 씁니다(예: `tests/e2e/batchL.e2e.cjs`). 날짜를 정하려면 `REPORT_DATE=2026-11-26`. 레포가 공개이므로 데모·가상 데이터만 씁니다. 실제 마스터 파일을 쓰는 예전 테스트 3개(batchD/F/G)는 레포에 넣지 않았습니다.
 
 ## 운영 설정
 

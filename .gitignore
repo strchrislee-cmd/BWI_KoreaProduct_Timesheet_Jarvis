@@ -6,3 +6,8 @@ dist
 *.log
 test-results
 playwright-report
+# browser test output (tests/e2e) and the Supabase-mode test build
+tests/e2e/shots
+tests/e2e/tmp*
+tests/e2e/downloaded_group.xlsx
+.e2e-mock-dist

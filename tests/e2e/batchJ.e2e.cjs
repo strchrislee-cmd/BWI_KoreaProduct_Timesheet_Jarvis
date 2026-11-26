@@ -1,0 +1,35 @@
+// 11-23 (7): invitations — re-send, revoke, delete, invite again (demo store).
+const { chromium } = require('playwright')
+const BASE = process.env.BASE || 'http://localhost:4173'
+let step = 0
+const ok = (m) => console.log(`  ✓ ${++step}. ${m}`)
+const expect = (c, m) => { if (!c) throw new Error('FAILED: ' + m); ok(m) }
+;(async () => {
+  const browser = await chromium.launch()
+  const page = await browser.newPage({ viewport: { width: 1440, height: 900 } })
+  const errors = []
+  page.on('pageerror', (e) => errors.push(e.message))
+  await page.goto(BASE + '/admin')
+  const row = () => page.locator('tbody tr', { hasText: 'new.person@example.com' })
+  await page.locator('input[type=email]').fill('new.person@example.com')
+  await page.locator('form select').first().selectOption('l2')
+  await page.getByRole('button', { name: 'Send invite' }).click()
+  await row().waitFor()
+  expect((await row().innerText()).includes('pending') && (await row().getByRole('button', { name: '다시 보내기' }).count()) === 1, 'pending invitation can be sent again')
+  await row().getByRole('button', { name: '다시 보내기' }).click()
+  await page.getByText('Invitation sent to new.person@example.com').waitFor()
+  await page.getByRole('button', { name: 'Revoke' }).click()
+  await row().getByText('revoked').waitFor()
+  expect((await row().getByRole('button', { name: /^Delete invitation/ }).count()) === 1, 'a revoked invitation can be deleted')
+  await page.locator('input[type=email]').fill('new.person@example.com')
+  await page.getByRole('button', { name: 'Send invite' }).click()
+  await row().getByText('pending').waitFor()
+  expect((await row().count()) === 1, 'inviting the same address again replaces the revoked one')
+  await page.getByRole('button', { name: 'Revoke' }).click()
+  await row().getByRole('button', { name: /^Delete invitation/ }).click()
+  await page.waitForTimeout(300)
+  expect((await row().count()) === 0, 'deleted invitation is gone')
+  expect(errors.length === 0, `no page errors (${errors.join(' | ')})`)
+  await browser.close()
+  console.log('batchJ: all checks passed')
+})().catch((e) => { console.error(e); process.exit(1) })

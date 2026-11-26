@@ -1,0 +1,51 @@
+<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><title>TeamEmbedded 검증 보고서</title><meta name="claude:viewport-fit-sides" content="cover"><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;700&family=IBM+Plex+Sans+KR:wght@400;600;700&display=swap"><style>
+:root {
+  /* QA sheet: summary band, a table of test cases, then the evidence; red marks match the screenshots */
+  --bg: #F6F7F8; --surface: #FFFFFF; --ink: #1B2228; --muted: #5E6A73; --line: #DDE2E6;
+  --pass: #1E7B4D; --pass-bg: #E3F3EA; --fail: #B4232B; --fail-bg: #FBE6E7; --mark: #E5484D; --accent: #1F4D3A;
+  --font: 'IBM Plex Sans KR', system-ui, -apple-system, 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
+  --mono: 'IBM Plex Mono', ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #12171B; --surface: #1A2126; --ink: #E7ECEF; --muted: #9AA7B0; --line: #2C363D;
+  --pass: #5FD39A; --pass-bg: #173528; --fail: #FF8A8F; --fail-bg: #3A1D20; --accent: #8FD1B2; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #12171B; --surface: #1A2126; --ink: #E7ECEF; --muted: #9AA7B0; --line: #2C363D;
+  --pass: #5FD39A; --pass-bg: #173528; --fail: #FF8A8F; --fail-bg: #3A1D20; --accent: #8FD1B2; color-scheme: dark }
+* { box-sizing: border-box }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.6 var(--font) }
+.wrap { max-width: 1180px; margin: 0 auto; padding-block: 28px 64px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: grid; gap: 28px }
+h1, h2, h3 { line-height: 1.25; text-wrap: balance; margin: 0 }
+h1 { font-size: 1.9rem; font-weight: 700 }
+h2 { font-size: 1.25rem; font-weight: 700 }
+.eyebrow { font: 600 12px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted) }
+.head { display: grid; gap: 10px }
+.meta { display: flex; flex-wrap: wrap; gap: 6px 18px; color: var(--muted); font-size: 13px }
+.meta code, td code, .assert { font-family: var(--mono); font-size: 12.5px }
+.pill { display: inline-flex; align-items: center; gap: 6px; padding: 2px 10px; border-radius: 999px; font: 700 12px/20px var(--mono); letter-spacing: .03em }
+.pill.pass { background: var(--pass-bg); color: var(--pass) } .pill.fail { background: var(--fail-bg); color: var(--fail) }
+.summary { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 14px 18px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px }
+.summary strong { font-size: 1.5rem; font-variant-numeric: tabular-nums }
+.req { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)) }
+.box { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px; min-width: 0 }
+.box p { margin: 6px 0 0; max-width: 68ch } .box ol { margin: 8px 0 0; padding-left: 1.3em; display: grid; gap: 4px }
+.tablewrap { overflow-x: auto; background: var(--surface); border: 1px solid var(--line); border-radius: 12px }
+table { border-collapse: collapse; width: 100%; min-width: 860px; font-size: 13.5px }
+th { text-align: left; font-weight: 600; color: var(--muted); font-size: 12px; letter-spacing: .04em; padding: 10px 12px; border-bottom: 1px solid var(--line); background: var(--surface); position: sticky; top: 0 }
+td { padding: 10px 12px; border-top: 1px solid var(--line); vertical-align: top }
+td.n { font: 700 13px var(--mono); color: var(--mark); width: 44px } td.n a { color: inherit; text-decoration: none }
+tr.fail td { background: var(--fail-bg) }
+.shots { display: grid; gap: 22px }
+figure { margin: 0; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; scroll-margin-top: 16px }
+figure img { display: block; width: 100%; height: auto; border-bottom: 1px solid var(--line) }
+figcaption { padding: 12px 16px; display: grid; gap: 6px }
+.marks { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 13px; color: var(--muted) }
+.badge { display: inline-flex; align-items: center; justify-content: center; min-width: 22px; height: 22px; padding: 0 5px; border-radius: 11px; background: var(--mark); color: #fff; font: 700 12px/22px var(--mono); margin-right: 4px }
+details { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 12px 18px }
+summary { cursor: pointer; font-weight: 600 }
+dl { display: grid; grid-template-columns: max-content 1fr; gap: 6px 18px; margin: 12px 0 4px } dt { font-weight: 600 } dd { margin: 0; color: var(--muted) }
+a { color: var(--accent) } a:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px }
+.list { display: grid; gap: 12px } .row { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: baseline; justify-content: space-between }
+@media (max-width: 640px) { dl { grid-template-columns: 1fr } h1 { font-size: 1.5rem } }
+</style></head><body><div class="wrap"><header class="head"><p class="eyebrow">TeamEmbedded · 검증 기록</p><h1>검증 보고서</h1><p style="margin:0;color:var(--muted);max-width:68ch">기능마다 무엇을 확인했고 어떻게 PASS로 판정했는지, 확인한 화면에 표시해 남긴 기록입니다. 브라우저 테스트(<code>npm run test:e2e</code>)를 <code>REPORT=1</code>로 돌리면 다시 만들어집니다.</p></header><div class="list"><a class="box" href="2026-11-26-dock-today/index.html" style="text-decoration:none;color:inherit"><div class="row"><h2>Dock 메뉴 · Today 도킹 창</h2><span class="pill pass">17 / 17 PASS</span></div><p style="margin:6px 0 0;color:var(--muted)">2026-11-26 · 커밋 <code>cfb2ba9</code> · 증적 7장 · <code>tests/e2e/batchM.e2e.cjs</code></p></a><a class="box" href="2026-11-26-mid/index.html" style="text-decoration:none;color:inherit"><div class="row"><h2>MID(중분류) · 행 + 버튼</h2><span class="pill pass">23 / 23 PASS</span></div><p style="margin:6px 0 0;color:var(--muted)">2026-11-26 · 커밋 <code>cfb2ba9</code> · 증적 10장 · <code>tests/e2e/batchL.e2e.cjs</code></p></a></div>
+<details><summary>용어</summary><dl><dt>테스트 리포트 (Test Report)</dt><dd>무엇을 어떻게 확인했고 결과가 어땠는지 정리한 검증 보고서. 이 문서.</dd><dt>테스트 케이스 (Test Case)</dt><dd>확인 항목 하나. 표의 한 줄.</dd><dt>인수 기준 (Acceptance Criteria)</dt><dd>요청이 &quot;다 됐다&quot;고 볼 조건. 테스트 케이스는 여기서 나온다.</dd><dt>기대 결과 / 실제 결과 (Expected / Actual)</dt><dd>나와야 하는 것과 실제로 나온 것. 판정 근거의 조건을 만족하면 PASS.</dd><dt>단언 (Assertion)</dt><dd>판정 조건을 코드로 쓴 것. 표의 &quot;판정 근거&quot; 열.</dd><dt>증적 (Test Evidence)</dt><dd>통과를 보여 주는 증거. 여기서는 주석 스크린샷.</dd><dt>주석 스크린샷 (Annotated Screenshot)</dt><dd>확인한 요소에 빨간 테두리와 테스트 케이스 번호를 그린 화면.</dd><dt>E2E 테스트 (End-to-End)</dt><dd>실제 브라우저(Chromium)로 사용자처럼 눌러 보며 확인하는 테스트. 이 보고서의 테스트.</dd><dt>단위 테스트 (Unit Test)</dt><dd>함수 하나를 따로 확인하는 테스트(npm test).</dd><dt>회귀 테스트 (Regression Test)</dt><dd>새 기능 때문에 예전 기능이 깨지지 않았는지 전체를 다시 돌리는 것(npm run test:e2e).</dd><dt>추적성 (Traceability)</dt><dd>요청 ↔ 테스트 ↔ 커밋을 서로 찾아갈 수 있게 연결해 두는 것. 머리말의 커밋·스위트 정보.</dd></dl></details></div></body></html>
