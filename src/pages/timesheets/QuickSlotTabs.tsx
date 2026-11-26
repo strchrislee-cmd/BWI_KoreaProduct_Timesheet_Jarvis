@@ -23,7 +23,7 @@ export function QuickSlotTabs({
     setRenaming(null)
   }
   return (
-    <div role="tablist" aria-label="Quick add presets" className="mb-3 flex gap-1 rounded-control bg-black/5 p-0.5" data-testid="quick-slots">
+    <div role="tablist" aria-label="Quick add presets" className="mb-3 flex gap-0.5 rounded-control bg-black/5 p-0.5" data-testid="quick-slots">
       {Array.from({ length: QUICK_SLOTS }, (_, i) =>
         renaming?.i === i ? (
           <input
@@ -49,16 +49,17 @@ export function QuickSlotTabs({
             role="tab"
             aria-selected={slots.active === i}
             aria-label={`Preset ${i + 1}${slots.names[i] ? ` ${slots.names[i]}` : ''}`}
-            title="프리셋 · 더블클릭해서 이름 바꾸기 (예: 2026 1Q, 여름 시즌)"
+            title={`${slotLabel(slots, i)} · ${counts[i]}개 — 더블클릭해서 이름 바꾸기 (예: 2026 1Q, 여름 시즌)`}
             className={cx(
-              'flex min-w-0 flex-1 items-center justify-center gap-1 rounded-[7px] px-1.5 py-1 text-xs font-semibold',
-              slots.active === i ? 'bg-white text-primary shadow-sm' : 'text-muted hover:text-ink',
+              'flex min-w-0 items-center justify-center gap-0.5 rounded-[7px] px-1 py-1 text-xs font-semibold',
+              // the slot in use gets more room, so its name shows whole; the others show it on hover
+              slots.active === i ? 'flex-[1.7] bg-white text-primary shadow-sm' : 'flex-1 text-muted hover:text-ink',
             )}
             onClick={() => onPick(i)}
             onDoubleClick={() => setRenaming({ i, name: slots.names[i] })}
           >
             <span className="te-clip">{slotLabel(slots, i)}</span>
-            <span className={cx('shrink-0 rounded-full px-1 text-[10px] font-normal tabular-nums', slots.active === i ? 'bg-primary/10' : 'bg-black/5')}>{counts[i]}</span>
+            <span className={cx('shrink-0 rounded-full px-[3px] text-[9px] font-normal leading-[13px] tabular-nums', slots.active === i ? 'bg-primary/10' : 'bg-black/5')}>{counts[i]}</span>
           </button>
         ),
       )}

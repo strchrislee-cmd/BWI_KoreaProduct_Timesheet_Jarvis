@@ -114,7 +114,8 @@ const report = createReport({
   await tabs.waitFor()
   const named = (await tab(2).innerText()).replace(/\s+/g, ' ').trim()
   const stillActive = await tab(2).getAttribute('aria-selected')
-  const c4 = report.check({ name: '더블클릭해서 이름 붙이기, 새로 고쳐도 슬롯·이름 유지', expected: "탭 '2026 Q1', 선택된 채", actual: `탭 '${named}', ${stillActive === 'true' ? '선택됨' : '선택 안 됨'}`, how: "tab2 text 에 '2026 Q1' && aria-selected", pass: named.startsWith('2026 Q1') && stillActive === 'true' })
+  const whole = await tab(2).locator('.te-clip').evaluate((el) => el.scrollWidth <= el.clientWidth)
+  const c4 = report.check({ name: '더블클릭해서 이름 붙이기, 새로 고쳐도 슬롯·이름 유지', expected: "탭 '2026 Q1', 선택된 채, 이름 전체 보임", actual: `탭 '${named}', ${stillActive === 'true' ? '선택됨' : '선택 안 됨'}, 이름 ${whole ? '전체 보임' : '잘림'}`, how: "tab2 text 에 '2026 Q1' && aria-selected && 사용 중인 탭 이름이 잘리지 않음", pass: named.startsWith('2026 Q1') && stillActive === 'true' && whole })
   await away()
   await report.shot(page, { caption: "이름을 붙인 슬롯 '2026 Q1'", marks: [{ target: tab(2), n: c4, label: '이름' }] })
 
