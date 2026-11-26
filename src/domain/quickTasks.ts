@@ -9,5 +9,34 @@ export const EMPTY_TASK_LABEL = '(내용 없음)'
 
 export const quickTaskName = (t: Pick<TaskTemplate, 'description'>) => t.description.trim() || EMPTY_TASK_LABEL
 
+/** preset slots (e.g. one per quarter): each keeps its own quick-add items, one is in use */
+export const QUICK_SLOTS = 4
+
+export interface QuickSlots {
+  /** the slot in use, 0 … QUICK_SLOTS − 1 */
+  active: number
+  /** optional names ('' = just the number) */
+  names: string[]
+  /** quick-add item id → its slot; items not listed are in slot 0 (everything saved before slots) */
+  of: Record<string, number>
+}
+
+export const DEFAULT_QUICK_SLOTS: QuickSlots = { active: 0, names: ['', '', '', ''], of: {} }
+export const slotOf = (slots: QuickSlots, id: string) => slots.of[id] ?? 0
+export const slotLabel = (slots: QuickSlots, i: number) => slots.names[i]?.trim() || String(i + 1)
+const slotIndex = (v: unknown): v is number => Number.isInteger(v) && (v as number) >= 0 && (v as number) < QUICK_SLOTS
+
+/** Saved slots, read defensively. */
+export function readQuickSlots(v: unknown): QuickSlots {
+  const r = (v ?? {}) as Record<string, unknown>
+  const names = Array.isArray(r.names) ? r.names : []
+  const of = r.of && typeof r.of === 'object' ? (r.of as Record<string, unknown>) : {}
+  return {
+    active: slotIndex(r.active) ? r.active : 0,
+    names: Array.from({ length: QUICK_SLOTS }, (_, i) => (typeof names[i] === 'string' ? (names[i] as string).trim().slice(0, 20) : '')),
+    of: Object.fromEntries(Object.entries(of).filter((e): e is [string, number] => slotIndex(e[1]) && e[1] !== 0)),
+  }
+}
+
 /** asked before saving a row whose Task is empty */
 export const EMPTY_TASK_CONFIRM = `Task(업무)가 비어 있습니다. 그래도 ${QUICK_TASKS}에 저장할까요?\n목록에는 "${EMPTY_TASK_LABEL}"으로 보입니다.`

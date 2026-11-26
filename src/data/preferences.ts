@@ -5,6 +5,7 @@ import { isSortMode, type SortMode } from '../lib/ordering'
 import { isFontChoice, type FontChoice } from '../lib/fonts'
 import type { Lang } from '../lib/i18n'
 import { readRects, type PanelRects } from '../lib/layout'
+import { readQuickSlots, type QuickSlots } from '../domain/quickTasks'
 import { PANEL_OPACITY_DEFAULT, PANEL_OPACITY_MIN } from '../lib/panelOpacity'
 import { readColorPrefs, type ColorPrefs } from '../pages/timesheets/colors'
 
@@ -50,6 +51,8 @@ export interface Prefs extends ColorPrefs {
   layout: LayoutPrefs
   /** Today window: list of hours or the donut graph */
   todayView: 'list' | 'graph'
+  /** Quick add preset slots (one per season / quarter) */
+  quickSlots: QuickSlots
 }
 
 export interface LayoutPrefs {
@@ -119,5 +122,6 @@ export function readPrefs(preferences: Profile['preferences']): Prefs {
       magnet: layout.magnet !== false,
     },
     todayView: p.todayView === 'graph' ? 'graph' : 'list',
+    quickSlots: readQuickSlots(p.quickSlots),
   }
 }

@@ -431,7 +431,9 @@ export class LocalStore implements DataStore {
   }
   async addTemplate(template: Omit<TaskTemplate, 'id'>) {
     if (!template.label.trim() && !template.description.trim()) throw new Error('Template is empty')
-    this.mutate((s) => s.templates.push({ ...template, id: uid(), created_at: new Date().toISOString() }))
+    const id = uid()
+    this.mutate((s) => s.templates.push({ ...template, id, created_at: new Date().toISOString() }))
+    return id
   }
   async updateTemplate(id: string, patch: Partial<Pick<TaskTemplate, 'color' | 'description' | 'sort_order'>>) {
     if (patch.description !== undefined && !patch.description.trim()) throw new Error('Name is empty')

@@ -79,7 +79,8 @@ export interface DataStore {
   removeWorkType(id: string): Promise<'deleted' | 'hidden'>
 
   listTemplates(userId: string): Promise<TaskTemplate[]>
-  addTemplate(template: Omit<TaskTemplate, 'id' | 'created_at'>): Promise<void>
+  /** resolves to the new quick-add item's id */
+  addTemplate(template: Omit<TaskTemplate, 'id' | 'created_at'>): Promise<string>
   updateTemplate(id: string, patch: Partial<Pick<TaskTemplate, 'color' | 'description' | 'sort_order'>>): Promise<void>
   deleteTemplate(id: string): Promise<void>
 

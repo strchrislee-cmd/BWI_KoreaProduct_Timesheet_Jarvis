@@ -284,6 +284,8 @@ export function DailyGrid({
   }
   const options = buildOptions(editing)
   const filtering = !!editing?.dirty && !!editing.text.trim()
+  // the No column is as wide as the longest number in the list (a fixed width left a gap after the handle)
+  const noDigits = String(Math.max(0, ...options.map((o) => o.no ?? 0))).length
 
   // drag reorder inside a group (disabled while a search filter is active)
   const reorder = useDragReorder(popRef, (group, from, to) => {
@@ -842,7 +844,11 @@ export function DailyGrid({
                       ) : (
                         <span className="w-[14px]" />
                       )}
-                      {o.no !== undefined && <span className="w-6 shrink-0 text-right font-mono text-[11px] text-muted">{o.no}</span>}
+                      {o.no !== undefined && (
+                        <span className="shrink-0 text-right font-mono text-[11px] text-muted" style={{ width: `${noDigits}ch` }}>
+                          {o.no}
+                        </span>
+                      )}
                       <span className="truncate rounded-chip px-1.5 py-0.5 text-[13px] font-medium" style={o.color ? { backgroundColor: chipBg(o.color) } : undefined}>
                         {o.label}
                       </span>

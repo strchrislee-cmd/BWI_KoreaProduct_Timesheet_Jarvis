@@ -23,7 +23,8 @@ import { MobileDayLog } from './mobile/MobileDayLog'
 import { displayName } from './projectUi'
 import { useTimesheets } from './TimesheetsLayout'
 import { useColorPrefs } from './useColorPrefs'
-import { EMPTY_TASK_CONFIRM, QUICK_TASKS, quickTaskName } from '../../domain/quickTasks'
+import { EMPTY_TASK_CONFIRM, QUICK_SLOTS, QUICK_TASKS, quickTaskName, slotOf } from '../../domain/quickTasks'
+import { QuickSlotTabs } from './QuickSlotTabs'
 import { withPersonalColors } from '../../domain/workTypes'
 
 export function DailyLog() {
@@ -167,9 +168,14 @@ export function DailyLog() {
 
   const onSelectionChange = useCallback((rowsSel: number[], active: number) => setSelection({ rows: rowsSel, active }), [])
 
+  // Quick add preset slots: only the slot in use shows in the table, the Task dropdown and on phones
+  const quickSlots = prefs.quickSlots
+  const slotTemplates = templates.filter((t) => slotOf(quickSlots, t.id) === quickSlots.active)
+  const updateSlots = (fn: (s: typeof quickSlots) => typeof quickSlots) => void colorPrefs.update((p) => ({ ...p, quickSlots: fn(p.quickSlots) }))
+
   /** Save a repeated task (category, MID, sub category — never the content); returns false when it already exists. */
   async function createTemplate(t: Pick<TaskTemplate, 'kind' | 'group_project_id' | 'label' | 'description' | 'work_type_id'>): Promise<boolean> {
-    const exists = templates.some(
+    const exists = slotTemplates.some(
       (x) =>
         x.kind === t.kind &&
         x.group_project_id === t.group_project_id &&
@@ -179,7 +185,9 @@ export function DailyLog() {
     )
     if (exists) return false
     try {
-      await store.addTemplate({ ...t, user_id: user.id, sort_order: templates.length + 1, color: null })
+      const id = await store.addTemplate({ ...t, user_id: user.id, sort_order: slotTemplates.length + 1, color: null })
+      // a new item goes into the slot in use (slot 1 is the default, nothing to store)
+      if (quickSlots.active !== 0) updateSlots((s) => ({ ...s, of: { ...s.of, [id]: s.active } }))
       templatesQ.reload()
       return true
     } catch (e) {
@@ -252,11 +260,12 @@ export function DailyLog() {
   }
 
   // the repeated-task table on the right follows the same sort as the Task dropdown
-  const chips = sortItems(templates, prefs.sort.template, { key: (t) => t.id, name: quickTaskName, created: (t) => t.created_at }, templates.map((t) => t.id))
+  const chips = sortItems(slotTemplates, prefs.sort.template, { key: (t) => t.id, name: quickTaskName, created: (t) => t.created_at }, templates.map((t) => t.id))
 
   async function deleteTemplate(id: string) {
     try {
       await store.deleteTemplate(id)
+      if (id in quickSlots.of) updateSlots((s) => ({ ...s, of: Object.fromEntries(Object.entries(s.of).filter(([k]) => k !== id)) }))
       templatesQ.reload()
     } catch (e) {
       setError(e as Error)
@@ -348,7 +357,7 @@ export function DailyLog() {
           key={`${engineer.id}-${date}`}
           rows={rows}
           ctx={ctx}
-          templates={templates}
+          templates={slotTemplates}
           templateColor={colorOfTemplate}
           now={now}
           readOnly={!canEdit}
@@ -360,7 +369,7 @@ export function DailyLog() {
             key={`${engineer.id}-${date}`}
             rows={rows}
             ctx={ctx}
-            templates={templates}
+            templates={slotTemplates}
             colors={gridColors}
             options={optionsApi}
             layout={prefs.grid}
@@ -456,9 +465,15 @@ export function DailyLog() {
         )
       }
     >
-      {templates.length === 0 ? (
+      <QuickSlotTabs
+        slots={quickSlots}
+        counts={Array.from({ length: QUICK_SLOTS }, (_, i) => templates.filter((t) => slotOf(quickSlots, t.id) === i).length)}
+        onPick={(i) => updateSlots((s) => ({ ...s, active: i }))}
+        onRename={(i, name) => updateSlots((s) => ({ ...s, names: s.names.map((n, k) => (k === i ? name : n)) }))}
+      />
+      {slotTemplates.length === 0 ? (
         <p className="text-sm text-muted">
-          자주 하는 업무를 등록해 두세요. 행 앞 <strong>+</strong>를 누르거나, 행을 고르고 <strong>선택한 행 저장</strong>, 또는 {tr('Task')} 칸에 입력한 뒤 <strong>{QUICK_TASKS}에 추가</strong>를 고르면 됩니다.
+          {templates.length > 0 && <>이 프리셋은 비어 있습니다. </>}자주 하는 업무를 등록해 두세요. 행 앞 <strong>+</strong>를 누르거나, 행을 고르고 <strong>선택한 행 저장</strong>, 또는 {tr('Task')} 칸에 입력한 뒤 <strong>{QUICK_TASKS}에 추가</strong>를 고르면 됩니다.
         </p>
       ) : (
         <TemplatesTable

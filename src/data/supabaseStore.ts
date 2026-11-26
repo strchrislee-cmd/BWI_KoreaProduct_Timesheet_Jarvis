@@ -212,7 +212,7 @@ export class SupabaseStore implements DataStore {
     )
   }
   async addTemplate(template: Omit<TaskTemplate, 'id'>) {
-    must(await this.sb.from('task_templates').insert(template))
+    return must<{ id: string }>(await this.sb.from('task_templates').insert(template).select('id').single()).id
   }
   async updateTemplate(id: string, patch: Partial<Pick<TaskTemplate, 'color' | 'description' | 'sort_order'>>) {
     must(await this.sb.from('task_templates').update(patch).eq('id', id))
