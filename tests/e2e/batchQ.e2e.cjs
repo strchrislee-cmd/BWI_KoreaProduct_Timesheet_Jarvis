@@ -11,7 +11,7 @@ const report = createReport({
   request:
     'Quick add에 프리셋 슬롯 4개: 분기·시즌마다 저장해 두고 쓰다가 과거 업무가 돌아오면 그 슬롯으로 돌아가 쓰기. 드롭다운의 손잡이와 번호 사이 간격 줄이기.',
   criteria: [
-    'Quick add 창에 슬롯 탭 4개(항목 수 표시), 하나만 사용 중.',
+    'Quick add 창에 슬롯 탭 4개(기본 이름 1Q·2Q·3Q·4Q, 항목 수 표시), 하나만 사용 중.',
     '사용 중인 슬롯의 항목만 표·Task 드롭다운·휴대폰 입력 창에 보이고, 새로 저장하면 그 슬롯에 들어간다.',
     '슬롯을 바꾸면 그 슬롯의 항목으로 바뀌고, 다시 돌아오면 예전 항목 그대로.',
     '같은 업무를 다른 슬롯에도 저장할 수 있다.',
@@ -62,7 +62,8 @@ const report = createReport({
   await tabs.waitFor()
   const tabCount = await tabs.getByRole('tab').count()
   const sel0 = await tab(1).getAttribute('aria-selected')
-  const c1 = report.check({ name: 'Quick add에 슬롯 탭 4개, 슬롯 1 사용 중', expected: "탭 4개, 'Preset 1' 선택됨", actual: `탭 ${tabCount}개, Preset 1 ${sel0 === 'true' ? '선택됨' : '선택 안 됨'}`, how: "tab count === 4 && tab1 aria-selected === 'true'", pass: tabCount === 4 && sel0 === 'true' })
+  const names = (await tabs.getByRole('tab').allInnerTexts()).map((t) => t.replace(/\s+/g, ' ').trim().split(' ')[0])
+  const c1 = report.check({ name: 'Quick add에 슬롯 탭 4개(1Q~4Q), 1Q 사용 중', expected: "탭 1Q|2Q|3Q|4Q, 1Q 선택됨", actual: `탭 ${names.join('|')}, 1Q ${sel0 === 'true' ? '선택됨' : '선택 안 됨'}`, how: "tab names === 1Q..4Q && tab1 aria-selected === 'true'", pass: tabCount === 4 && names.join('|') === '1Q|2Q|3Q|4Q' && sel0 === 'true' })
 
   // slot 1: two items
   await paste(18, '회의\t회의-INT\t주간 회의')

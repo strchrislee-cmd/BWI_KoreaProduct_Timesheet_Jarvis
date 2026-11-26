@@ -15,7 +15,7 @@ export const QUICK_SLOTS = 4
 export interface QuickSlots {
   /** the slot in use, 0 … QUICK_SLOTS − 1 */
   active: number
-  /** optional names ('' = just the number) */
+  /** optional names ('' = the default 1Q … 4Q) */
   names: string[]
   /** quick-add item id → its slot; items not listed are in slot 0 (everything saved before slots) */
   of: Record<string, number>
@@ -23,7 +23,9 @@ export interface QuickSlots {
 
 export const DEFAULT_QUICK_SLOTS: QuickSlots = { active: 0, names: ['', '', '', ''], of: {} }
 export const slotOf = (slots: QuickSlots, id: string) => slots.of[id] ?? 0
-export const slotLabel = (slots: QuickSlots, i: number) => slots.names[i]?.trim() || String(i + 1)
+/** default names follow the quarters (1Q … 4Q); a name the user gave wins */
+export const defaultSlotName = (i: number) => `${i + 1}Q`
+export const slotLabel = (slots: QuickSlots, i: number) => slots.names[i]?.trim() || defaultSlotName(i)
 const slotIndex = (v: unknown): v is number => Number.isInteger(v) && (v as number) >= 0 && (v as number) < QUICK_SLOTS
 
 /** Saved slots, read defensively. */

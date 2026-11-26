@@ -20,7 +20,7 @@ describe('quick add preset slots', () => {
     expect(slotOf(s, 'a')).toBe(2)
     expect(slotOf(s, 'zzz')).toBe(0)
     expect(slotLabel(s, 0)).toBe('2026 Q1')
-    expect(slotLabel(s, 3)).toBe('4')
+    expect(slotLabel(s, 3)).toBe('4Q') // default names follow the quarters
     expect(readQuickSlots({ active: 7 }).active).toBe(0)
   })
 })
