@@ -27,6 +27,14 @@ export function sortWorkTypes(list: WorkType[]): WorkType[] {
 }
 
 /** What the dropdowns offer: not hidden, in the admin's order. */
+/** Key of a Type's personal colour in the user's colour settings (next to the project colours). */
+export const typeColorKey = (id: string) => `type:${id}`
+
+/** The Types with this user's own colours on top of the team colours set in Projects. */
+export function withPersonalColors(list: WorkType[], colors: Record<string, string>): WorkType[] {
+  return list.map((w) => (colors[typeColorKey(w.id)] ? { ...w, color: colors[typeColorKey(w.id)] } : w))
+}
+
 export function selectableWorkTypes(list: WorkType[]): WorkType[] {
   return sortWorkTypes(list.filter((w) => !w.hidden))
 }

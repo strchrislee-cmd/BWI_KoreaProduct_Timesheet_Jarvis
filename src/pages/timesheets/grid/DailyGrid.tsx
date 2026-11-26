@@ -5,7 +5,7 @@ import { cx } from '../../../components/ui'
 import { DEFAULT_GRID, GRID_LIMITS, ROW_HEIGHTS, type GridPrefs } from '../../../data/preferences'
 import { isSelectable, projectNumbers } from '../../../domain/projects'
 import { slotToTime } from '../../../domain/time'
-import { WORK_TYPE_GRAY, findWorkType, selectableWorkTypes } from '../../../domain/workTypes'
+import { WORK_TYPE_GRAY, findWorkType, selectableWorkTypes, typeColorKey } from '../../../domain/workTypes'
 import type { ProjectKind, TaskTemplate, TimeSlot } from '../../../domain/types'
 import { QUICK_TASKS, quickTaskName } from '../../../domain/quickTasks'
 import { useT } from '../../../lib/i18n'
@@ -41,6 +41,11 @@ const sameText = (a: string, b: string) => !!b && a.replace(/\r\n/g, '\n').trimE
 
 /** the narrow column in front of Time with each row's + (add to repeated tasks) */
 const GUTTER = 24
+/** dropdown list height: at most this (px), less when the table has no room, never below LIST_MIN */
+const LIST_MAX = 288
+const LIST_MIN = 120
+/** the dropdown's header line, padding and gap to the cell (px) */
+const POPOVER_CHROME = 52
 /** columns whose width can be dragged: Time, Category, MID */
 const RESIZABLE = ['timeWidth', 'categoryWidth', 'midWidth'] as const
 
@@ -88,11 +93,14 @@ export interface GridColors {
 
 /** Sorting, ordering and template actions for the dropdowns. */
 export interface GridOptionsApi {
-  sort: { category: SortMode; template: SortMode }
+  sort: { category: SortMode; template: SortMode; type: SortMode }
   categoryOrder: string[]
-  setSort: (list: 'category' | 'template', mode: SortMode) => void
+  /** personal manual order of Type ids (empty = the admin's order) */
+  typeOrder: string[]
+  setSort: (list: 'category' | 'template' | 'type', mode: SortMode) => void
   reorderCategories: (keys: string[]) => void
   reorderTemplates: (ids: string[]) => void
+  reorderTypes: (ids: string[]) => void
   renameTemplate: (id: string, name: string) => void
   deleteTemplate: (id: string) => void
   setTemplateColor: (id: string, hex: string | null) => void
@@ -169,7 +177,7 @@ export function DailyGrid({
   const selRows = rows.slice(sel.r1, sel.r2 + 1)
   const activeIndex = rows[a.r]
   const activeCol = COLS[a.c]
-  const listKind: 'category' | 'template' = activeCol === 'task' ? 'template' : 'category'
+  const listKind: 'category' | 'template' | 'type' = activeCol === 'task' ? 'template' : activeCol === 'mid' ? 'type' : 'category'
 
   useEffect(() => {
     onSelectionChange(selRows, activeIndex)
@@ -250,9 +258,13 @@ export function DailyGrid({
     }
 
     if (activeCol === 'mid') {
-      // the admin's list in its own order (Projects → MID); no create, reorder or option menu here
-      for (const w of selectableWorkTypes(ctx.workTypes).filter((x) => match(x.name)))
-        list.push({ key: w.id, group: 'mid', groupLabel: tr('Type'), label: w.name, color: w.color ?? WORK_TYPE_GRAY, value: w.name })
+      // the admin's list (Projects → Type); like projects, each user can reorder it and pick colours
+      // for themselves (… on an option); names and the list itself stay with the admin
+      const items: Option[] = selectableWorkTypes(ctx.workTypes)
+        .filter((x) => match(x.name))
+        .map((w) => ({ key: w.id, group: 'mid', groupLabel: tr('Type'), label: w.name, color: w.color ?? WORK_TYPE_GRAY, value: w.name, colorKey: typeColorKey(w.id) }))
+      const created = new Map(ctx.workTypes.map((w) => [w.id, w.created_at]))
+      list.push(...sortItems(items, api.sort.type, { key: (o) => o.key, name: (o) => o.label, created: (o) => created.get(o.key) ?? '' }, api.typeOrder))
       if (!text && effectiveSlot(ctx, activeIndex)?.work_type_id)
         list.push({ key: 'mid-clear', group: 'mid-clear', groupLabel: '', label: '— 비우기', value: '' })
       return list
@@ -281,6 +293,7 @@ export function DailyGrid({
       to,
     )
     if (group === 'template') api.reorderTemplates(keys)
+    else if (group === 'mid') api.reorderTypes(keys)
     else api.reorderCategories(keys)
   })
   const groupIndex = new Map<string, number>()
@@ -535,17 +548,21 @@ export function DailyGrid({
         height: activeEl.offsetHeight,
       }
     : { top: 0, left: 0, width: 0, height: 0 }
-  // Open the dropdown upwards when the visible space under the cell is too small (lower rows).
-  const dropUp = (() => {
-    if (!editing || !activeEl) return false
+  // Open the dropdown upwards when the visible space under the cell is too small (lower rows), and
+  // keep it inside the scrolling table: the list gets shorter so the header line and the first
+  // options are never cut off at the top (or the last ones at the bottom).
+  const drop = (() => {
+    if (!editing || !activeEl) return { up: false, listMax: LIST_MAX }
     let sc: HTMLElement | null = activeEl.parentElement
     while (sc && !/(auto|scroll)/.test(getComputedStyle(sc).overflowY)) sc = sc.parentElement
     const r = activeEl.getBoundingClientRect()
     const limit = sc?.getBoundingClientRect()
     const below = Math.min(limit?.bottom ?? window.innerHeight, window.innerHeight) - r.bottom
     const above = r.top - Math.max(limit?.top ?? 0, 0)
-    return below < 340 && above > below
+    const up = below < 340 && above > below
+    return { up, listMax: Math.max(LIST_MIN, Math.min(LIST_MAX, (up ? above : below) - POPOVER_CHROME)) }
   })()
+  const dropUp = drop.up
 
   function renderCell(col: (typeof COLS)[number], s: TimeSlot | undefined, lunchDefault: boolean) {
     if (col === 'details') return s?.details ? <span title={s.details}>{s.details}</span> : ''
@@ -572,6 +589,8 @@ export function DailyGrid({
 
   const menuOption = menu ? options.find((o) => o.key === menu.key) : undefined
   const menuCategoryKey = menuOption?.colorKey
+  // a Type option: its colour is personal too, but its name and the list are the admin's (Projects)
+  const menuType = menuCategoryKey?.startsWith('type:') ? ctx.workTypeById.get(menuCategoryKey.slice('type:'.length)) : undefined
   // the chosen row height is the minimum: long text wraps inside its cell and the whole row grows
   // 자동 줄바꿈 on: rows grow with long text; off: every row keeps its height and text is cut with …
   const rowStyle = size.wrap ? { minHeight: size.rowHeight } : { height: size.rowHeight }
@@ -745,7 +764,7 @@ export function DailyGrid({
               <button
                 aria-label="Sort options"
                 title={`정렬: ${SORT_LABELS[api.sort[listKind]]}`}
-                className={cx('rounded-chip p-0.5 hover:bg-black/5', activeCol === 'mid' && 'hidden')}
+                className="rounded-chip p-0.5 hover:bg-black/5"
                 onClick={() => setSortOpen((o) => !o)}
               >
                 <MoreHorizontal size={16} />
@@ -771,7 +790,7 @@ export function DailyGrid({
                 </div>
               )}
             </div>
-            <div ref={listRef} role="listbox" className="max-h-72 overflow-auto">
+            <div ref={listRef} role="listbox" className="overflow-auto" style={{ maxHeight: drop.listMax }}>
               {options.length === 0 && (
                 <p className="px-2 py-2 text-xs text-muted">
                   {activeCol === 'task' ? `${QUICK_TASKS}에 등록된 업무가 없습니다. 입력하면 새로 만들 수 있어요.` : activeCol === 'mid' ? '목록에 없는 이름입니다. 유형 목록은 관리자가 Projects 화면에서 관리합니다.' : '일치하는 옵션이 없습니다.'}
@@ -782,7 +801,7 @@ export function DailyGrid({
                 const d = reorder.state
                 const dragging = d?.group === o.group && d.from === gi
                 const dropLine = d && d.group === o.group && d.over === gi && d.over !== d.from ? (d.over > d.from ? 'after' : 'before') : null
-                const canReorder = !filtering && !readOnly && o.group !== 'create' && o.group !== 'mid' && o.group !== 'mid-clear'
+                const canReorder = !filtering && !readOnly && o.group !== 'create' && o.group !== 'mid-clear'
                 const hasMenu = !!o.colorKey || !!o.template
                 return (
                   <div key={o.key}>
@@ -878,14 +897,26 @@ export function DailyGrid({
             anchor={menu.anchor}
             placement="right"
             title={
-              menuCategoryKey === NONWORK_KEY
-                ? 'Non-work (점심·휴식·퇴근)'
-                : ctx.byId.get(menuCategoryKey)
-                  ? displayName(ctx.byId.get(menuCategoryKey)!)
-                  : menuCategoryKey
+              menuType
+                ? menuType.name
+                : menuCategoryKey === NONWORK_KEY
+                  ? 'Non-work (점심·휴식·퇴근)'
+                  : ctx.byId.get(menuCategoryKey)
+                    ? displayName(ctx.byId.get(menuCategoryKey)!)
+                    : menuCategoryKey
             }
-            note="그룹 프로젝트 이름은 마스터 시트에서 관리되어 여기서는 색만 바꿀 수 있습니다."
-            value={menuCategoryKey === NONWORK_KEY ? ctx.color('nonwork', null) : ctx.color('work', menuCategoryKey)}
+            note={
+              menuType
+                ? '유형 이름과 목록은 관리자가 Projects 화면에서 관리합니다. 여기서 고른 색은 나에게만 적용됩니다.'
+                : '그룹 프로젝트 이름은 마스터 시트에서 관리되어 여기서는 색만 바꿀 수 있습니다.'
+            }
+            value={
+              menuType
+                ? (menuType.color ?? WORK_TYPE_GRAY)
+                : menuCategoryKey === NONWORK_KEY
+                  ? ctx.color('nonwork', null)
+                  : ctx.color('work', menuCategoryKey)
+            }
             isCustom={colors.isCustom(menuCategoryKey)}
             saved={colors.saved}
             onPick={(hex) => colors.setCategory(menuCategoryKey, hex)}

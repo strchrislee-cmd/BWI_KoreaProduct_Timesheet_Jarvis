@@ -24,6 +24,7 @@ import { displayName } from './projectUi'
 import { useTimesheets } from './TimesheetsLayout'
 import { useColorPrefs } from './useColorPrefs'
 import { EMPTY_TASK_CONFIRM, QUICK_TASKS, quickTaskName } from '../../domain/quickTasks'
+import { withPersonalColors } from '../../domain/workTypes'
 
 export function DailyLog() {
   const tr = useT()
@@ -93,7 +94,9 @@ export function DailyLog() {
   }, [date, engineer.id])
 
   const byId = useMemo(() => new Map(projects.map((p) => [p.id, p])), [projects])
-  const workTypeById = useMemo(() => new Map(workTypes.map((w) => [w.id, w])), [workTypes])
+  // Types in this user's own colours (Daily Log dropdown → … on a Type); the team colours stay in Projects
+  const myWorkTypes = useMemo(() => withPersonalColors(workTypes, prefs.categoryColors), [workTypes, prefs.categoryColors])
+  const workTypeById = useMemo(() => new Map(myWorkTypes.map((w) => [w.id, w])), [myWorkTypes])
   const newProjects = projects.filter((p) => !p.hidden && isNewProject(p, latestImport))
 
   // Lunch (Settings → Work hours, default 12:00–13:00) shows as 점심 unless something else is saved.
@@ -108,14 +111,14 @@ export function DailyLog() {
       projects,
       aliases,
       byId,
-      workTypes,
+      workTypes: myWorkTypes,
       workTypeById,
       saved: slots,
       lunch,
       blank: (index) => ({ user_id: engineer.id, work_date: date, slot_index: index, kind: 'work', group_project_id: null, label: '', description: '', details: '', focus: null, work_type_id: null }),
       color: (kind, projectId) => categoryColor(kind, projectId ? byId.get(projectId) : undefined, prefs),
     }),
-    [projects, aliases, byId, workTypes, workTypeById, slots, lunch, engineer.id, date, prefs],
+    [projects, aliases, byId, myWorkTypes, workTypeById, slots, lunch, engineer.id, date, prefs],
   )
 
   const colorOfTemplate = (t: TaskTemplate) => templateColor(t, t.group_project_id ? byId.get(t.group_project_id) : undefined, prefs)
@@ -232,6 +235,7 @@ export function DailyLog() {
   const optionsApi: GridOptionsApi = {
     sort: prefs.sort,
     categoryOrder: prefs.categoryOrder,
+    typeOrder: prefs.typeOrder,
     setSort: (list, mode) => void colorPrefs.update((p) => ({ ...p, sort: { ...p.sort, [list]: mode } })),
     reorderCategories: (keys) =>
       void colorPrefs.update((p) => ({
@@ -240,6 +244,8 @@ export function DailyLog() {
         sort: { ...p.sort, category: 'manual' },
       })),
     reorderTemplates: (ids) => void reorderTemplates(ids),
+    reorderTypes: (ids) =>
+      void colorPrefs.update((p) => ({ ...p, typeOrder: [...ids, ...p.typeOrder.filter((k) => !ids.includes(k))], sort: { ...p.sort, type: 'manual' } })),
     renameTemplate: (id, name) => void updateTemplate(id, { description: name }),
     deleteTemplate: (id) => void deleteTemplate(id),
     setTemplateColor: (id, hex) => void updateTemplate(id, { color: hex }),

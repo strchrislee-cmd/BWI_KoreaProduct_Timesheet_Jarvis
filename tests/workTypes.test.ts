@@ -58,3 +58,26 @@ describe('Weekly Result with MID', () => {
     expect(rows.map((r) => [r.work, r.hours])).toEqual([['개발-신규', 1], ['지원-8D', 0.5]])
   })
 })
+
+describe('personal Type colours and order', () => {
+  it('a personal colour overrides the team colour for that user only', async () => {
+    const { withPersonalColors, typeColorKey } = await import('../src/domain/workTypes')
+    const list = [
+      { id: 'a', name: '개발-신규', sort_order: 1, color: '#111111', hidden: false, created_at: '' },
+      { id: 'b', name: '회의-INT', sort_order: 2, color: null, hidden: false, created_at: '' },
+    ]
+    const mine = withPersonalColors(list, { [typeColorKey('b')]: '#C14C8A', 'some-project': '#000000' })
+    expect(mine.map((w) => w.color)).toEqual(['#111111', '#C14C8A'])
+    expect(list[1].color).toBeNull() // the team list is not changed
+  })
+
+  it('the Type sort and order are read from the preferences', async () => {
+    const { readPrefs } = await import('../src/data/preferences')
+    expect(readPrefs({}).sort.type).toBe('manual')
+    expect(readPrefs({}).typeOrder).toEqual([])
+    const p = readPrefs({ sort: { type: 'name' }, typeOrder: ['b', 'a', 3] })
+    expect(p.sort.type).toBe('name')
+    expect(p.typeOrder).toEqual(['b', 'a'])
+    expect(readPrefs({ sort: { type: 'number' } }).sort.type).toBe('manual')
+  })
+})

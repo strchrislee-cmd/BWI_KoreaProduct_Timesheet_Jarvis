@@ -7,7 +7,7 @@ import { WEEKDAY_SHORT, isoWeek, slotToTime, weekDates } from '../../domain/time
 import { downloadWorkbook, loadExcel } from '../../lib/files'
 import { useAsync } from '../../lib/hooks'
 import { useT } from '../../lib/i18n'
-import { WORK_TYPE_GRAY } from '../../domain/workTypes'
+import { WORK_TYPE_GRAY, withPersonalColors } from '../../domain/workTypes'
 import { categoryColor, chipBg, rowBg } from './colors'
 import { displayName } from './projectUi'
 import { useTimesheets } from './TimesheetsLayout'
@@ -24,8 +24,9 @@ export function WeeklyPlanPage() {
 
   const q = useAsync(() => store.listSlots(engineer.id, dates[0], dates[6]), [store, engineer.id, dates[0]])
   const rows = useMemo(() => (q.data ? buildWeeklyPlan(q.data, projects, workTypes) : []), [q.data, projects, workTypes])
-  const workTypeById = useMemo(() => new Map(workTypes.map((w) => [w.id, w])), [workTypes])
   const { prefs } = useColorPrefs()
+  // Types in this user's own colours, as in the Daily Log
+  const workTypeById = useMemo(() => new Map(withPersonalColors(workTypes, prefs.categoryColors).map((w) => [w.id, w])), [workTypes, prefs.categoryColors])
   const byId = useMemo(() => new Map(projects.map((p) => [p.id, p])), [projects])
   /** Local Project as the Daily Log's Category column shows it, in the user's color for that category */
   const category = (r: WeeklyPlanRow) => {

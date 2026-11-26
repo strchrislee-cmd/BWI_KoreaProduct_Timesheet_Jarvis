@@ -80,7 +80,7 @@ describe('A7/A8 preferences and backgrounds', () => {
   it('reads preferences with safe defaults and clamps', () => {
     const p = readPrefs({})
     expect(p.grid).toEqual(DEFAULT_GRID)
-    expect(p.sort).toEqual({ category: 'manual', template: 'manual' })
+    expect(p.sort).toEqual({ category: 'manual', template: 'manual', type: 'manual' })
     expect(p.background).toEqual({ mode: 'gradient', seed: null, animate: true, speed: 'normal' })
     expect(p.notifications).toBe(false)
     const q = readPrefs({ grid: { timeWidth: 999, categoryWidth: 'x', rowHeight: 44 }, sort: { category: 'name' }, background: { mode: 'upload', seed: 7 }, categoryOrder: ['a', 1] })

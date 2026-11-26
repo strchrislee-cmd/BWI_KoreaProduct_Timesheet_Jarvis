@@ -31,7 +31,9 @@ export const FLOW_SPEEDS: { value: FlowSpeed; label: string }[] = [
 export interface Prefs extends ColorPrefs {
   /** Personal manual order of category keys (project ids, "nw:<label>"). */
   categoryOrder: string[]
-  sort: { category: SortMode; template: SortMode }
+  sort: { category: SortMode; template: SortMode; type: SortMode }
+  /** Personal manual order of Type ids (empty = the admin's order in Projects). */
+  typeOrder: string[]
   grid: GridPrefs
   notifications: boolean
   /** seed null = a new random gradient every day; animate = gradient flows like water */
@@ -87,7 +89,9 @@ export function readPrefs(preferences: Profile['preferences']): Prefs {
     sort: {
       category: isSortMode(sort.category) ? sort.category : 'manual',
       template: isSortMode(sort.template) ? sort.template : 'manual',
+      type: isSortMode(sort.type) && sort.type !== 'number' ? sort.type : 'manual',
     },
+    typeOrder: Array.isArray(p.typeOrder) ? p.typeOrder.filter((x): x is string => typeof x === 'string') : [],
     grid: {
       timeWidth: num(grid.timeWidth, ...GRID_LIMITS.timeWidth, DEFAULT_GRID.timeWidth),
       categoryWidth: num(grid.categoryWidth, ...GRID_LIMITS.categoryWidth, DEFAULT_GRID.categoryWidth),
