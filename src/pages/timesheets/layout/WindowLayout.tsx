@@ -61,7 +61,16 @@ export function useWindowLayout({
   const [near, setNear] = useState(false)
   const els = useRef(new Map<PanelId, HTMLElement>())
 
-  const cur = editing ? draft : saved
+  // Saving goes to the user's profile and comes back a moment later. Until it does, keep showing
+  // what was just arranged; otherwise the old layout flashes before the new one appears.
+  const [pending, setPending] = useState<LayoutPrefs | null>(null)
+  useEffect(() => setPending(null), [saved])
+  const shown = pending ?? saved
+  const cur = editing ? draft : shown
+  const commit = (next: LayoutPrefs) => {
+    setPending(next)
+    onSave(next)
+  }
   const update = (next: LayoutPrefs) => {
     draftRef.current = next
     setDraft(next)
@@ -77,7 +86,7 @@ export function useWindowLayout({
 
   /** Where the windows are now (saved rects, or measured from the default arrangement), on the grid. */
   function startingRects(): PanelRects {
-    if (saved.rects) return saved.rects
+    if (shown.rects) return shown.rects
     const box = page.current?.getBoundingClientRect()
     const width = page.current?.clientWidth ?? 1200
     const out = {} as PanelRects
@@ -98,7 +107,7 @@ export function useWindowLayout({
   }
 
   function enterEdit(): LayoutPrefs {
-    const next = { ...saved, rects: startingRects() }
+    const next = { ...shown, rects: startingRects() }
     update(next)
     setEditing(true)
     return next
@@ -181,7 +190,7 @@ export function useWindowLayout({
 
   return {
     enabled,
-    canvas: enabled && (editing || saved.rects !== null),
+    canvas: enabled && (editing || shown.rects !== null),
     editing,
     cur,
     rects: cur.rects,
@@ -193,18 +202,18 @@ export function useWindowLayout({
     startResize,
     beginEdit: () => enabled && !editing && enterEdit(),
     save: () => {
-      onSave(draftRef.current)
+      commit(draftRef.current)
       setEditing(false)
     },
     cancel: () => setEditing(false),
     reset: () => {
-      onSave({ ...DEFAULT_LAYOUT })
+      commit({ ...DEFAULT_LAYOUT })
       setEditing(false)
     },
     setMagnet: (on) => update({ ...draftRef.current, magnet: on }),
     setEdge: (id, on) => {
       if (editing) update({ ...draftRef.current, edge: { ...draftRef.current.edge, [id]: on } })
-      else onSave({ ...saved, edge: { ...saved.edge, [id]: on } })
+      else commit({ ...shown, edge: { ...shown.edge, [id]: on } })
     },
   }
 }

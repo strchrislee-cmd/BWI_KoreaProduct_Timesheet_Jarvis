@@ -197,7 +197,30 @@ const report = createReport({
   })
   await page.mouse.move(700, 60)
   await report.shot(page, { caption: '옮기고 크기를 바꾼 뒤(저장 전)', marks: [{ target: page.locator('[data-window="today"]'), n: c7, label: '크기 조절' }, { target: page.locator('[data-window="quick"]'), n: c7, label: '옮김' }] })
+  // record where the window is drawn on every frame right after 저장: the old place must never flash.
+  // Saving takes ~0.3 s over the network on the real site; the demo store waits as long here.
+  await page.evaluate(() => {
+    window.__TE_DEMO_LATENCY_MS = 300
+    window.__seen = []
+    const t0 = performance.now()
+    const tick = () => {
+      const el = document.querySelector('[data-window="quick"]')
+      if (el) window.__seen.push(`${el.offsetLeft},${el.offsetTop}`)
+      if (performance.now() - t0 < 800) requestAnimationFrame(tick)
+    }
+    requestAnimationFrame(tick)
+  })
   await toast.getByRole('button', { name: '저장' }).click()
+  await page.waitForTimeout(900)
+  const seen = [...new Set(await page.evaluate(() => window.__seen))]
+  await page.evaluate(() => delete window.__TE_DEMO_LATENCY_MS)
+  report.check({
+    name: '저장을 누르면 예전 배치가 번쩍이지 않고 바로 새 배치',
+    expected: `저장이 0.3초 걸려도, 저장 직후 0.8초 동안 매 프레임 빠른 등록 창 위치가 (${q1.x},${q1.y}) 하나뿐`,
+    actual: `보인 위치 ${seen.join(' / ')}`,
+    how: '프레임마다 offsetLeft,offsetTop 을 모아 서로 다른 값이 1개',
+    pass: seen.length === 1 && seen[0] === `${q1.x},${q1.y}`,
+  })
   await page.reload()
   await today.waitFor()
   const saved = { t: await rectOf('today'), q: await rectOf('quick') }

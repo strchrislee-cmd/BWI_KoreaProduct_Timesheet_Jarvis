@@ -161,6 +161,9 @@ export class LocalStore implements DataStore {
     return this.state.profiles.map((p) => ({ ...p })).sort((a, b) => a.name.localeCompare(b.name))
   }
   async updateProfile(id: string, patch: Partial<Profile>) {
+    // browser tests can make saving take as long as it does over the network (window.__TE_DEMO_LATENCY_MS)
+    const latency = (globalThis as { __TE_DEMO_LATENCY_MS?: number }).__TE_DEMO_LATENCY_MS
+    if (latency) await new Promise((r) => setTimeout(r, latency))
     this.mutate((s) => {
       const p = s.profiles.find((x) => x.id === id)
       if (!p) throw new Error('Profile not found')
