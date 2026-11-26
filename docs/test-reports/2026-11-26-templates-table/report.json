@@ -12,7 +12,7 @@
     "… 메뉴 맨 윗줄에 그 반복 업무의 Project · Type이 보인다."
   ],
   "date": "2026-11-26",
-  "commit": "26679be",
+  "commit": "873f7ac",
   "env": {
     "browser": "Chromium 157.0.8103.78",
     "viewport": "1440×900"

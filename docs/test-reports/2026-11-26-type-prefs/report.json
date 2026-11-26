@@ -10,7 +10,7 @@
     "… 메뉴에서 고른 색이 드롭다운과 표의 Type 칩, Weekly Result에 보이고, 관리자의 팀 색(Projects)은 그대로다."
   ],
   "date": "2026-11-26",
-  "commit": "26679be",
+  "commit": "873f7ac",
   "env": {
     "browser": "Chromium 157.0.8103.78",
     "viewport": "1440×760"
