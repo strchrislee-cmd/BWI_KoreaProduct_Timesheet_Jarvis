@@ -1,0 +1,251 @@
+{
+  "id": "templates-table",
+  "title": "반복 업무 표 · 칸 이름 Project/Type/Task · + 칸 줄",
+  "suite": "tests/e2e/batchN.e2e.cjs",
+  "request": "칸 이름을 Project / Type / Task로(한국어 프로젝트 / 유형 / 업무). 행 앞 + 옆에 세로 줄. 반복 업무 … 메뉴 맨 위에 Project · Type. 반복 업무를 표로, 오른쪽 도킹 창에, 번호는 1부터, 끌기와 No 더블클릭으로 순서 변경.",
+  "criteria": [
+    "표 머리글이 Time · Project · Type · Task · Content(한국어: 시간 · 프로젝트 · 유형 · 업무 · 업무내용).",
+    "+ 칸 오른쪽에 다른 칸 사이와 같은 세로 줄이 머리글부터 모든 행에 있다.",
+    "반복 업무는 No · Project · Type · Task 표로 보이고 No는 1부터.",
+    "행을 누르면 고른 칸에 그 반복 업무가 들어간다.",
+    "행을 끌거나 No를 더블클릭해 번호를 입력하면 그 자리로 옮겨지고, 새로 고쳐도 유지된다.",
+    "… 메뉴 맨 윗줄에 그 반복 업무의 Project · Type이 보인다.",
+    "반복 업무 창은 Today처럼 떼어 낼 수 있고 오른쪽에 다시 붙는다."
+  ],
+  "date": "2026-11-26",
+  "commit": "4b9cac1",
+  "env": {
+    "browser": "Chromium 157.0.8103.78",
+    "viewport": "1440×900"
+  },
+  "checks": [
+    {
+      "n": 1,
+      "name": "머리글: Project · Type · Task",
+      "expected": "Time|Project|Type|Task|Content",
+      "actual": "Time|Project|Type|Task|Content",
+      "how": "머리글 텍스트 === 'Time|Project|Type|Task|Content'",
+      "pass": true,
+      "shot": 1
+    },
+    {
+      "n": 2,
+      "name": "+ 칸 오른쪽 세로 줄(머리글과 모든 행)",
+      "expected": "19곳 모두 다른 칸 사이 줄과 같음 (1px dashed)",
+      "actual": "19곳 모두 '1px dashed'",
+      "how": "머리글·각 행의 + 칸 border-right === 다른 칸 border-left",
+      "pass": true,
+      "shot": 1
+    },
+    {
+      "n": 3,
+      "name": "반복 업무가 No · Project · Type · Task 표로, No는 1부터",
+      "expected": "머리글 No|Project|Type|Task, 1번 행 '1 · 회의… · 회의-INT · 주간 회의'(회의는 데모의 회의 프로젝트로 연결), No 1,2,3",
+      "actual": "머리글 No|Project|Type|Task, 1번 행 '1 · 회의(개발, 품질, Gemba walk, etc..) · 회의-INT · 주간 회의', No 1,2,3",
+      "how": "thead === 'No|Project|Type|Task' && row1 = ['1','회의…','회의-INT','주간 회의'] && No === 1,2,3",
+      "pass": true,
+      "shot": 2
+    },
+    {
+      "n": 4,
+      "name": "행을 누르면 고른 칸에 적용",
+      "expected": "12:00 행 '설계 · 개발-신규 · 도면 검토'",
+      "actual": "'설계 · 개발-신규 · 도면 검토'",
+      "how": "12:00 행 Project·Type·Task === 2번 반복 업무",
+      "pass": true,
+      "shot": 3
+    },
+    {
+      "n": 5,
+      "name": "행을 끌어 맨 위로",
+      "expected": "8D 보고 · 주간 회의 · 도면 검토",
+      "actual": "8D 보고 · 주간 회의 · 도면 검토",
+      "how": "Task 순서 === ['8D 보고','주간 회의','도면 검토']",
+      "pass": true,
+      "shot": 4
+    },
+    {
+      "n": 6,
+      "name": "No를 더블클릭해 1을 입력하면 1번으로",
+      "expected": "도면 검토 · 8D 보고 · 주간 회의",
+      "actual": "도면 검토 · 8D 보고 · 주간 회의",
+      "how": "Task 순서 === ['도면 검토','8D 보고','주간 회의']",
+      "pass": true,
+      "shot": 4
+    },
+    {
+      "n": 7,
+      "name": "새로 고쳐도 순서 유지",
+      "expected": "도면 검토 · 8D 보고 · 주간 회의",
+      "actual": "도면 검토 · 8D 보고 · 주간 회의",
+      "how": "새로 고친 뒤 Task 순서가 같음",
+      "pass": true,
+      "shot": null
+    },
+    {
+      "n": 8,
+      "name": "… 메뉴 맨 위에 Project · Type",
+      "expected": "'품질 · 지원-8D', 그 아래 이름 '8D 보고'",
+      "actual": "'품질 · 지원-8D', 이름 '8D 보고'",
+      "how": "option-context === '품질 · 지원-8D' && 이름 칸 === '8D 보고'",
+      "pass": true,
+      "shot": 5
+    },
+    {
+      "n": 9,
+      "name": "반복 업무 창을 떼어 내면 떠서 표를 보여 줌",
+      "expected": "처음 'true' → 'false', 표 3행",
+      "actual": "'true' → 'false', 표 3행",
+      "how": "docked 'true' → 'false' && 행 수 === 3",
+      "pass": true,
+      "shot": 6
+    },
+    {
+      "n": 10,
+      "name": "오른쪽 끝에 놓으면 다시 붙음",
+      "expected": "data-docked = 'true'",
+      "actual": "'true'",
+      "how": "panel.dataset.docked === 'true'",
+      "pass": true,
+      "shot": null
+    },
+    {
+      "n": 11,
+      "name": "한국어 이름: 프로젝트 · 유형 · 업무",
+      "expected": "머리글 시간|프로젝트|유형|업무|업무내용, 반복 업무 No|프로젝트|유형|업무",
+      "actual": "머리글 시간|프로젝트|유형|업무|업무내용, 반복 업무 No|프로젝트|유형|업무",
+      "how": "두 머리글 텍스트가 기대와 같음",
+      "pass": true,
+      "shot": 7
+    },
+    {
+      "n": 12,
+      "name": "휴대폰에는 반복 업무 창 없음(입력 창에서 고름)",
+      "expected": "창 안 보임",
+      "actual": "안 보임",
+      "how": "!templates-panel.isVisible()",
+      "pass": true,
+      "shot": null
+    },
+    {
+      "n": 13,
+      "name": "페이지 오류 없음",
+      "expected": "0건",
+      "actual": "0건",
+      "how": "pageerror 수 === 0",
+      "pass": true,
+      "shot": null
+    }
+  ],
+  "shots": [
+    {
+      "id": 1,
+      "file": "shot-01.jpg",
+      "width": 1440,
+      "height": 900,
+      "caption": "새 칸 이름, + 칸 줄, 반복 업무 표",
+      "marks": [
+        {
+          "n": 1,
+          "label": "Project · Type · Task"
+        },
+        {
+          "n": 2,
+          "label": "+ 칸 줄"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "file": "shot-02.jpg",
+      "width": 1440,
+      "height": 900,
+      "caption": "반복 업무 표(오른쪽 도킹 창)",
+      "marks": [
+        {
+          "n": 3,
+          "label": "No · Project · Type · Task"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "file": "shot-03.jpg",
+      "width": 1440,
+      "height": 900,
+      "caption": "2번 반복 업무를 12:00 행에 적용",
+      "marks": [
+        {
+          "n": 4,
+          "label": "적용됨"
+        },
+        {
+          "n": 4,
+          "label": "누른 행"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "file": "shot-04.jpg",
+      "width": 1440,
+      "height": 900,
+      "caption": "순서를 바꾼 뒤(새로 고침 후)",
+      "marks": [
+        {
+          "n": 6,
+          "label": "No 1"
+        },
+        {
+          "n": 5,
+          "label": "끌어 올린 행"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "file": "shot-05.jpg",
+      "width": 1440,
+      "height": 900,
+      "caption": "반복 업무 … 메뉴",
+      "marks": [
+        {
+          "n": 8,
+          "label": "Project · Type"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "file": "shot-06.jpg",
+      "width": 1440,
+      "height": 900,
+      "caption": "떼어 낸 반복 업무 창",
+      "marks": [
+        {
+          "n": 9,
+          "label": "떠 있는 창"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "file": "shot-07.jpg",
+      "width": 1440,
+      "height": 900,
+      "caption": "한국어 화면",
+      "marks": [
+        {
+          "n": 11,
+          "label": "프로젝트 · 유형 · 업무"
+        },
+        {
+          "n": 11,
+          "label": ""
+        }
+      ]
+    }
+  ],
+  "passed": 13,
+  "total": 13
+}

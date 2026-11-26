@@ -1,18 +1,18 @@
 {
   "id": "mid",
-  "title": "MID(중분류) · 행 + 버튼",
+  "title": "Type(유형) 칸 · 행 + 버튼",
   "suite": "tests/e2e/batchL.e2e.cjs",
   "request": "일의 종류를 나타내는 MID 카테고리를 대분류 다음 칸에 추가(선택 사항). 목록은 관리자가 관리하고, 엑셀 3칸 붙여넣기는 예전처럼, 반복 업무에 MID 포함, Weekly Result의 Work 열을 MID로. 시간 앞 + 버튼으로 그 행(업무내용 제외)을 반복 업무로 추가.",
   "criteria": [
-    "Daily Log 머리글이 Time · Category · MID · Sub Category · Content 순서이고 표가 카드 밖으로 넘치지 않는다.",
-    "MID 드롭다운에 관리자 목록 12개가 순서대로 나오고, 입력으로 골라진다.",
-    "엑셀 2~3칸은 예전처럼(대분류·업무분류·업무내용), 둘째 칸이 MID 이름이거나 4칸이면 MID 포함, Daily Log 안 복사는 칸 순서 그대로. 목록에 없는 이름은 무시.",
-    "+ 버튼은 대분류·MID·업무분류를 반복 업무로 저장하고 중복을 만들지 않으며, 적용하면 업무내용은 그대로 둔다.",
-    "Weekly Result의 Work 열은 MID, 없으면 회의/기타.",
-    "관리자는 MID를 추가·이름 변경·순서 변경·삭제(쓰였으면 숨김)·되돌리기할 수 있고, L1은 읽기만 한다. 한국어 화면 머리글은 중분류."
+    "Daily Log 머리글이 Time · Project · Type · Task · Content 순서이고 표가 카드 밖으로 넘치지 않는다.",
+    "Type 드롭다운에 관리자 목록 12개가 순서대로 나오고, 입력으로 골라진다.",
+    "엑셀 2~3칸은 예전처럼(Project·Task·업무내용), 둘째 칸이 Type 이름이거나 4칸이면 Type 포함, Daily Log 안 복사는 칸 순서 그대로. 목록에 없는 이름은 무시.",
+    "+ 버튼은 Project·Type·Task를 반복 업무로 저장하고 중복을 만들지 않으며, 적용하면 업무내용은 그대로 둔다.",
+    "Weekly Result의 Work 열은 Type, 없으면 회의/기타.",
+    "관리자는 Type를 추가·이름 변경·순서 변경·삭제(쓰였으면 숨김)·되돌리기할 수 있고, L1은 읽기만 한다. 한국어 화면 머리글은 유형."
   ],
   "date": "2026-11-26",
-  "commit": "cfb2ba9",
+  "commit": "4b9cac1",
   "env": {
     "browser": "Chromium 157.0.8103.78",
     "viewport": "1440×900"
@@ -20,10 +20,10 @@
   "checks": [
     {
       "n": 1,
-      "name": "MID 칸이 대분류 바로 다음",
-      "expected": "Time|Category|MID|Sub Category|Content",
-      "actual": "Time|Category|MID|Sub Category|Content",
-      "how": "머리글 텍스트 === 'Time|Category|MID|Sub Category|Content'",
+      "name": "Type 칸이 Project 바로 다음",
+      "expected": "Time|Project|Type|Task|Content",
+      "actual": "Time|Project|Type|Task|Content",
+      "how": "머리글 텍스트 === 'Time|Project|Type|Task|Content'",
       "pass": true,
       "shot": 1
     },
@@ -38,7 +38,7 @@
     },
     {
       "n": 3,
-      "name": "MID 드롭다운에 관리자 목록 12개가 순서대로",
+      "name": "Type 드롭다운에 관리자 목록 12개가 순서대로",
       "expected": "12개, 첫 항목 개발-신규, 마지막 일반-이메일 및 일반업무",
       "actual": "12개, 개발-신규 … 일반-이메일 및 일반업무",
       "how": "options.length === 12 && 첫 항목·마지막 항목 이름 비교",
@@ -50,33 +50,33 @@
       "name": "\"int\" 입력 + Enter로 회의-INT 선택",
       "expected": "회의-INT",
       "actual": "회의-INT",
-      "how": "09:00 MID 칸 텍스트 === '회의-INT'",
+      "how": "09:00 Type 칸 텍스트 === '회의-INT'",
       "pass": true,
       "shot": 2
     },
     {
       "n": 5,
-      "name": "엑셀 3칸(대분류·업무분류·업무내용)은 예전처럼",
-      "expected": "MID 빈칸, 업무분류 'INT | Daily_Scrum', 업무내용 '회의록'",
-      "actual": "MID '', 업무분류 'INT | Daily_Scrum', 업무내용 '회의록'",
+      "name": "엑셀 3칸(Project·Task·업무내용)은 예전처럼",
+      "expected": "Type 빈칸, Task 'INT | Daily_Scrum', 업무내용 '회의록'",
+      "actual": "Type '', Task 'INT | Daily_Scrum', 업무내용 '회의록'",
       "how": "mid === '' && task === 'INT | Daily_Scrum' && details === '회의록'",
       "pass": true,
       "shot": 2
     },
     {
       "n": 6,
-      "name": "둘째 칸이 MID 이름인 3칸은 MID 포함 순서대로",
-      "expected": "MID '지원-8D', 업무분류 '8D 보고'",
-      "actual": "MID '지원-8D', 업무분류 '8D 보고'",
+      "name": "둘째 칸이 Type 이름인 3칸은 Type 포함 순서대로",
+      "expected": "Type '지원-8D', Task '8D 보고'",
+      "actual": "Type '지원-8D', Task '8D 보고'",
       "how": "mid === '지원-8D' && task === '8D 보고'",
       "pass": true,
       "shot": 2
     },
     {
       "n": 7,
-      "name": "4칸은 대분류·MID·업무분류·업무내용",
-      "expected": "MID '개발-신규', 업무내용 '도면 검토'",
-      "actual": "MID '개발-신규', 업무내용 '도면 검토'",
+      "name": "4칸은 Project·Type·Task·업무내용",
+      "expected": "Type '개발-신규', 업무내용 '도면 검토'",
+      "actual": "Type '개발-신규', 업무내용 '도면 검토'",
       "how": "mid === '개발-신규' && details === '도면 검토'",
       "pass": true,
       "shot": 2
@@ -84,17 +84,17 @@
     {
       "n": 8,
       "name": "목록에 없는 이름은 무시",
-      "expected": "MID 빈칸",
+      "expected": "Type 빈칸",
       "actual": "''",
-      "how": "10:30 MID 칸 === ''",
+      "how": "10:30 Type 칸 === ''",
       "pass": true,
       "shot": 2
     },
     {
       "n": 9,
-      "name": "Daily Log 안에서 복사·붙여넣기하면 MID까지 같은 칸으로",
-      "expected": "11:30 행 MID '개발-신규', 업무내용 '도면 검토'",
-      "actual": "MID '개발-신규', 업무내용 '도면 검토'",
+      "name": "Daily Log 안에서 복사·붙여넣기하면 Type까지 같은 칸으로",
+      "expected": "11:30 행 Type '개발-신규', 업무내용 '도면 검토'",
+      "actual": "Type '개발-신규', 업무내용 '도면 검토'",
       "how": "row23.mid === '개발-신규' && row23.details === '도면 검토'",
       "pass": true,
       "shot": 2
@@ -102,9 +102,9 @@
     {
       "n": 10,
       "name": "+ 를 누르면 그 행이 반복 업무에 추가",
-      "expected": "반복 업무 칩 '8D 보고'",
+      "expected": "반복 업무 표에 '8D 보고'",
       "actual": "1개",
-      "how": "templates 안 '8D 보고' 칩 수 === 1",
+      "how": "반복 업무 표 안 '8D 보고' 수 === 1",
       "pass": true,
       "shot": 3
     },
@@ -128,16 +128,16 @@
     },
     {
       "n": 13,
-      "name": "반복 업무 적용: 대분류·MID·업무분류는 채우고 업무내용은 그대로",
-      "expected": "MID '지원-8D', 업무분류 '8D 보고', 업무내용 '남길 내용'",
-      "actual": "MID '지원-8D', 업무분류 '8D 보고', 업무내용 '남길 내용'",
+      "name": "반복 업무 적용: Project·Type·Task는 채우고 업무내용은 그대로",
+      "expected": "Type '지원-8D', Task '8D 보고', 업무내용 '남길 내용'",
+      "actual": "Type '지원-8D', Task '8D 보고', 업무내용 '남길 내용'",
       "how": "mid === '지원-8D' && task === '8D 보고' && details === '남길 내용'",
       "pass": true,
       "shot": 4
     },
     {
       "n": 14,
-      "name": "Weekly Result의 Work 열: MID, 없으면 회의",
+      "name": "Weekly Result의 Work 열: Type, 없으면 회의",
       "expected": "회의-INT, 지원-8D, 개발-신규, 회의 포함",
       "actual": "회의-INT, 회의, 지원-8D, 개발-신규, 개발-신규, 지원-8D, 기타",
       "how": "work 에 '회의-INT','지원-8D','개발-신규','회의' 모두 포함",
@@ -146,7 +146,7 @@
     },
     {
       "n": 15,
-      "name": "MID Work 값은 색 칩",
+      "name": "Type Work 값은 색 칩",
       "expected": "3개 이상",
       "actual": "5개",
       "how": "[data-testid=work-mid] 수 >= 3",
@@ -155,8 +155,8 @@
     },
     {
       "n": 16,
-      "name": "관리자 MID 추가, 같은 이름(띄어쓰기만 다름)은 거절",
-      "expected": "추가됨 / '이미 있는 MID입니다'",
+      "name": "관리자 Type 추가, 같은 이름(띄어쓰기만 다름)은 거절",
+      "expected": "추가됨 / '이미 있는 유형입니다'",
       "actual": "추가됨 / 거절 안내 표시",
       "how": "목록에 '개발-원가절감' 있음 && 오류 문구 표시",
       "pass": true,
@@ -173,7 +173,7 @@
     },
     {
       "n": 18,
-      "name": "안 쓰인 MID는 삭제, 쓰인 MID는 숨김",
+      "name": "안 쓰인 Type는 삭제, 쓰인 Type는 숨김",
       "expected": "'삭제했습니다' / '숨겼습니다'",
       "actual": "두 안내 모두 표시",
       "how": "삭제·숨김 안내 문구 확인",
@@ -182,7 +182,7 @@
     },
     {
       "n": 19,
-      "name": "숨긴 MID는 예전 행에 그대로 보이고 드롭다운에서는 빠짐",
+      "name": "숨긴 Type는 예전 행에 그대로 보이고 드롭다운에서는 빠짐",
       "expected": "10:00 행 지원-8D 유지, 드롭다운에 없음",
       "actual": "행 유지, 드롭다운 없음",
       "how": "!options.includes('지원-8D')",
@@ -191,7 +191,7 @@
     },
     {
       "n": 20,
-      "name": "숨긴 MID 되돌리기",
+      "name": "숨긴 Type 되돌리기",
       "expected": "'되돌렸습니다: 지원-8D'",
       "actual": "안내 표시",
       "how": "되돌리기 안내 문구 확인",
@@ -200,7 +200,7 @@
     },
     {
       "n": 21,
-      "name": "L1은 MID 목록을 읽기만",
+      "name": "L1은 Type 목록을 읽기만",
       "expected": "추가 칸·삭제 버튼 없음, 관리자 설정 안내",
       "actual": "추가 칸 0개, 삭제 버튼 0개",
       "how": "add === 0 && remove === 0",
@@ -210,9 +210,9 @@
     {
       "n": 22,
       "name": "한국어 화면 머리글",
-      "expected": "시간|대분류|중분류|업무분류|업무내용",
-      "actual": "시간|대분류|중분류|업무분류|업무내용",
-      "how": "머리글 === '시간|대분류|중분류|업무분류|업무내용'",
+      "expected": "시간|프로젝트|유형|업무|업무내용",
+      "actual": "시간|프로젝트|유형|업무|업무내용",
+      "how": "머리글 === '시간|프로젝트|유형|업무|업무내용'",
       "pass": true,
       "shot": 10
     },
@@ -232,11 +232,11 @@
       "file": "shot-01.jpg",
       "width": 1440,
       "height": 900,
-      "caption": "MID 칸을 열었을 때의 드롭다운",
+      "caption": "Type 칸을 열었을 때의 드롭다운",
       "marks": [
         {
           "n": 1,
-          "label": "대분류 다음 칸"
+          "label": "Project 다음 칸"
         },
         {
           "n": 3,
@@ -316,7 +316,7 @@
       "marks": [
         {
           "n": 14,
-          "label": "Work = MID"
+          "label": "Work = Type"
         }
       ]
     },
@@ -325,7 +325,7 @@
       "file": "shot-06.jpg",
       "width": 1440,
       "height": 900,
-      "caption": "Projects → MID 카드: 추가와 중복 거절 (관리자)",
+      "caption": "Projects → Type 카드: 추가와 중복 거절 (관리자)",
       "marks": [
         {
           "n": 16,
@@ -342,7 +342,7 @@
       "file": "shot-07.jpg",
       "width": 1440,
       "height": 900,
-      "caption": "Projects → MID 카드: 이름 변경과 순서 변경",
+      "caption": "Projects → Type 카드: 이름 변경과 순서 변경",
       "marks": [
         {
           "n": 17,
@@ -355,7 +355,7 @@
       "file": "shot-08.jpg",
       "width": 1440,
       "height": 900,
-      "caption": "숨긴 MID(지원-8D): 예전 행에는 남고 새로 고를 때는 없음",
+      "caption": "숨긴 Type(지원-8D): 예전 행에는 남고 새로 고를 때는 없음",
       "marks": [
         {
           "n": 19,
@@ -372,7 +372,7 @@
       "file": "shot-09.jpg",
       "width": 1440,
       "height": 900,
-      "caption": "L1으로 본 MID 카드",
+      "caption": "L1으로 본 Type 카드",
       "marks": [
         {
           "n": 21,
@@ -389,7 +389,7 @@
       "marks": [
         {
           "n": 22,
-          "label": "중분류"
+          "label": "유형"
         }
       ]
     }

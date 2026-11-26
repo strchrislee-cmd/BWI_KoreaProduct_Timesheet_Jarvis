@@ -12,7 +12,7 @@
     "휴대폰은 하단 탭 바를 쓰고 Dock이 없다."
   ],
   "date": "2026-11-26",
-  "commit": "cfb2ba9",
+  "commit": "4b9cac1",
   "env": {
     "browser": "Chromium 157.0.8103.78",
     "viewport": "1440×900 (휴대폰 390×844)"
@@ -56,6 +56,15 @@
     },
     {
       "n": 5,
+      "name": "커진 아이콘이 옆 아이콘을 가리지 않음",
+      "expected": "아이콘끼리 겹침 0px 이하, Dock 높이 그대로",
+      "actual": "겹침 최대 -6px, Dock 높이 74 → 74px",
+      "how": "앞 아이콘 right − 다음 아이콘 left ≤ 0 && |높이 차| ≤ 1",
+      "pass": true,
+      "shot": null
+    },
+    {
+      "n": 6,
       "name": "Home · Timesheets · Admin · Settings, 앱 이름과 사용자",
       "expected": "아이콘 4개 + TeamEmbedded",
       "actual": "아이콘 4개 + TeamEmbedded",
@@ -64,7 +73,7 @@
       "shot": null
     },
     {
-      "n": 6,
+      "n": 7,
       "name": "아이콘을 누르면 이동",
       "expected": "/settings",
       "actual": "/settings",
@@ -73,7 +82,7 @@
       "shot": null
     },
     {
-      "n": 7,
+      "n": 8,
       "name": "마우스가 멀어지면 다시 숨음",
       "expected": "data-shown = 'false'",
       "actual": "'false'",
@@ -82,7 +91,16 @@
       "shot": null
     },
     {
-      "n": 8,
+      "n": 9,
+      "name": "마우스가 화면 아래로 빠져나가도 숨음",
+      "expected": "아래 끝에서 나타난 뒤 창 밖으로 나가면 data-shown = 'false'",
+      "actual": "'false'",
+      "how": "창 밖으로 이동 후 3초 안에 dock.dataset.shown === 'false'",
+      "pass": true,
+      "shot": null
+    },
+    {
+      "n": 10,
       "name": "Today는 처음에 오른쪽 열에 붙어 있음",
       "expected": "data-docked = 'true'",
       "actual": "'true'",
@@ -91,7 +109,7 @@
       "shot": null
     },
     {
-      "n": 9,
+      "n": 11,
       "name": "끄는 동안 원래 자리가 점선 윤곽으로",
       "expected": "점선 자리 표시, data-near = 'false'",
       "actual": "data-near = 'false'",
@@ -100,7 +118,7 @@
       "shot": 3
     },
     {
-      "n": 10,
+      "n": 12,
       "name": "가운데에 놓으면 놓은 자리에 떠 있음",
       "expected": "x ≈ 539, y ≈ 269 (잡은 지점 그대로)",
       "actual": "x = 539, y = 269, docked = false",
@@ -109,7 +127,7 @@
       "shot": 4
     },
     {
-      "n": 11,
+      "n": 13,
       "name": "떠 있어도 오늘 합계를 보여 줌",
       "expected": "today-total 1개",
       "actual": "1개",
@@ -118,7 +136,7 @@
       "shot": null
     },
     {
-      "n": 12,
+      "n": 14,
       "name": "새로 고쳐도 같은 자리에 떠 있음",
       "expected": "x = 539",
       "actual": "x = 539, docked = false",
@@ -127,7 +145,7 @@
       "shot": null
     },
     {
-      "n": 13,
+      "n": 15,
       "name": "오른쪽 끝 근처로 끌면 원래 자리가 강조됨(자석)",
       "expected": "data-near = 'true'",
       "actual": "'true'",
@@ -136,7 +154,7 @@
       "shot": 5
     },
     {
-      "n": 14,
+      "n": 16,
       "name": "거기서 놓으면 다시 붙음",
       "expected": "data-docked = 'true'",
       "actual": "'true'",
@@ -145,7 +163,7 @@
       "shot": 6
     },
     {
-      "n": 15,
+      "n": 17,
       "name": "붙이기 버튼으로도 붙음",
       "expected": "data-docked = 'true'",
       "actual": "'true'",
@@ -154,7 +172,7 @@
       "shot": null
     },
     {
-      "n": 16,
+      "n": 18,
       "name": "휴대폰은 하단 탭 바, Dock 없음",
       "expected": "탭 바 보임, Dock 안 보임",
       "actual": "탭 바 보임, Dock 안 보임",
@@ -163,7 +181,7 @@
       "shot": 7
     },
     {
-      "n": 17,
+      "n": 19,
       "name": "페이지 오류 없음",
       "expected": "0건",
       "actual": "0건",
@@ -215,11 +233,11 @@
       "caption": "Today 카드를 끌어 내는 중",
       "marks": [
         {
-          "n": 9,
+          "n": 11,
           "label": "원래 자리"
         },
         {
-          "n": 9,
+          "n": 11,
           "label": "끄는 창"
         }
       ]
@@ -232,11 +250,11 @@
       "caption": "Today 창이 표 위에 떠 있음",
       "marks": [
         {
-          "n": 10,
+          "n": 12,
           "label": "떠 있는 창"
         },
         {
-          "n": 10,
+          "n": 12,
           "label": "붙이기 버튼"
         }
       ]
@@ -249,7 +267,7 @@
       "caption": "오른쪽 끝으로 끄는 중: 원래 자리가 강조됨",
       "marks": [
         {
-          "n": 13,
+          "n": 15,
           "label": "여기에 붙음"
         }
       ]
@@ -262,7 +280,7 @@
       "caption": "다시 오른쪽 열에 붙은 Today",
       "marks": [
         {
-          "n": 14,
+          "n": 16,
           "label": "붙음"
         }
       ]
@@ -275,12 +293,12 @@
       "caption": "휴대폰(390×844)",
       "marks": [
         {
-          "n": 16,
+          "n": 18,
           "label": "탭 바"
         }
       ]
     }
   ],
-  "passed": 17,
-  "total": 17
+  "passed": 19,
+  "total": 19
 }
