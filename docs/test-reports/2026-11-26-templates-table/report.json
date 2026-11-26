@@ -2,18 +2,18 @@
   "id": "templates-table",
   "title": "반복 업무 표 · 칸 이름 Project/Type/Task · + 칸 줄",
   "suite": "tests/e2e/batchN.e2e.cjs",
-  "request": "칸 이름을 Project / Type / Task로(한국어 프로젝트 / 유형 / 업무). 행 앞 + 옆에 세로 줄. 반복 업무 … 메뉴 맨 위에 Project · Type. 반복 업무를 표로, 오른쪽 도킹 창에, 번호는 1부터, 끌기와 No 더블클릭으로 순서 변경.",
+  "request": "칸 이름을 Project / Type / Task로(한국어 프로젝트 / 유형 / 업무). 행 앞 + 옆에 세로 줄. 반복 업무 … 메뉴 맨 위에 Project · Type. 반복 업무를 표로, 오른쪽 도킹 창에, 번호는 1부터, 끌기와 No 더블클릭으로 순서 변경. (추가 요청) 표에는 No와 Task만, Project · Type은 … 메뉴에서만.",
   "criteria": [
     "표 머리글이 Time · Project · Type · Task · Content(한국어: 시간 · 프로젝트 · 유형 · 업무 · 업무내용).",
     "+ 칸 오른쪽에 다른 칸 사이와 같은 세로 줄이 머리글부터 모든 행에 있다.",
-    "반복 업무는 No · Project · Type · Task 표로 보이고 No는 1부터.",
+    "반복 업무는 No · Task 두 칸 표로 간단히 보이고(Project · Type은 … 메뉴에서) No는 1부터.",
     "행을 누르면 고른 칸에 그 반복 업무가 들어간다.",
     "행을 끌거나 No를 더블클릭해 번호를 입력하면 그 자리로 옮겨지고, 새로 고쳐도 유지된다.",
     "… 메뉴 맨 윗줄에 그 반복 업무의 Project · Type이 보인다.",
     "반복 업무 창은 Today처럼 떼어 낼 수 있고 오른쪽에 다시 붙는다."
   ],
   "date": "2026-11-26",
-  "commit": "4b9cac1",
+  "commit": "38149d5",
   "env": {
     "browser": "Chromium 157.0.8103.78",
     "viewport": "1440×900"
@@ -39,10 +39,10 @@
     },
     {
       "n": 3,
-      "name": "반복 업무가 No · Project · Type · Task 표로, No는 1부터",
-      "expected": "머리글 No|Project|Type|Task, 1번 행 '1 · 회의… · 회의-INT · 주간 회의'(회의는 데모의 회의 프로젝트로 연결), No 1,2,3",
-      "actual": "머리글 No|Project|Type|Task, 1번 행 '1 · 회의(개발, 품질, Gemba walk, etc..) · 회의-INT · 주간 회의', No 1,2,3",
-      "how": "thead === 'No|Project|Type|Task' && row1 = ['1','회의…','회의-INT','주간 회의'] && No === 1,2,3",
+      "name": "반복 업무가 No · Task 두 칸 표로, No는 1부터",
+      "expected": "머리글 No|Task, 1번 행 '1 · 주간 회의', No 1,2,3",
+      "actual": "머리글 No|Task, 1번 행 '1 · 주간 회의', No 1,2,3",
+      "how": "thead === 'No|Task' && row1 = ['1','주간 회의'] && No === 1,2,3",
       "pass": true,
       "shot": 2
     },
@@ -112,8 +112,8 @@
     {
       "n": 11,
       "name": "한국어 이름: 프로젝트 · 유형 · 업무",
-      "expected": "머리글 시간|프로젝트|유형|업무|업무내용, 반복 업무 No|프로젝트|유형|업무",
-      "actual": "머리글 시간|프로젝트|유형|업무|업무내용, 반복 업무 No|프로젝트|유형|업무",
+      "expected": "머리글 시간|프로젝트|유형|업무|업무내용, 반복 업무 No|업무",
+      "actual": "머리글 시간|프로젝트|유형|업무|업무내용, 반복 업무 No|업무",
       "how": "두 머리글 텍스트가 기대와 같음",
       "pass": true,
       "shot": 7
@@ -164,7 +164,7 @@
       "marks": [
         {
           "n": 3,
-          "label": "No · Project · Type · Task"
+          "label": "No · Task"
         }
       ]
     },
