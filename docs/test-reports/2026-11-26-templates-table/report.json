@@ -12,7 +12,7 @@
     "… 메뉴 맨 윗줄에 그 반복 업무의 Project · Type이 보인다."
   ],
   "date": "2026-11-26",
-  "commit": "06e28ce",
+  "commit": "4f827fa",
   "env": {
     "browser": "Chromium 157.0.8103.78",
     "viewport": "1440×900"
@@ -141,7 +141,7 @@
       "file": "shot-02.jpg",
       "width": 1440,
       "height": 900,
-      "caption": "업무 빠른 등록 표(오른쪽 열)",
+      "caption": "빠른 등록 표(오른쪽 열)",
       "marks": [
         {
           "n": 3,

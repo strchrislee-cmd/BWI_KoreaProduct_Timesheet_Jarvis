@@ -1,21 +1,22 @@
 {
   "id": "layout",
-  "title": "창 배치 편집 · 오른쪽 Dock · Today 그래프 · 자동 줄바꿈 · 업무 빠른 등록",
+  "title": "창 배치 편집 · 오른쪽 Dock · Today 그래프 · 자동 줄바꿈 · 빠른 등록",
   "suite": "tests/e2e/batchO.e2e.cjs",
-  "request": "Task 없이 저장하면 (내용 없음) 또는 확인. 반복 업무 → 업무 빠른 등록. 자동 줄바꿈 체크박스. 30-min Log · Today · 반복 업무 창의 크기·위치 조절(점 그리드, 아이폰처럼 흔들흔들, 저장/취소/기본 설정 토스트, 사용자마다 저장). Today 도넛 그래프. Today · 반복 업무를 아래 Dock처럼 오른쪽으로 숨기는 기능과 자석 체크박스.",
+  "request": "Task 없이 저장하면 (내용 없음) 또는 확인. 반복 업무 → 빠른 등록. 자동 줄바꿈 체크박스. 30-min Log · Today · 반복 업무 창의 크기·위치 조절(점 그리드, 아이폰처럼 흔들흔들, 저장/취소/기본 설정 토스트, 사용자마다 저장). Today 도넛 그래프. Today · 반복 업무를 아래 Dock처럼 오른쪽으로 숨기는 기능과 자석 체크박스.",
   "criteria": [
     "Task가 빈 행을 저장하려 하면 확인을 묻고, 저장하면 표에 (내용 없음)으로 보인다(프로젝트 이름이 아니라).",
-    "창 이름은 업무 빠른 등록.",
+    "창 이름은 빠른 등록(영문 화면은 Quick add).",
     "자동 줄바꿈을 끄면 긴 글이 한 줄로 줄고(행 높이 그대로) 마우스를 올리면 전체 글. 설정은 사람마다 저장.",
     "Today 그래프 보기: 도넛, 가운데 합계, 항목별 %. 마우스를 올린 항목의 %가 가운데에. 보기 선택은 저장.",
     "배치 편집(버튼 또는 제목줄 끌기): 점 그리드, 창이 흔들림, 옮기기·크기 조절이 그리드에 맞춰짐, 아래 토스트에 저장 / 취소 / 기본 설정으로.",
     "저장한 배치는 새로 고쳐도 그대로, 취소는 되돌림, 기본 설정으로는 처음 배치.",
-    "자석 켬: Today · 업무 빠른 등록을 오른쪽 끝에 놓으면 오른쪽 Dock으로. 자석 끔: 붙지 않음. 버튼으로도 넣고 꺼냄.",
+    "자석 켬: Today · 빠른 등록을 오른쪽 끝에 놓으면 오른쪽 Dock으로. 자석 끔: 붙지 않음. 버튼으로도 넣고 꺼냄.",
     "오른쪽 Dock은 평소 숨고, 마우스가 오른쪽 끝에 오면 나타나며, 멀어지면 다시 숨는다.",
-    "휴대폰은 배치 편집 없이 고정 배치."
+    "휴대폰은 배치 편집 없이 고정 배치.",
+    "(추가) 저장 물음은 맨 아래 작은 한 줄(편집 중에는 아래 Dock이 숨음). Today 창을 넓히면 왼쪽에 그래프, 오른쪽에 시간. 좁은 창의 긴 이름은 앞 10글자 정도 + …(마우스를 올리면 전체)."
   ],
   "date": "2026-11-26",
-  "commit": "06e28ce",
+  "commit": "4f827fa",
   "env": {
     "browser": "Chromium 157.0.8103.78",
     "viewport": "1440×900 (휴대폰 390×844)"
@@ -23,10 +24,10 @@
   "checks": [
     {
       "n": 1,
-      "name": "창 이름: 업무 빠른 등록",
-      "expected": "제목 '업무 빠른 등록'",
-      "actual": "'업무 빠른 등록'",
-      "how": "templates-panel h2 === '업무 빠른 등록'",
+      "name": "창 이름: Quick add (한국어 화면은 빠른 등록)",
+      "expected": "영문 화면 제목 'Quick add'",
+      "actual": "'Quick add'",
+      "how": "templates-panel h2 === 'Quick add'",
       "pass": true,
       "shot": 1
     },
@@ -50,15 +51,24 @@
     },
     {
       "n": 4,
-      "name": "Today 그래프: 도넛, 가운데 합계, 항목별 %, 올린 항목의 %",
-      "expected": "조각 3개, % 합 ≈ 100, 가운데 2h 00m, 올리면 가운데에 그 항목 %",
-      "actual": "조각 3개, % 50+25+25 = 100, 가운데 '2h 00m 오늘 기록', 올렸을 때 '50% ⚠ 품질'",
-      "how": "slices === 3 && |합 − 100| ≤ 2 && center 에 2h 00m && hover 시 %",
+      "name": "좁은 창의 긴 이름: 앞 10글자 정도 + …, 마우스를 올리면 전체",
+      "expected": "긴 프로젝트 이름이 잘리고(…) 폭 ≤ 10글자(약 140px), title에 전체 이름",
+      "actual": "'회의(개발, 품질, Gemba walk, etc..)' 잘림, 폭 140px, title 전체 이름",
+      "how": "scrollWidth > clientWidth && clientWidth ≤ 10em && title === 전체 이름",
       "pass": true,
       "shot": 3
     },
     {
       "n": 5,
+      "name": "Today 그래프: 도넛, 가운데 합계, 항목별 %, 올린 항목의 %",
+      "expected": "조각 3개, % 합 ≈ 100, 가운데 2h 00m, 올리면 가운데에 그 항목 %",
+      "actual": "조각 3개, % 50+25+25 = 100, 가운데 '2h 00m 오늘 기록', 올렸을 때 '50% ⚠ 품질'",
+      "how": "slices === 3 && |합 − 100| ≤ 2 && center 에 2h 00m && hover 시 %",
+      "pass": true,
+      "shot": 4
+    },
+    {
+      "n": 6,
       "name": "그래프 보기 선택은 저장됨",
       "expected": "새로 고쳐도 도넛",
       "actual": "도넛",
@@ -67,34 +77,43 @@
       "shot": null
     },
     {
-      "n": 6,
+      "n": 7,
       "name": "배치 편집: 점 그리드, 창 3개가 흔들림, 저장 토스트",
       "expected": "점 그리드 있음, data-jiggle 3개, 토스트 '배치를 저장하겠습니까?' + 저장/취소/기본 설정으로",
       "actual": "점 그리드 1개, 흔들림 3개, 버튼 기본 설정으로/취소/저장",
       "how": "dot-grid === 1 && jiggle === 3 && 토스트 버튼 3개",
       "pass": true,
-      "shot": 4
-    },
-    {
-      "n": 7,
-      "name": "크기 조절과 옮기기가 점 간격(24px)에 맞춰짐",
-      "expected": "Today 폭 줄고 높이 늘어남, 업무 빠른 등록 왼쪽 아래로 이동, 모든 값이 24의 배수",
-      "actual": "Today 336×312 → 288×408, 업무 빠른 등록 (1080,336) → (576,576)",
-      "how": "t1.w < t0.w && t1.h > t0.h && q1.x < q0.x && q1.y > q0.y && 값 % 24 === 0",
-      "pass": true,
       "shot": 5
     },
     {
       "n": 8,
-      "name": "저장한 배치는 새로 고쳐도 그대로, 흔들림 멈춤",
-      "expected": "Today 288×408, 업무 빠른 등록 (576,576), 흔들림 0",
-      "actual": "Today 288×408, 업무 빠른 등록 (576,576), 흔들림 0",
-      "how": "새로 고친 뒤 rect 가 저장 전과 같음 && data-jiggle=true 0개",
+      "name": "저장 물음은 맨 아래 작은 한 줄, 아래 Dock은 숨음",
+      "expected": "높이 ≤ 44px, 화면 아래에서 16px 안, Dock 숨김",
+      "actual": "높이 36px, 아래 여백 8px, Dock 숨김",
+      "how": "bar.height ≤ 44 && 900 − bottom ≤ 16 && dock visibility hidden",
       "pass": true,
       "shot": null
     },
     {
       "n": 9,
+      "name": "크기 조절과 옮기기가 점 간격(24px)에 맞춰짐",
+      "expected": "Today 폭 줄고 높이 늘어남, 빠른 등록 왼쪽 아래로 이동, 모든 값이 24의 배수",
+      "actual": "Today 336×312 → 288×408, 빠른 등록 (1080,336) → (576,576)",
+      "how": "t1.w < t0.w && t1.h > t0.h && q1.x < q0.x && q1.y > q0.y && 값 % 24 === 0",
+      "pass": true,
+      "shot": 6
+    },
+    {
+      "n": 10,
+      "name": "저장한 배치는 새로 고쳐도 그대로, 흔들림 멈춤",
+      "expected": "Today 288×408, 빠른 등록 (576,576), 흔들림 0",
+      "actual": "Today 288×408, 빠른 등록 (576,576), 흔들림 0",
+      "how": "새로 고친 뒤 rect 가 저장 전과 같음 && data-jiggle=true 0개",
+      "pass": true,
+      "shot": null
+    },
+    {
+      "n": 11,
       "name": "제목줄을 끌어도 편집 시작, 취소하면 되돌아감",
       "expected": "토스트 나타남, 옮긴 x ≠ 1080, 취소 후 x = 1080",
       "actual": "토스트 나타남, 옮긴 x 792, 취소 후 x 1080",
@@ -103,16 +122,16 @@
       "shot": null
     },
     {
-      "n": 10,
+      "n": 12,
       "name": "자석 켬: 오른쪽 끝으로 끌면 오른쪽이 강조됨",
       "expected": "'오른쪽 Dock' 강조 1개",
       "actual": "1개",
       "how": "edge-drop-hint count === 1",
       "pass": true,
-      "shot": 6
+      "shot": 7
     },
     {
-      "n": 11,
+      "n": 13,
       "name": "놓으면 Today가 오른쪽 Dock으로",
       "expected": "Today가 오른쪽 Dock 안에(페이지에는 없음)",
       "actual": "오른쪽 Dock 안",
@@ -121,16 +140,16 @@
       "shot": null
     },
     {
-      "n": 12,
+      "n": 14,
       "name": "오른쪽 Dock: 평소 숨고, 마우스가 오른쪽 끝에 오면 나타남",
       "expected": "처음 'false' → 오른쪽 끝에서 'true'",
       "actual": "'false' → 'true'",
       "how": "data-shown 'false' → 'true'",
       "pass": true,
-      "shot": 7
+      "shot": 8
     },
     {
-      "n": 13,
+      "n": 15,
       "name": "멀어지면 다시 숨음",
       "expected": "data-shown 'false'",
       "actual": "'false'",
@@ -139,34 +158,43 @@
       "shot": null
     },
     {
-      "n": 14,
+      "n": 16,
       "name": "자석 끔: 오른쪽 끝에 놓아도 붙지 않음",
-      "expected": "강조 없음, 업무 빠른 등록은 그리드에 남음",
+      "expected": "강조 없음, 빠른 등록은 그리드에 남음",
       "actual": "강조 0개, 위치 'grid'",
       "how": "edge-drop-hint 0개 && data-place === 'grid'",
       "pass": true,
       "shot": null
     },
     {
-      "n": 15,
+      "n": 17,
       "name": "버튼으로 오른쪽 Dock에 넣고 꺼냄",
-      "expected": "Today는 페이지로, 업무 빠른 등록은 오른쪽 Dock으로",
+      "expected": "Today는 페이지로, 빠른 등록은 오른쪽 Dock으로",
       "actual": "그대로 됨",
       "how": "page 안 today-panel && edge-dock 안 templates-panel",
       "pass": true,
       "shot": null
     },
     {
-      "n": 16,
-      "name": "기본 설정으로: 처음 배치(왼쪽 30-min Log, 오른쪽 Today · 업무 빠른 등록)",
+      "n": 18,
+      "name": "기본 설정으로: 처음 배치(왼쪽 30-min Log, 오른쪽 Today · 빠른 등록)",
       "expected": "data-layout 'default', 오른쪽 Dock 없음",
       "actual": "'default', 오른쪽 Dock 0개",
       "how": "data-layout === 'default' && edge-dock 0개",
       "pass": true,
-      "shot": 8
+      "shot": 9
     },
     {
-      "n": 17,
+      "n": 19,
+      "name": "Today 창을 넓히면 왼쪽 그래프, 오른쪽 시간(이름 전체)",
+      "expected": "목록이 도넛 오른쪽에, 긴 이름도 잘리지 않음",
+      "actual": "목록 x 917 / 도넛 오른쪽 끝 893, 이름 전체",
+      "how": "legend.x > donut.right && 이름 scrollWidth ≤ clientWidth",
+      "pass": true,
+      "shot": 10
+    },
+    {
+      "n": 20,
       "name": "휴대폰은 고정 배치(배치 편집 없음)",
       "expected": "배치 편집 버튼 0개",
       "actual": "0개",
@@ -175,7 +203,7 @@
       "shot": null
     },
     {
-      "n": 18,
+      "n": 21,
       "name": "페이지 오류 없음",
       "expected": "0건",
       "actual": "0건",
@@ -190,7 +218,7 @@
       "file": "shot-01.jpg",
       "width": 1440,
       "height": 900,
-      "caption": "업무 빠른 등록: Task 없이 저장한 항목은 (내용 없음)",
+      "caption": "빠른 등록: Task 없이 저장한 항목은 (내용 없음)",
       "marks": [
         {
           "n": 1,
@@ -224,11 +252,11 @@
       "file": "shot-03.jpg",
       "width": 1440,
       "height": 900,
-      "caption": "Today 그래프 보기 (조각에 마우스)",
+      "caption": "좁은 Today 창: 긴 이름은 …로",
       "marks": [
         {
           "n": 4,
-          "label": "도넛 + %"
+          "label": "앞 10글자 + …"
         }
       ]
     },
@@ -237,15 +265,11 @@
       "file": "shot-04.jpg",
       "width": 1440,
       "height": 900,
-      "caption": "배치 편집 중: 업무 빠른 등록 창을 끄는 중",
+      "caption": "Today 그래프 보기 (조각에 마우스)",
       "marks": [
         {
-          "n": 6,
-          "label": "점 그리드"
-        },
-        {
-          "n": 6,
-          "label": "저장 토스트"
+          "n": 5,
+          "label": "도넛 + %"
         }
       ]
     },
@@ -254,15 +278,15 @@
       "file": "shot-05.jpg",
       "width": 1440,
       "height": 900,
-      "caption": "옮기고 크기를 바꾼 뒤(저장 전)",
+      "caption": "배치 편집 중: 빠른 등록 창을 끄는 중",
       "marks": [
         {
           "n": 7,
-          "label": "크기 조절"
+          "label": "점 그리드"
         },
         {
           "n": 7,
-          "label": "옮김"
+          "label": "저장 토스트"
         }
       ]
     },
@@ -271,11 +295,15 @@
       "file": "shot-06.jpg",
       "width": 1440,
       "height": 900,
-      "caption": "자석: Today를 오른쪽 끝으로 끄는 중",
+      "caption": "옮기고 크기를 바꾼 뒤(저장 전)",
       "marks": [
         {
-          "n": 10,
-          "label": "오른쪽 Dock"
+          "n": 9,
+          "label": "크기 조절"
+        },
+        {
+          "n": 9,
+          "label": "옮김"
         }
       ]
     },
@@ -284,7 +312,7 @@
       "file": "shot-07.jpg",
       "width": 1440,
       "height": 900,
-      "caption": "마우스를 오른쪽 끝으로: 오른쪽 Dock이 나타남",
+      "caption": "자석: Today를 오른쪽 끝으로 끄는 중",
       "marks": [
         {
           "n": 12,
@@ -297,15 +325,41 @@
       "file": "shot-08.jpg",
       "width": 1440,
       "height": 900,
+      "caption": "마우스를 오른쪽 끝으로: 오른쪽 Dock이 나타남",
+      "marks": [
+        {
+          "n": 14,
+          "label": "오른쪽 Dock"
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "file": "shot-09.jpg",
+      "width": 1440,
+      "height": 900,
       "caption": "기본 설정으로 되돌린 화면",
       "marks": [
         {
-          "n": 16,
+          "n": 18,
           "label": "기본 배치"
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "file": "shot-10.jpg",
+      "width": 1440,
+      "height": 900,
+      "caption": "넓힌 Today 창(배치 편집 중, 아래 한 줄 저장 물음)",
+      "marks": [
+        {
+          "n": 19,
+          "label": "그래프 | 시간"
         }
       ]
     }
   ],
-  "passed": 18,
-  "total": 18
+  "passed": 21,
+  "total": 21
 }
