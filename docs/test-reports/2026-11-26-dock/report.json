@@ -1,18 +1,17 @@
 {
-  "id": "dock-today",
-  "title": "Dock 메뉴 · Today 도킹 창",
+  "id": "dock",
+  "title": "Dock 메뉴 (아래 가운데, 자동 숨김)",
   "suite": "tests/e2e/batchM.e2e.cjs",
-  "request": "왼쪽 고정 메뉴를 iOS Dock처럼(아래 가운데, 평소엔 숨김). 오른쪽 Today 창을 도킹 창으로: 끌어서 떼어 내고, 오른쪽으로 끌면 자석처럼 붙게.",
+  "request": "왼쪽 고정 메뉴를 iOS Dock처럼(아래 가운데, 평소엔 숨김). (추가) 커진 아이콘이 옆 아이콘을 가리지 않게, 마우스가 사라지면 숨게. Today 창 배치는 창 배치 편집 보고서(batchO)로 옮김.",
   "criteria": [
     "왼쪽 메뉴가 없어지고 그 자리를 내용이 쓴다.",
     "Dock은 잠시 뒤 숨고, 마우스가 화면 아래 끝에 오면 아래 가운데에 나타나며, 멀어지면 다시 숨는다.",
     "아이콘에 마우스를 올리면 커지고 \"이름 · 신 이름\"이 뜨며, 누르면 그 화면으로 간다.",
-    "Today 카드는 제목줄을 끌면 떠서 놓은 자리에 남고(새로 고쳐도 유지), 끄는 동안 원래 자리가 점선으로 보인다.",
-    "오른쪽 끝 근처로 끌면 원래 자리가 강조되고(자석), 놓으면 다시 붙는다. 붙이기 버튼으로도 된다.",
+    "커진 아이콘이 옆 아이콘을 가리지 않고, 마우스가 창 밖으로 나가도 숨는다.",
     "휴대폰은 하단 탭 바를 쓰고 Dock이 없다."
   ],
   "date": "2026-11-26",
-  "commit": "4b9cac1",
+  "commit": "06e28ce",
   "env": {
     "browser": "Chromium 157.0.8103.78",
     "viewport": "1440×900 (휴대폰 390×844)"
@@ -101,87 +100,15 @@
     },
     {
       "n": 10,
-      "name": "Today는 처음에 오른쪽 열에 붙어 있음",
-      "expected": "data-docked = 'true'",
-      "actual": "'true'",
-      "how": "panel.dataset.docked === 'true'",
-      "pass": true,
-      "shot": null
-    },
-    {
-      "n": 11,
-      "name": "끄는 동안 원래 자리가 점선 윤곽으로",
-      "expected": "점선 자리 표시, data-near = 'false'",
-      "actual": "data-near = 'false'",
-      "how": "slot 있음 && slot.dataset.near === 'false'",
-      "pass": true,
-      "shot": 3
-    },
-    {
-      "n": 12,
-      "name": "가운데에 놓으면 놓은 자리에 떠 있음",
-      "expected": "x ≈ 539, y ≈ 269 (잡은 지점 그대로)",
-      "actual": "x = 539, y = 269, docked = false",
-      "how": "docked === 'false' && 위치 오차 < 3px",
-      "pass": true,
-      "shot": 4
-    },
-    {
-      "n": 13,
-      "name": "떠 있어도 오늘 합계를 보여 줌",
-      "expected": "today-total 1개",
-      "actual": "1개",
-      "how": "today-total count === 1",
-      "pass": true,
-      "shot": null
-    },
-    {
-      "n": 14,
-      "name": "새로 고쳐도 같은 자리에 떠 있음",
-      "expected": "x = 539",
-      "actual": "x = 539, docked = false",
-      "how": "docked === 'false' && |x − 이전 x| < 2",
-      "pass": true,
-      "shot": null
-    },
-    {
-      "n": 15,
-      "name": "오른쪽 끝 근처로 끌면 원래 자리가 강조됨(자석)",
-      "expected": "data-near = 'true'",
-      "actual": "'true'",
-      "how": "pointer 가 오른쪽 끝 96px 안 → slot.dataset.near === 'true'",
-      "pass": true,
-      "shot": 5
-    },
-    {
-      "n": 16,
-      "name": "거기서 놓으면 다시 붙음",
-      "expected": "data-docked = 'true'",
-      "actual": "'true'",
-      "how": "panel.dataset.docked === 'true'",
-      "pass": true,
-      "shot": 6
-    },
-    {
-      "n": 17,
-      "name": "붙이기 버튼으로도 붙음",
-      "expected": "data-docked = 'true'",
-      "actual": "'true'",
-      "how": "panel.dataset.docked === 'true'",
-      "pass": true,
-      "shot": null
-    },
-    {
-      "n": 18,
       "name": "휴대폰은 하단 탭 바, Dock 없음",
       "expected": "탭 바 보임, Dock 안 보임",
       "actual": "탭 바 보임, Dock 안 보임",
       "how": "!dock.isVisible()",
       "pass": true,
-      "shot": 7
+      "shot": 3
     },
     {
-      "n": 19,
+      "n": 11,
       "name": "페이지 오류 없음",
       "expected": "0건",
       "actual": "0건",
@@ -228,77 +155,17 @@
     {
       "id": 3,
       "file": "shot-03.jpg",
-      "width": 1440,
-      "height": 900,
-      "caption": "Today 카드를 끌어 내는 중",
-      "marks": [
-        {
-          "n": 11,
-          "label": "원래 자리"
-        },
-        {
-          "n": 11,
-          "label": "끄는 창"
-        }
-      ]
-    },
-    {
-      "id": 4,
-      "file": "shot-04.jpg",
-      "width": 1440,
-      "height": 900,
-      "caption": "Today 창이 표 위에 떠 있음",
-      "marks": [
-        {
-          "n": 12,
-          "label": "떠 있는 창"
-        },
-        {
-          "n": 12,
-          "label": "붙이기 버튼"
-        }
-      ]
-    },
-    {
-      "id": 5,
-      "file": "shot-05.jpg",
-      "width": 1440,
-      "height": 900,
-      "caption": "오른쪽 끝으로 끄는 중: 원래 자리가 강조됨",
-      "marks": [
-        {
-          "n": 15,
-          "label": "여기에 붙음"
-        }
-      ]
-    },
-    {
-      "id": 6,
-      "file": "shot-06.jpg",
-      "width": 1440,
-      "height": 900,
-      "caption": "다시 오른쪽 열에 붙은 Today",
-      "marks": [
-        {
-          "n": 16,
-          "label": "붙음"
-        }
-      ]
-    },
-    {
-      "id": 7,
-      "file": "shot-07.jpg",
       "width": 390,
       "height": 844,
       "caption": "휴대폰(390×844)",
       "marks": [
         {
-          "n": 18,
+          "n": 10,
           "label": "탭 바"
         }
       ]
     }
   ],
-  "passed": 19,
-  "total": 19
+  "passed": 11,
+  "total": 11
 }

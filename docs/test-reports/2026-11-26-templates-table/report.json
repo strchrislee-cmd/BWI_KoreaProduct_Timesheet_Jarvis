@@ -9,11 +9,10 @@
     "반복 업무는 No · Task 두 칸 표로 간단히 보이고(Project · Type은 … 메뉴에서) No는 1부터.",
     "행을 누르면 고른 칸에 그 반복 업무가 들어간다.",
     "행을 끌거나 No를 더블클릭해 번호를 입력하면 그 자리로 옮겨지고, 새로 고쳐도 유지된다.",
-    "… 메뉴 맨 윗줄에 그 반복 업무의 Project · Type이 보인다.",
-    "반복 업무 창은 Today처럼 떼어 낼 수 있고 오른쪽에 다시 붙는다."
+    "… 메뉴 맨 윗줄에 그 반복 업무의 Project · Type이 보인다."
   ],
   "date": "2026-11-26",
-  "commit": "38149d5",
+  "commit": "06e28ce",
   "env": {
     "browser": "Chromium 157.0.8103.78",
     "viewport": "1440×900"
@@ -93,33 +92,15 @@
     },
     {
       "n": 9,
-      "name": "반복 업무 창을 떼어 내면 떠서 표를 보여 줌",
-      "expected": "처음 'true' → 'false', 표 3행",
-      "actual": "'true' → 'false', 표 3행",
-      "how": "docked 'true' → 'false' && 행 수 === 3",
-      "pass": true,
-      "shot": 6
-    },
-    {
-      "n": 10,
-      "name": "오른쪽 끝에 놓으면 다시 붙음",
-      "expected": "data-docked = 'true'",
-      "actual": "'true'",
-      "how": "panel.dataset.docked === 'true'",
-      "pass": true,
-      "shot": null
-    },
-    {
-      "n": 11,
       "name": "한국어 이름: 프로젝트 · 유형 · 업무",
       "expected": "머리글 시간|프로젝트|유형|업무|업무내용, 반복 업무 No|업무",
       "actual": "머리글 시간|프로젝트|유형|업무|업무내용, 반복 업무 No|업무",
       "how": "두 머리글 텍스트가 기대와 같음",
       "pass": true,
-      "shot": 7
+      "shot": 6
     },
     {
-      "n": 12,
+      "n": 10,
       "name": "휴대폰에는 반복 업무 창 없음(입력 창에서 고름)",
       "expected": "창 안 보임",
       "actual": "안 보임",
@@ -128,7 +109,7 @@
       "shot": null
     },
     {
-      "n": 13,
+      "n": 11,
       "name": "페이지 오류 없음",
       "expected": "0건",
       "actual": "0건",
@@ -160,7 +141,7 @@
       "file": "shot-02.jpg",
       "width": 1440,
       "height": 900,
-      "caption": "반복 업무 표(오른쪽 도킹 창)",
+      "caption": "업무 빠른 등록 표(오른쪽 열)",
       "marks": [
         {
           "n": 3,
@@ -220,32 +201,19 @@
       "file": "shot-06.jpg",
       "width": 1440,
       "height": 900,
-      "caption": "떼어 낸 반복 업무 창",
-      "marks": [
-        {
-          "n": 9,
-          "label": "떠 있는 창"
-        }
-      ]
-    },
-    {
-      "id": 7,
-      "file": "shot-07.jpg",
-      "width": 1440,
-      "height": 900,
       "caption": "한국어 화면",
       "marks": [
         {
-          "n": 11,
+          "n": 9,
           "label": "프로젝트 · 유형 · 업무"
         },
         {
-          "n": 11,
+          "n": 9,
           "label": ""
         }
       ]
     }
   ],
-  "passed": 13,
-  "total": 13
+  "passed": 11,
+  "total": 11
 }
