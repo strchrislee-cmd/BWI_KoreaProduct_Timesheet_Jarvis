@@ -28,8 +28,8 @@ describe('MID (중분류) list', () => {
 
   it('names must be filled in and unique (hidden ones too)', () => {
     expect(workTypeNameProblem('  ', list)).toMatch('입력')
-    expect(workTypeNameProblem('개발 - 신규', list)).toMatch('이미 있는 MID')
-    expect(workTypeNameProblem('지원-옛날', list)).toMatch('숨긴 MID')
+    expect(workTypeNameProblem('개발 - 신규', list)).toMatch('이미 있는 유형')
+    expect(workTypeNameProblem('지원-옛날', list)).toMatch('숨긴 유형')
     expect(workTypeNameProblem('개발-신규', list, 'a')).toBeNull() // renaming itself
     expect(workTypeNameProblem('개발-파생', list)).toBeNull()
   })

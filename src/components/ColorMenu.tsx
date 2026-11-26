@@ -21,6 +21,8 @@ export function Swatch({ color, label, onClick, size = 16 }: { color: string; la
 
 export interface ColorMenuProps {
   title: string
+  /** a line above the name telling what the item belongs to (repeated tasks: Project · Type) */
+  context?: ReactNode
   /** Given → the name is editable (repeated tasks). */
   onRename?: (name: string) => void
   onDelete?: () => void
@@ -43,7 +45,7 @@ export interface ColorMenuProps {
  * Notion-style option menu: name, delete, and a color list
  * (random, random pastel, default, named colors, saved colors, custom RGB).
  */
-export function ColorMenu({ title, onRename, onDelete, note, value, isCustom, saved, onPick, onSave, onRemoveSaved, onClose, anchor, placement = 'below', actions }: ColorMenuProps) {
+export function ColorMenu({ title, context, onRename, onDelete, note, value, isCustom, saved, onPick, onSave, onRemoveSaved, onClose, anchor, placement = 'below', actions }: ColorMenuProps) {
   const ref = useRef<HTMLDivElement>(null)
   const [custom, setCustom] = useState(false)
   const [name, setName] = useState(title)
@@ -107,6 +109,11 @@ export function ColorMenu({ title, onRename, onDelete, note, value, isCustom, sa
       className="glass-strong fixed z-[60] max-h-[calc(100vh-16px)] w-[260px] cursor-default select-text overflow-auto rounded-menu p-2 text-left text-xs font-normal text-ink"
       style={pos ? { top: pos.top, left: pos.left } : { top: anchor.bottom, left: anchor.left, visibility: 'hidden' }}
     >
+      {context && (
+        <div className="flex min-w-0 flex-wrap items-center gap-1 px-1 pb-1.5 pt-0.5" data-testid="option-context">
+          {context}
+        </div>
+      )}
       <div className="flex items-center gap-1 px-1 pb-1">
         {onRename ? (
           <input

@@ -11,7 +11,20 @@ const DEFAULT_SIZE = { w: 340, h: 200 }
  * Released near the right edge it snaps back into its place, like a magnet; the dock button does
  * the same. Where it floats is remembered in this browser. Phones: always docked.
  */
-export function DockablePanel({ storageKey, title, children, testId }: { storageKey: string; title: string; children: ReactNode; testId?: string }) {
+export function DockablePanel({
+  storageKey,
+  title,
+  children,
+  testId,
+  action,
+}: {
+  storageKey: string
+  title: string
+  children: ReactNode
+  testId?: string
+  /** a button in the title bar (it does not start a drag) */
+  action?: ReactNode
+}) {
   const [floating, setFloating] = useState<FloatPos | null>(() => readFloat(storageKey))
   const [drag, setDrag] = useState<(FloatPos & { near: boolean }) | null>(null)
   const ref = useRef<HTMLElement>(null)
@@ -59,11 +72,16 @@ export function DockablePanel({ storageKey, title, children, testId }: { storage
     >
       <GripVertical size={16} className="-ml-1 text-muted max-md:hidden" aria-hidden />
       <h2 className="font-display text-lg font-bold">{title}</h2>
+      {action && (
+        <span className="ml-auto" onPointerDown={(e) => e.stopPropagation()}>
+          {action}
+        </span>
+      )}
       {out && !drag && (
         <button
           aria-label="Dock to the right"
           title="오른쪽에 다시 붙이기"
-          className="ml-auto rounded-control p-1 text-muted hover:bg-black/5"
+          className={cx('rounded-control p-1 text-muted hover:bg-black/5', !action && 'ml-auto')}
           onPointerDown={(e) => e.stopPropagation()}
           onClick={dock}
         >

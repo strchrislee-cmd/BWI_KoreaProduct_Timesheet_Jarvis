@@ -163,15 +163,15 @@ async function drag(page, from, to) {
   ok('A2 repeated task renamed from its option menu')
   await menu.getByRole('button', { name: '초록색' }).click()
   await page.waitForTimeout(200)
-  expect(await sameBg(chips.locator('li').filter({ hasText: '데일리 스크럼' }), chipBg('#448361')), 'A2 repeated task color set to 초록색')
+  expect(await sameBg(chips.locator('[data-testid="template-row"]').filter({ hasText: '데일리 스크럼' }).locator('.rounded-chip').first(), chipBg('#448361')), 'A2 repeated task color set to 초록색 (its Project chip)')
   await page.keyboard.press('Escape')
   await page.mouse.click(5, 5)
 
-  // A5 — drag chips
-  let chipOrder = await chips.locator('li').allTextContents()
-  await drag(page, chips.locator('li').filter({ hasText: '메일 정리' }), chips.locator('li').filter({ hasText: '데일리 스크럼' }))
+  // A5 — drag repeated tasks (rows of the table)
+  let chipOrder = await chips.locator('[data-testid="template-row"]').allTextContents()
+  await drag(page, chips.locator('[data-testid="template-row"]').filter({ hasText: '메일 정리' }), chips.locator('[data-testid="template-row"]').filter({ hasText: '데일리 스크럼' }))
   await page.waitForTimeout(300)
-  chipOrder = await chips.locator('li').allTextContents()
+  chipOrder = await chips.locator('[data-testid="template-row"]').allTextContents()
   expect(chipOrder[0].includes('메일 정리'), 'A5 chips reordered by dragging: ' + chipOrder.join(' | '))
   await cell(23, 'task').click()
   await page.keyboard.press('Enter')
@@ -188,7 +188,7 @@ async function drag(page, from, to) {
 
   // A7 — column width + row height
   const w0 = (await cell(15, 'category').boundingBox()).width
-  const sep = await page.getByLabel('Resize Category column').boundingBox()
+  const sep = await page.getByLabel('Resize Project column').boundingBox()
   await page.mouse.move(sep.x + sep.width / 2, sep.y + sep.height / 2)
   await page.mouse.down()
   await page.mouse.move(sep.x + sep.width / 2 + 90, sep.y + sep.height / 2, { steps: 6 })

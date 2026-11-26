@@ -138,7 +138,7 @@ const expect = (cond, msg) => {
   // ── template color ───────────────────────────────────────────────────────
   await page.locator('[data-slot="16"] > div').nth(1).click() // the time cell (after the + column)
   await page.getByRole('button', { name: '선택한 행 저장' }).click()
-  const chip = page.getByTestId('templates').locator('li').first()
+  const chip = page.getByTestId('templates').locator('[data-testid="template-row"] .rounded-chip').first() // the Project chip of the first repeated task
   await chip.waitFor()
   expect(await sameBg(chip, chipBg('#0A78C8')), 'new repeated task inherits the category color')
   await page.getByTestId('templates').getByLabel('Options for INT | Daily_Scrum').click()
@@ -152,7 +152,7 @@ const expect = (cond, msg) => {
   await page.reload()
   await cell(16, 'category').waitFor()
   expect(
-    (await sameBg(row16, rowBg('#0A78C8'))) && (await sameBg(page.getByTestId('templates').locator('li').first(), chipBg('#C14C8A'))),
+    (await sameBg(row16, rowBg('#0A78C8'))) && (await sameBg(page.getByTestId('templates').locator('[data-testid="template-row"] .rounded-chip').first(), chipBg('#C14C8A'))),
     'category and template colors persist after reload',
   )
 

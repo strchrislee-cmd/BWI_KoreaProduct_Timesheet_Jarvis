@@ -40,8 +40,8 @@ export function findWorkType(text: string, list: WorkType[]): WorkType | undefin
 /** Why a new or renamed MID name is not accepted, or null. */
 export function workTypeNameProblem(name: string, list: WorkType[], exceptId?: string): string | null {
   const clean = name.replace(/\s+/g, ' ').trim()
-  if (!clean) return 'MID 이름을 입력하세요.'
+  if (!clean) return '유형 이름을 입력하세요.'
   const same = list.find((w) => w.id !== exceptId && projectNameKey(w.name) === projectNameKey(clean))
-  if (same) return same.hidden ? `숨긴 MID에 같은 이름이 있습니다: ${clean} (숨긴 항목 보기 → 되돌리기)` : `이미 있는 MID입니다: ${clean}`
+  if (same) return same.hidden ? `숨긴 유형에 같은 이름이 있습니다: ${clean} (숨긴 항목 보기 → 되돌리기)` : `이미 있는 유형입니다: ${clean}`
   return null
 }

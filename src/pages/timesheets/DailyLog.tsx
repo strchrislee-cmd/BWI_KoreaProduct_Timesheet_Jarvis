@@ -1,7 +1,6 @@
-import { CircleAlert, MoreHorizontal, Plus, Upload } from 'lucide-react'
+import { CircleAlert, Plus, Upload } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useLocation } from 'react-router'
-import { ColorMenu } from '../../components/ColorMenu'
 import { DockablePanel } from '../../components/DockablePanel'
 import { SLOTS_CHANGED } from '../../components/ReminderToast'
 import { TimeRangePicker } from '../../components/TimeRangePicker'
@@ -12,12 +11,12 @@ import { SLOTS_PER_DAY, SLOT_HOURS, currentSlot, timeToSlot, todayLocal } from '
 import type { TaskTemplate, TimeSlot } from '../../domain/types'
 import { useAsync, useFillToViewport, useIsMobile, useMinuteClock } from '../../lib/hooks'
 import { useT } from '../../lib/i18n'
-import { moveItem, sortItems } from '../../lib/ordering'
-import { useDragReorder } from '../../lib/useDragReorder'
-import { categoryColor, chipBg, templateColor } from './colors'
-import { DailyGrid, templateCategory, type GridColors, type GridOptionsApi } from './grid/DailyGrid'
+import { sortItems } from '../../lib/ordering'
+import { categoryColor, templateColor } from './colors'
+import { DailyGrid, type GridColors, type GridOptionsApi } from './grid/DailyGrid'
 import { applyTemplate, cellText, effectiveSlot, type CellChange, type GridContext } from './grid/gridModel'
 import { ImportWizard } from './ImportWizard'
+import { TemplatesTable } from './TemplatesTable'
 import { MobileDayLog } from './mobile/MobileDayLog'
 import { displayName } from './projectUi'
 import { useTimesheets } from './TimesheetsLayout'
@@ -52,8 +51,6 @@ export function DailyLog() {
   const [showAll, setShowAll] = useState(false)
   const [importing, setImporting] = useState(false)
   const [selection, setSelection] = useState<{ rows: number[]; active: number }>({ rows: [], active: 0 })
-  const [chipMenu, setChipMenu] = useState<{ id: string; anchor: DOMRect } | null>(null)
-  const chipBox = useRef<HTMLUListElement>(null)
   const page = useRef<HTMLDivElement>(null)
   const fillHeight = useFillToViewport(page) // wide screens: end where the left navigation ends
   const filled = fillHeight !== undefined
@@ -243,10 +240,8 @@ export function DailyLog() {
     setTemplateColor: (id, hex) => void updateTemplate(id, { color: hex }),
   }
 
-  // chips on the right follow the same sort as the Task dropdown
+  // the repeated-task table on the right follows the same sort as the Task dropdown
   const chips = sortItems(templates, prefs.sort.template, { key: (t) => t.id, name: (t) => t.description || t.label, created: (t) => t.created_at }, templates.map((t) => t.id))
-  const chipDrag = useDragReorder(chipBox, (_, from, to) => void reorderTemplates(moveItem(chips.map((t) => t.id), from, to)), 5)
-  const chipMenuTemplate = chipMenu ? templates.find((t) => t.id === chipMenu.id) : undefined
 
   async function deleteTemplate(id: string) {
     try {
@@ -365,83 +360,40 @@ export function DailyLog() {
         </DockablePanel>
 
         {/* phones apply repeated tasks from the entry sheet; managing them stays on the desktop layout */}
-        <Card
-          className="max-md:hidden"
-          title="반복 업무"
-          action={
-            canEdit && (
-              <Button variant="ghost" className="!px-2 !py-1 text-xs" onClick={saveSelectedRowAsTemplate}>
-                <Plus size={14} /> 선택한 행 저장
-              </Button>
-            )
-          }
-        >
-          {templates.length === 0 ? (
-            <p className="text-sm text-muted">
-              자주 하는 업무를 등록해 두세요. 행을 고르고 <strong>선택한 행 저장</strong>을 누르거나, {tr('Sub Category')} 칸에 입력한 뒤 <strong>+ 반복 업무로 등록</strong>을 고르면 됩니다.
-            </p>
-          ) : (
-            <ul ref={chipBox} className="flex flex-wrap gap-2" data-testid="templates">
-              {chips.map((t, i) => {
-                const d = chipDrag.state
-                const name = t.description || t.label
-                return (
-                  <li
-                    key={t.id}
-                    data-reorder="chips"
-                    className={cx(
-                      'group flex touch-none items-center rounded-chip text-sm font-semibold shadow-sm',
-                      d?.from === i && 'opacity-40',
-                      d && d.over === i && d.from !== i && 'ring-2 ring-primary',
-                    )}
-                    style={{ backgroundColor: chipBg(colorOfTemplate(t)) }}
-                    {...(canEdit ? chipDrag.bind('chips', i) : {})}
-                  >
-                    <button
-                      className="max-w-[220px] truncate py-1 pl-3 pr-1 text-left"
-                      title={`${templateCategory(t, ctx)} · ${t.description}`}
-                      disabled={!canEdit}
-                      onClick={() => {
-                        if (chipDrag.consumeDragged()) return
-                        void persist(selection.rows.map((r) => ({ index: r, slot: applyTemplate(effectiveSlot(ctx, r), r, t, ctx) })))
-                      }}
-                    >
-                      {name}
-                    </button>
-                    <button
-                      aria-label={`Options for ${name}`}
-                      className="rounded-chip p-1 pr-2 opacity-50 hover:opacity-100 group-hover:opacity-100"
-                      onPointerDown={(e) => e.stopPropagation()}
-                      onClick={(e) => setChipMenu({ id: t.id, anchor: (e.currentTarget.parentElement as HTMLElement).getBoundingClientRect() })}
-                    >
-                      <MoreHorizontal size={14} />
-                    </button>
-                  </li>
-                )
-              })}
-            </ul>
-          )}
-          {templates.length > 0 && <p className="mt-2 text-xs text-muted">칩을 누르면 선택한 {selection.rows.length}개 행에 적용 · 끌어서 순서 변경 · … 에서 이름·색·삭제</p>}
-          {chipMenu && chipMenuTemplate && (
-            <ColorMenu
-              key={chipMenu.id}
-              anchor={chipMenu.anchor}
-              title={chipMenuTemplate.description || chipMenuTemplate.label}
-              onRename={(n) => void updateTemplate(chipMenuTemplate.id, { description: n })}
-              onDelete={() => {
-                void deleteTemplate(chipMenuTemplate.id)
-                setChipMenu(null)
-              }}
-              value={colorOfTemplate(chipMenuTemplate)}
-              isCustom={chipMenuTemplate.color !== null}
-              saved={prefs.palette}
-              onPick={(hex) => void updateTemplate(chipMenuTemplate.id, { color: hex })}
-              onSave={(hex) => void colorPrefs.savePreset(hex)}
-              onRemoveSaved={(hex) => void colorPrefs.removePreset(hex)}
-              onClose={() => setChipMenu(null)}
-            />
-          )}
-        </Card>
+        <div className="max-md:hidden">
+          <DockablePanel
+            storageKey="te-panel:templates"
+            title="반복 업무"
+            testId="templates-panel"
+            action={
+              canEdit && (
+                <Button variant="ghost" className="!px-2 !py-1 text-xs" onClick={saveSelectedRowAsTemplate}>
+                  <Plus size={14} /> 선택한 행 저장
+                </Button>
+              )
+            }
+          >
+            {templates.length === 0 ? (
+              <p className="text-sm text-muted">
+                자주 하는 업무를 등록해 두세요. 행을 고르고 <strong>선택한 행 저장</strong>을 누르거나, {tr('Task')} 칸에 입력한 뒤 <strong>+ 반복 업무로 등록</strong>을 고르면 됩니다.
+              </p>
+            ) : (
+              <TemplatesTable
+                items={chips}
+                ctx={ctx}
+                colorOf={colorOfTemplate}
+                canEdit={canEdit}
+                selectedCount={selection.rows.length}
+                onApply={(t) => void persist(selection.rows.map((r) => ({ index: r, slot: applyTemplate(effectiveSlot(ctx, r), r, t, ctx) })))}
+                onReorder={(ids) => void reorderTemplates(ids)}
+                onRename={(id, n) => void updateTemplate(id, { description: n })}
+                onDelete={(id) => void deleteTemplate(id)}
+                onColor={(id, hex) => void updateTemplate(id, { color: hex })}
+                palette={{ saved: prefs.palette, onSave: (hex) => void colorPrefs.savePreset(hex), onRemove: (hex) => void colorPrefs.removePreset(hex) }}
+              />
+            )}
+          </DockablePanel>
+        </div>
 
         {newProjects.length > 0 && (
           <Card tone="accent" title={`${newProjects.length} new group project${newProjects.length > 1 ? 's' : ''} detected`}>

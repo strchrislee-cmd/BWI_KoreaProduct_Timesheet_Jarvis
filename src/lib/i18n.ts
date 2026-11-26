@@ -26,9 +26,9 @@ const KO = {
   // Daily Log
   '30-min Log': '30분 간격 기록',
   Time: '시간',
-  Category: '대분류',
-  MID: '중분류',
-  'Sub Category': '업무분류',
+  Project: '프로젝트',
+  Type: '유형',
+  Task: '업무',
   Content: '업무내용',
   'Non-work': '비업무',
   Today: '오늘',

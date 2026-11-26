@@ -213,7 +213,7 @@ function SlotSheet({
 
         <section className="mb-3">
           <h3 className="mb-1.5 text-xs font-semibold text-muted">
-            카테고리 {draft.category && <span className="ml-1 font-semibold text-ink">· {draft.category}</span>}
+            {tr('Project')} {draft.category && <span className="ml-1 font-semibold text-ink">· {draft.category}</span>}
           </h3>
           <input className="field mb-1.5 !py-2 text-[16px]" aria-label="Search category" placeholder="검색 (별칭도 됨)" value={query} onChange={(e) => setQuery(e.target.value)} />
           <div className="max-h-44 space-y-2 overflow-y-auto rounded-control bg-white/40 p-1.5" role="listbox" aria-label="Categories">
@@ -247,8 +247,8 @@ function SlotSheet({
         </section>
 
         <label className="mb-3 block">
-          <span className="mb-1.5 block text-xs font-semibold text-muted">{tr('MID')}</span>
-          <select className="field !py-2 text-[16px]" aria-label="MID" value={draft.mid} onChange={(e) => set({ mid: e.target.value })}>
+          <span className="mb-1.5 block text-xs font-semibold text-muted">{tr('Type')}</span>
+          <select className="field !py-2 text-[16px]" aria-label="Type" value={draft.mid} onChange={(e) => set({ mid: e.target.value })}>
             <option value="">—</option>
             {selectableWorkTypes(ctx.workTypes).map((w) => (
               <option key={w.id} value={w.name}>
@@ -258,7 +258,7 @@ function SlotSheet({
           </select>
         </label>
         <label className="mb-3 block">
-          <span className="mb-1.5 block text-xs font-semibold text-muted">{tr('Sub Category')}</span>
+          <span className="mb-1.5 block text-xs font-semibold text-muted">{tr('Task')}</span>
           <input className="field !py-2 text-[16px]" aria-label="Task" value={draft.task} onChange={(e) => set({ task: e.target.value })} placeholder="예: INT | Daily_Scrum" />
         </label>
         <label className="mb-3 block">

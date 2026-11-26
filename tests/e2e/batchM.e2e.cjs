@@ -57,6 +57,11 @@ const report = createReport({
   const tip = ts.getByRole('tooltip')
   const tipText = (await tip.innerText()).replace(/\s+/g, ' ').trim()
   const c4 = report.check({ name: '아이콘에 마우스를 올리면 커지고 이름이 뜸', expected: '높이 1.2배 이상, "Timesheets Chronos"', actual: `${before}px → ${after}px, "${tipText}"`, how: "after > before × 1.2 && tooltip 에 'Chronos'", pass: after > before * 1.2 && tipText.includes('Chronos') })
+  // 2026-11-26 bug: the grown icon covered its neighbours. Now they move aside, and the dock keeps its height.
+  const spans = await dock.locator('[data-dock-icon]').evaluateAll((els) => els.map((e) => { const r = e.getBoundingClientRect(); return [Math.round(r.left), Math.round(r.right)] }))
+  const overlap = Math.max(...spans.slice(1).map((b, k) => spans[k][1] - b[0]))
+  const dockH = Math.round((await dock.boundingBox()).height)
+  report.check({ name: '커진 아이콘이 옆 아이콘을 가리지 않음', expected: '아이콘끼리 겹침 0px 이하, Dock 높이 그대로', actual: `겹침 최대 ${overlap}px, Dock 높이 ${Math.round(box.height)} → ${dockH}px`, how: '앞 아이콘 right − 다음 아이콘 left ≤ 0 && |높이 차| ≤ 1', pass: overlap <= 0 && Math.abs(dockH - box.height) <= 1 })
   const links = await dock.getByRole('link').count()
   report.check({ name: 'Home · Timesheets · Admin · Settings, 앱 이름과 사용자', expected: '아이콘 4개 + TeamEmbedded', actual: `아이콘 ${links}개${(await dock.innerText()).includes('TeamEmbedded') ? ' + TeamEmbedded' : ''}`, how: "links === 4 && text 에 'TeamEmbedded'", pass: links === 4 && (await dock.innerText()).includes('TeamEmbedded') })
   await report.shot(page, { caption: 'Dock이 나타난 상태에서 Timesheets 아이콘에 마우스', marks: [{ target: dock, n: c3, label: '아래 가운데' }, { target: icon, n: c4 }] })
@@ -66,6 +71,12 @@ const report = createReport({
   await page.mouse.move(700, 300)
   await page.waitForFunction(() => document.querySelector('[data-testid="dock"]')?.dataset.shown === 'false', null, { timeout: 4000 })
   report.check({ name: '마우스가 멀어지면 다시 숨음', expected: "data-shown = 'false'", actual: `'${await shown()}'`, how: "dock.dataset.shown === 'false'", pass: (await shown()) === 'false' })
+  // 2026-11-26 bug: leaving the window through the bottom edge (e.g. onto the taskbar) left the dock up
+  await page.mouse.move(300, 895)
+  await page.waitForFunction(() => document.querySelector('[data-testid="dock"]')?.dataset.shown === 'true')
+  await page.mouse.move(300, 960, { steps: 3 })
+  await page.waitForFunction(() => document.querySelector('[data-testid="dock"]')?.dataset.shown === 'false', null, { timeout: 3000 }).catch(() => {})
+  report.check({ name: '마우스가 화면 아래로 빠져나가도 숨음', expected: "아래 끝에서 나타난 뒤 창 밖으로 나가면 data-shown = 'false'", actual: `'${await shown()}'`, how: "창 밖으로 이동 후 3초 안에 dock.dataset.shown === 'false'", pass: (await shown()) === 'false' })
 
   // ── Today docking window ────────────────────────────────────────────────
   await page.goto(BASE + '/timesheets?date=2026-11-16')

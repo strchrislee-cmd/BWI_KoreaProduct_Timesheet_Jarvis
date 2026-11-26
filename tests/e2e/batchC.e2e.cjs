@@ -47,7 +47,7 @@ const expect = (cond, msg) => {
 
   // ── 5: 업무내용 column ─────────────────────────────────────────────────────
   const headers = await page.locator('[role="grid"] > div').first().innerText()
-  // 11-23: English labels are Time / Category / Sub Category / Content (Korean: … / 업무내용)
+  // English labels are Time / Project / Type / Task / Content (Korean: … / 업무내용)
   expect(headers.includes('Content') && !headers.includes('Focus'), 'last column is "Content" (업무내용 in Korean; Focus removed)')
   await cell(16, 'category').click()
   await page.keyboard.type('회의')

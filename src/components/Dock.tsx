@@ -10,6 +10,8 @@ import { cx } from './ui'
 const EDGE = 28
 /** how long the dock stays after the pointer leaves it (ms) */
 const HIDE_DELAY = 700
+/** icon box size at rest (px); hovered icons grow in the layout, so neighbours move aside */
+const ICON = 48
 
 interface DockItem {
   to: string
@@ -54,10 +56,26 @@ export function Dock() {
         setShown(true)
       } else if (!over.current) hideLater()
     }
+    // the pointer left the window (e.g. down onto the taskbar) or another app took focus: no more
+    // mouse moves will come, so hide now instead of waiting for one
+    const onOut = (e: MouseEvent) => {
+      if (e.relatedTarget) return
+      over.current = false
+      setHovered(null)
+      hideLater()
+    }
+    const onBlur = () => {
+      over.current = false
+      hideLater()
+    }
     hideLater() // the first look on load
     window.addEventListener('mousemove', onMove)
+    document.addEventListener('mouseout', onOut)
+    window.addEventListener('blur', onBlur)
     return () => {
       window.removeEventListener('mousemove', onMove)
+      document.removeEventListener('mouseout', onOut)
+      window.removeEventListener('blur', onBlur)
       window.clearTimeout(timer.current)
     }
   }, [])
@@ -97,6 +115,7 @@ export function Dock() {
         </div>
         {items.map((it, i) => {
           const active = it.end ? pathname === it.to : pathname.startsWith(it.to)
+          const size = Math.round(ICON * scale(i))
           return (
             <NavLink
               key={it.to}
@@ -110,22 +129,27 @@ export function Dock() {
               <span
                 role="tooltip"
                 className={cx(
-                  'pointer-events-none absolute -top-12 whitespace-nowrap rounded-chip bg-ink/85 px-2 py-1 text-center text-xs font-semibold leading-tight text-white transition-opacity',
+                  'pointer-events-none absolute whitespace-nowrap rounded-chip bg-ink/85 px-2 py-1 text-center text-xs font-semibold leading-tight text-white transition-opacity',
                   hovered === i ? 'opacity-100' : 'opacity-0',
                 )}
+                style={{ bottom: `calc(100% + ${size - ICON + 8}px)` }}
               >
                 {it.label}
                 <span className="block text-[10px] font-normal opacity-75">{it.sub}</span>
               </span>
+              {/* grows upward past the dock (negative top margin keeps the dock's height) and sideways in
+                  the layout, so the neighbours move aside instead of being covered */}
               <span
                 className={cx(
-                  'flex h-12 w-12 items-center justify-center rounded-[14px] shadow-sm transition-transform duration-150 ease-out',
+                  'flex items-center justify-center rounded-[14px] shadow-sm transition-all duration-150 ease-out',
                   active ? 'bg-primary text-white' : 'bg-white/80 text-ink',
                 )}
-                style={{ transform: `scale(${scale(i)})`, transformOrigin: 'bottom center' }}
+                style={{ width: size, height: size, marginTop: ICON - size }}
                 data-dock-icon
               >
-                {it.icon}
+                <span className="transition-transform duration-150 ease-out" style={{ transform: `scale(${scale(i)})` }}>
+                  {it.icon}
+                </span>
               </span>
               <span className={cx('mt-1 h-1 w-1 rounded-full', active ? 'bg-primary' : 'bg-transparent')} />
             </NavLink>

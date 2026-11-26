@@ -36,7 +36,7 @@ async function master(file, names) {
   const cell = (i, col) => page.locator(`[data-cell="${i}:${col}"]`)
   const rows = (pg = page) =>
     pg.evaluate(() =>
-      [...document.querySelectorAll('table:not([aria-label="MID list"]) tbody tr')]
+      [...document.querySelectorAll('table:not([aria-label="Type list"]) tbody tr')]
         .filter((tr) => !tr.dataset.testid)
         .map((tr) => {
           const td = tr.querySelectorAll('td')
@@ -56,7 +56,7 @@ async function master(file, names) {
   // ── Daily Log: English labels + No in the dropdown ─────────────────────────
   await page.getByRole('link', { name: 'Daily Log' }).click()
   const heads = (await page.locator('[role="grid"] > div').first().innerText()).replace(/\s+/g, ' ').trim()
-  expect(heads === 'Time Category MID Sub Category Content', `English headers: ${heads}`)
+  expect(heads === 'Time Project Type Task Content', `English headers: ${heads}`)
   await cell(17, 'category').click()
   await page.keyboard.press('Enter')
   const first = await page.getByRole('listbox').getByRole('option').first().innerText()
@@ -170,7 +170,7 @@ async function master(file, names) {
   await page.getByRole('radiogroup', { name: 'Language' }).getByLabel('한국어').check()
   await page.goto(BASE + '/timesheets?date=2026-11-16')
   const ko = (await page.locator('[role="grid"] > div').first().innerText()).replace(/\s+/g, ' ').trim()
-  expect(ko === '시간 대분류 중분류 업무분류 업무내용', `Korean headers stay: ${ko}`)
+  expect(ko === '시간 프로젝트 유형 업무 업무내용', `Korean headers: ${ko}`)
 
   expect(errors.length === 0, `no page errors (${errors.join(' | ')})`)
   await browser.close()

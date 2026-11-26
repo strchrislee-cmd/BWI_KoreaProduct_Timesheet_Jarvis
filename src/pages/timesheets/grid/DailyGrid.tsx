@@ -251,7 +251,7 @@ export function DailyGrid({
     if (activeCol === 'mid') {
       // the admin's list in its own order (Projects → MID); no create, reorder or option menu here
       for (const w of selectableWorkTypes(ctx.workTypes).filter((x) => match(x.name)))
-        list.push({ key: w.id, group: 'mid', groupLabel: tr('MID'), label: w.name, color: w.color ?? WORK_TYPE_GRAY, value: w.name })
+        list.push({ key: w.id, group: 'mid', groupLabel: tr('Type'), label: w.name, color: w.color ?? WORK_TYPE_GRAY, value: w.name })
       if (!text && effectiveSlot(ctx, activeIndex)?.work_type_id)
         list.push({ key: 'mid-clear', group: 'mid-clear', groupLabel: '', label: '— 비우기', value: '' })
       return list
@@ -578,8 +578,9 @@ export function DailyGrid({
     <div>
       <div className={cx('relative select-none text-[13px]', readOnly ? 'cursor-default' : 'cursor-cell')} role="grid" aria-label="30-min log">
         <div className="sticky top-0 z-10 grid rounded-t-control bg-sage-light/90 font-semibold backdrop-blur" style={{ gridTemplateColumns: gridColumns }}>
-          <div aria-hidden />
-          {(['Time', 'Category', 'MID', 'Sub Category', 'Content'] as const).map((h, k) => (
+          {/* the + column, with the same line as between the other columns */}
+          <div aria-hidden className="border-r border-dashed border-black/10" />
+          {(['Time', 'Project', 'Type', 'Task', 'Content'] as const).map((h, k) => (
             <div key={h} className={cx('relative px-2.5 py-2', k > 0 && 'border-l border-dashed border-black/10')}>
               {tr(h)}
               {k < RESIZABLE.length && (
@@ -607,11 +608,11 @@ export function DailyGrid({
               className={cx('group/row relative grid border-t border-dashed border-black/15', lunchDefault && 'text-muted')}
               style={{ gridTemplateColumns: gridColumns, backgroundColor: s ? rowBg(ctx.color(s.kind, s.group_project_id)) : undefined }}
             >
-              <div className="flex items-center justify-center" style={rowStyle}>
+              <div className="flex items-center justify-center border-r border-dashed border-black/10" style={rowStyle} data-row-add>
                 {onRowToTemplate && !readOnly && s && !lunchDefault && (s.label || s.group_project_id || s.description) && (
                   <button
                     aria-label={`Add ${slotToTime(i)} to repeated tasks`}
-                    title="이 행을 반복 업무로 추가 (대분류·MID·업무분류, 업무내용은 제외)"
+                    title="이 행을 반복 업무로 추가 (프로젝트·유형·업무, 업무내용은 제외)"
                     className="flex h-5 w-5 items-center justify-center rounded-chip text-muted opacity-40 hover:bg-white hover:text-primary group-hover/row:opacity-100"
                     onMouseDown={(e) => {
                       e.preventDefault()
@@ -732,7 +733,7 @@ export function DailyGrid({
             onMouseDown={(e) => e.preventDefault()}
           >
             <div className="relative flex items-center justify-between px-2 pb-1 pt-1.5 text-[11px] font-semibold text-muted">
-              <span>{activeCol === 'mid' ? `${tr('MID')} 선택 · 목록은 Projects 화면에서 관리` : '옵션 선택 또는 생성'}</span>
+              <span>{activeCol === 'mid' ? `${tr('Type')} 선택 · 목록은 Projects 화면에서 관리` : '옵션 선택 또는 생성'}</span>
               <button
                 aria-label="Sort options"
                 title={`정렬: ${SORT_LABELS[api.sort[listKind]]}`}
@@ -765,7 +766,7 @@ export function DailyGrid({
             <div ref={listRef} role="listbox" className="max-h-72 overflow-auto">
               {options.length === 0 && (
                 <p className="px-2 py-2 text-xs text-muted">
-                  {activeCol === 'task' ? '등록된 반복 업무가 없습니다. 입력하면 새로 만들 수 있어요.' : activeCol === 'mid' ? '목록에 없는 이름입니다. MID 목록은 관리자가 Projects 화면에서 관리합니다.' : '일치하는 옵션이 없습니다.'}
+                  {activeCol === 'task' ? '등록된 반복 업무가 없습니다. 입력하면 새로 만들 수 있어요.' : activeCol === 'mid' ? '목록에 없는 이름입니다. 유형 목록은 관리자가 Projects 화면에서 관리합니다.' : '일치하는 옵션이 없습니다.'}
                 </p>
               )}
               {options.map((o, k) => {

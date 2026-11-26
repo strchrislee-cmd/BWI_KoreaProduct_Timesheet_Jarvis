@@ -76,7 +76,7 @@ const expect = (cond, msg) => {
   await desk.goto(BASE + '/timesheets?date=2026-11-16')
   await desk.locator('[data-slot="16"] > div').nth(1).click()
   await desk.getByRole('button', { name: '선택한 행 저장' }).click()
-  await desk.getByTestId('templates').locator('li').first().waitFor()
+  await desk.getByTestId('templates').locator('[data-testid="template-row"]').first().waitFor()
   await desk.close()
   await page.reload()
   await row(20).tap()

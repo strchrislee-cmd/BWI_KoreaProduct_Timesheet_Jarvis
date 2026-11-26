@@ -75,7 +75,7 @@ export function WorkTypesCard() {
     <Card
       title={
         <span className="flex items-center gap-2">
-          {tr('MID')} <span className="text-sm font-normal text-muted">{visible.length}개 · Daily Log에서 대분류 다음 칸</span>
+          {tr('Type')} <span className="text-sm font-normal text-muted">{visible.length}개 · Daily Log에서 {tr('Project')} 다음 칸</span>
         </span>
       }
       action={
@@ -97,12 +97,12 @@ export function WorkTypesCard() {
           {note}
         </p>
       )}
-      <table className="sheet" aria-label="MID list">
+      <table className="sheet" aria-label="Type list">
         <thead>
           <tr>
             <th className="w-14">{tr('Color')}</th>
             <th className="num w-12">No</th>
-            <th>{tr('MID')}</th>
+            <th>{tr('Type')}</th>
             {isAdmin && <th className="w-28" />}
           </tr>
         </thead>
@@ -185,9 +185,9 @@ export function WorkTypesCard() {
             if (newName.trim()) void add()
           }}
         >
-          <input className="field" aria-label="New MID" placeholder="새 MID 이름 (예: 개발-원가절감)" value={newName} onChange={(e) => setNewName(e.target.value)} />
+          <input className="field" aria-label="New type" placeholder="새 유형 이름 (예: 개발-원가절감)" value={newName} onChange={(e) => setNewName(e.target.value)} />
           <Button type="submit" className="shrink-0" disabled={!newName.trim()}>
-            <Plus size={16} /> MID 추가
+            <Plus size={16} /> {tr('Type')} 추가
           </Button>
         </form>
       )}

@@ -152,8 +152,8 @@ export function ReminderToast({ date, slot, onClose }: { date: string; slot: num
           void save()
         }}
       >
-        <select aria-label="Category" className="field" value={category} onChange={(e) => setCategory(e.target.value)}>
-          <option value="">대분류 (Category)</option>
+        <select aria-label="Project" className="field" value={category} onChange={(e) => setCategory(e.target.value)}>
+          <option value="">프로젝트 (Project)</option>
           {groups.map((g) => (
             <optgroup key={g.label} label={g.label}>
               {g.items.map((o) => (
@@ -172,15 +172,15 @@ export function ReminderToast({ date, slot, onClose }: { date: string; slot: num
             ))}
           </optgroup>
         </select>
-        <select aria-label="MID" className="field" value={mid} onChange={(e) => setMid(e.target.value)}>
-          <option value="">중분류 (MID)</option>
+        <select aria-label="Type" className="field" value={mid} onChange={(e) => setMid(e.target.value)}>
+          <option value="">유형 (Type)</option>
           {selectableWorkTypes(data.data?.[4] ?? []).map((w) => (
             <option key={w.id} value={w.name}>
               {w.name}
             </option>
           ))}
         </select>
-        <input aria-label="Sub Category" className="field" placeholder="업무분류 (Sub Category)" value={task} onChange={(e) => setTask(e.target.value)} />
+        <input aria-label="Task" className="field" placeholder="업무 (Task)" value={task} onChange={(e) => setTask(e.target.value)} />
         <input aria-label="Content" className="field" placeholder="업무내용 (Content)" value={details} onChange={(e) => setDetails(e.target.value)} />
         <div className="flex gap-2 pt-1">
           <Button type="submit" className="flex-1" disabled={busy || !data.data || !(category || mid || task.trim() || details.trim())}>
