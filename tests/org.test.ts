@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { below, canRequest, managerOptions, orgRows, requestState, visibleIds, wouldLoop, type AccessRequest } from '../src/domain/org'
+import { below, canPropose, canRequest, managerOptions, orgRows, requestState, visibleIds, wouldLoop, type AccessRequest } from '../src/domain/org'
 import type { Role } from '../src/domain/types'
 
 const p = (id: string, role: Role, manager_id: string | null = null) => ({ id, name: id, role, manager_id })
@@ -46,6 +46,16 @@ describe('org chart', () => {
     expect(visibleIds(a, team, [req({ status: 'approved', expires_at: '2026-11-27T11:00:00Z' })], now).has('mgr2')).toBe(true)
     expect(visibleIds(a, team, [req({ status: 'approved', expires_at: '2026-11-27T09:59:00Z' })], now).has('mgr2')).toBe(false)
     expect(visibleIds(a, team, [req({ status: 'denied' })], now).has('mgr2')).toBe(false)
+  })
+
+  it('who may send correction proposals: admins to anyone, otherwise to lower levels below you', () => {
+    expect(canPropose(p('mgr', 'l2', 'lead'), p('a', 'l1', 'mgr'), team)).toBe(true)
+    expect(canPropose(p('lead', 'l3'), p('c', 'l1', 'mgr2'), team)).toBe(true)
+    expect(canPropose(p('mgr', 'l2', 'lead'), p('c', 'l1', 'mgr2'), team)).toBe(false) // another team
+    expect(canPropose(p('mgr', 'l2', 'lead'), p('lead', 'l3'), team)).toBe(false)
+    expect(canPropose(p('a', 'l1', 'mgr'), p('b', 'l1', 'mgr'), team)).toBe(false)
+    expect(canPropose(p('admin', 'admin'), p('lead', 'l3'), team)).toBe(true)
+    expect(canPropose(p('admin', 'admin'), p('admin', 'admin'), team)).toBe(false)
   })
 
   it('who may ask whom, and where a request stands', () => {

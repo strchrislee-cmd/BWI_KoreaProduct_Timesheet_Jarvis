@@ -77,6 +77,13 @@ export function visibleIds(me: OrgPerson, profiles: OrgPerson[], requests: Acces
   return ids
 }
 
+/** Who may send correction proposals to whom (0014 → can_propose): admins to anyone, otherwise to someone of a lower level below you. */
+export function canPropose(author: OrgPerson, owner: OrgPerson, profiles: OrgPerson[]): boolean {
+  if (author.id === owner.id) return false
+  if (author.role === 'admin') return true
+  return LEVEL_RANK[author.role] > LEVEL_RANK[owner.role] && below(profiles, author.id).some((p) => p.id === owner.id)
+}
+
 /** An L1 may ask an L2. */
 export const canRequest = (me: OrgPerson, owner: OrgPerson) => me.role === 'l1' && owner.role === 'l2' && me.id !== owner.id
 

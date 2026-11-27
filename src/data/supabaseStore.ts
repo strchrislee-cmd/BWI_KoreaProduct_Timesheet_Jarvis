@@ -1,5 +1,6 @@
 import type { KanbanCard, KanbanStatus, KanbanTask, MoveReason } from '../domain/kanban'
 import type { AccessRequest } from '../domain/org'
+import { readItems, type AiCleanupResult, type AiUsage, type CorrectionProposal } from '../domain/aiCleanup'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import type {
   GroupProject,
@@ -88,7 +89,9 @@ export class SupabaseStore implements DataStore {
     must(await this.sb.from('profiles').update(patch).eq('id', id))
   }
   async getOrgSettings() {
-    return must<OrgSettings>(await this.sb.from('org_settings').select('ai_enabled, ai_model').eq('id', 1).single())
+    // ai_daily_limit arrives with migration 0014
+    const s = must<Partial<OrgSettings>>(await this.sb.from('org_settings').select('*').eq('id', 1).single())
+    return { ai_enabled: !!s.ai_enabled, ai_model: s.ai_model ?? '', ai_daily_limit: s.ai_daily_limit ?? 10 }
   }
   async updateOrgSettings(patch: Partial<OrgSettings>) {
     must(await this.sb.from('org_settings').update(patch).eq('id', 1))
@@ -264,6 +267,42 @@ export class SupabaseStore implements DataStore {
   }
   async decideAccessRequest(id: string, approve: boolean, hours?: number) {
     must(await this.sb.rpc('decide_access_request', { p_id: id, p_approve: approve, p_hours: hours ?? null }))
+  }
+
+  async setAiKey(key: string | null) {
+    must(await this.sb.rpc('set_ai_key', { p_key: key ?? '' }))
+  }
+  async aiKeyHint() {
+    return must<string | null>(await this.sb.rpc('ai_key_hint')) ?? null
+  }
+  async listAiUsage(since: string) {
+    const rows = must<AiUsage[]>(await this.sb.from('ai_usage').select('*').gte('created_at', since).order('created_at', { ascending: false }))
+    return rows.map((r) => ({ ...r, cost_usd: Number(r.cost_usd) }))
+  }
+  async aiCleanup(date: string, ownerId: string) {
+    const { data } = await this.sb.auth.getSession()
+    const res = await fetch('/api/ai/cleanup', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${data.session?.access_token ?? ''}` },
+      body: JSON.stringify({ date, owner_id: ownerId }),
+    })
+    const body = (await res.json().catch(() => ({}))) as Partial<AiCleanupResult> & { error?: string }
+    if (!res.ok) throw new Error(body.error ?? `AI 정리에 실패했습니다 (${res.status})`)
+    return { items: readItems(body.items), remaining: body.remaining ?? 0, usage: body.usage ?? { input_tokens: 0, output_tokens: 0, cost_usd: 0 } }
+  }
+  async listProposals() {
+    const rows = must<CorrectionProposal[]>(await this.sb.from('correction_proposals').select('*').order('created_at', { ascending: false }))
+    return rows.map((r) => ({ ...r, items: readItems(r.items) }))
+  }
+  async sendProposal(p: Pick<CorrectionProposal, 'owner_id' | 'work_date' | 'items' | 'note' | 'by_ai'>) {
+    const { data } = await this.sb.auth.getSession()
+    must(await this.sb.from('correction_proposals').insert({ ...p, author_id: data.session?.user.id }))
+  }
+  async answerProposal(id: string, applied: number[]) {
+    must(await this.sb.rpc('answer_proposal', { p_id: id, p_applied: applied }))
+  }
+  async withdrawProposal(id: string) {
+    must(await this.sb.from('correction_proposals').delete().eq('id', id))
   }
 
   async getBackground(userId: string) {

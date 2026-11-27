@@ -1,3 +1,4 @@
+import { createPortal } from 'react-dom'
 import { X } from 'lucide-react'
 import type { ButtonHTMLAttributes, ReactNode } from 'react'
 
@@ -91,7 +92,8 @@ export function Field({ label, children, hint }: { label: string; children: Reac
 }
 
 export function Modal({ title, onClose, children, wide }: { title: string; onClose: () => void; children: ReactNode; wide?: boolean }) {
-  return (
+  // on <body>: inside a glass card (backdrop-filter) `fixed` would be relative to the card, not the screen
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/25 p-4 backdrop-blur-sm" role="dialog" aria-label={title}>
       <div className={cx('glass-strong max-h-[90vh] w-full overflow-auto rounded-menu p-6', wide ? 'max-w-4xl' : 'max-w-lg')}>
         <div className="mb-4 flex items-center justify-between">
@@ -102,7 +104,8 @@ export function Modal({ title, onClose, children, wide }: { title: string; onClo
         </div>
         {children}
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }
 

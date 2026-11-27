@@ -24,6 +24,8 @@ interface TimesheetsValue {
   requests: AccessRequest[]
   /** false until migration 0013 (org chart, access requests) has been run on the database */
   orgReady: boolean
+  /** AI 정리 is on (an admin turned it on and set the key in Admin → AI) */
+  aiEnabled: boolean
   projects: GroupProject[]
   aliases: ProjectAlias[]
   /** MID (중분류) list in the admin's order, hidden ones included */
@@ -77,13 +79,14 @@ export function TimesheetsLayout() {
           (r) => ({ ok: true, list: r }),
           () => ({ ok: false, list: [] as AccessRequest[] }),
         ),
+        store.getOrgSettings().catch(() => null),
       ]),
     [store],
   )
 
   const value = useMemo<TimesheetsValue | null>(() => {
     if (!master.data) return null
-    const [projects, aliases, latestImport, profiles, workTypes, requests] = master.data
+    const [projects, aliases, latestImport, profiles, workTypes, requests, org] = master.data
     const me = profiles.find((p) => p.id === user.id) ?? user
     const visible = visibleIds(me, profiles, requests.list, new Date())
     const engineerId = (canPickEngineer && params.get('eng')) || user.id
@@ -95,6 +98,7 @@ export function TimesheetsLayout() {
       visible,
       requests: requests.list,
       orgReady: requests.ok,
+      aiEnabled: !!org?.ai_enabled,
       projects: sortProjects(projects),
       // team aliases + the viewed person's personal ones (theirs decide how their own labels map)
       aliases: aliases.filter((a) => !a.user_id || a.user_id === engineerId),

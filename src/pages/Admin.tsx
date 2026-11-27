@@ -8,6 +8,7 @@ import type { InviteSent, Profile, Role } from '../domain/types'
 import { useAsync } from '../lib/hooks'
 import { useT } from '../lib/i18n'
 import { ROLES, roleLabel } from '../domain/roles'
+import { AdminAi } from './AdminAi'
 
 export function Admin() {
   const tr = useT()
@@ -277,6 +278,10 @@ export function Admin() {
             </p>
           </form>
         </Card>
+      </div>
+
+      <div className="mt-4">
+        <AdminAi profiles={profiles.data ?? []} />
       </div>
 
       {pwFor && (

@@ -1,4 +1,4 @@
-import { Bell, ImagePlus, KeyRound, Layers, RefreshCw, Sparkles, X } from 'lucide-react'
+import { Bell, ImagePlus, KeyRound, Layers, RefreshCw, X } from 'lucide-react'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { BACKGROUND_CHANGED, fetchDailyPhoto } from '../components/BackgroundLayer'
 import { ColorMenu, Swatch } from '../components/ColorMenu'
@@ -14,7 +14,7 @@ import { passwordProblem, type PasswordProblem } from '../domain/password'
 import { isSelectable, sortProjects } from '../domain/projects'
 import { todayLocal } from '../domain/time'
 import { ROLES } from '../domain/roles'
-import type { OrgSettings, Profile, Role } from '../domain/types'
+import type { Profile, Role } from '../domain/types'
 import { crossSeconds } from '../lib/flowGradient'
 import { compressImage } from '../lib/files'
 import { FONT_CHOICES, loadFont } from '../lib/fonts'
@@ -38,16 +38,10 @@ export function Settings() {
   const tr = useT()
   const { store, refreshUser } = useStore()
   const user = useUser()
-  const isAdmin = user.role === 'admin'
   const [form, setForm] = useState<ProfileForm>(user)
   const [saved, setSaved] = useState('')
   const [error, setError] = useState<Error | null>(null)
 
-  const org = useAsync(() => store.getOrgSettings(), [store])
-  const [orgForm, setOrgForm] = useState<OrgSettings | null>(null)
-  useEffect(() => {
-    if (org.data) setOrgForm(org.data)
-  }, [org.data])
 
   const set = <K extends keyof ProfileForm>(k: K, v: ProfileForm[K]) => setForm({ ...form, [k]: v })
 
@@ -63,22 +57,11 @@ export function Settings() {
     }
   }
 
-  async function saveOrg() {
-    if (!orgForm) return
-    try {
-      await store.updateOrgSettings(orgForm)
-      setSaved('Organisation settings saved')
-      setError(null)
-    } catch (e) {
-      setError(e as Error)
-    }
-  }
-
   return (
     <div>
       <PageTitle>{tr('Settings')}</PageTitle>
       <div className="mb-4 space-y-2">
-        <ErrorNote error={error ?? org.error} />
+        <ErrorNote error={error} />
         {saved && <p className="rounded-control bg-sage px-4 py-2 text-sm font-semibold text-primary" role="status">{saved}</p>}
       </div>
       <div className="grid gap-4 lg:grid-cols-3">
@@ -134,27 +117,6 @@ export function Settings() {
         </Card>
 
         <div className="flex flex-col gap-4">
-          <Card tone="sage" title={<span className="flex items-center gap-2"><Sparkles size={18} /> AI provider</span>}>
-            {orgForm ? (
-              <div className="space-y-3">
-                <label className="flex items-center gap-2 text-sm font-semibold">
-                  <input type="checkbox" disabled={!isAdmin} checked={orgForm.ai_enabled} onChange={(e) => setOrgForm({ ...orgForm, ai_enabled: e.target.checked })} />
-                  Enable AI mapping suggestions (phase 2)
-                </label>
-                <Field label="Model">
-                  <input className="field" disabled={!isAdmin} value={orgForm.ai_model} onChange={(e) => setOrgForm({ ...orgForm, ai_model: e.target.value })} />
-                </Field>
-                <p className="text-xs text-muted">The API key is never stored in the browser or the database: set ANTHROPIC_API_KEY in Vercel → Environment Variables.</p>
-                {isAdmin && (
-                  <Button variant="outline" onClick={() => void saveOrg()}>
-                    Save organisation settings
-                  </Button>
-                )}
-              </div>
-            ) : (
-              <p className="text-sm text-muted">Loading…</p>
-            )}
-          </Card>
           <Card title="Data">
             <p className="text-sm">
               Mode: <strong>{store.mode === 'demo' ? 'Demo (this browser only)' : 'Supabase'}</strong>

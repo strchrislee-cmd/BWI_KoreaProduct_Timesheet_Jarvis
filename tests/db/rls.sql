@@ -454,3 +454,94 @@ select pg_temp.expect_error($$select count(*) from access_requests$$, 'anon cann
 select pg_temp.expect_error($$select public.visible_user_ids()$$, 'anon cannot ask whose time is visible');
 select set_config('request.jwt.claims', '', false);
 reset role;
+
+-- ── AI 정리 and correction proposals (0014) ─────────────────────────────────
+-- a = admin, c = L1 (→ f), f = L2 (→ e), e = L3. The key is admin-only and read only by the server.
+select pg_temp.check((select ai_model = 'claude-haiku-5-5' and ai_daily_limit = 10 from org_settings), 'AI uses the cheapest model, 10 uses a day by default');
+set role authenticated;
+select pg_temp.login('00000000-0000-0000-0000-00000000000c');
+select pg_temp.expect_error($$select set_ai_key('sk-ant-l1-tries-to-set-a-key-0000')$$, 'L1 cannot set the AI key');
+select pg_temp.check(ai_key_hint() is null, 'L1 does not see whether a key is set');
+select pg_temp.expect_error($$select get_ai_key()$$, 'L1 cannot read the AI key');
+select pg_temp.expect_error($$select * from private.ai_settings$$, 'the key table is not reachable for signed-in users');
+reset role;
+set role authenticated;
+select pg_temp.login('00000000-0000-0000-0000-00000000000a');
+select set_ai_key('  sk-ant-api03-test-key-0000000000abcd  ');
+select pg_temp.check(ai_key_hint() = '…abcd', 'admin sets the key and sees only its last 4 characters');
+select pg_temp.expect_error($$select set_ai_key('short')$$, 'a key that is too short is rejected');
+select pg_temp.expect_error($$select get_ai_key()$$, 'admins cannot read the key back either');
+reset role;
+set role service_role;
+select set_config('request.jwt.claims', '{"role":"service_role"}', false);
+select pg_temp.check(get_ai_key() = 'sk-ant-api03-test-key-0000000000abcd', 'the server reads the key (trimmed)');
+select pg_temp.check(ai_begin('00000000-0000-0000-0000-00000000000c', '00000000-0000-0000-0000-00000000000c', '2026-11-27', 'claude-haiku-5-5', 2) is not null
+  and ai_begin('00000000-0000-0000-0000-00000000000c', '00000000-0000-0000-0000-00000000000c', '2026-11-27', 'claude-haiku-5-5', 2) is not null, 'two uses within a limit of 2');
+select pg_temp.check(ai_begin('00000000-0000-0000-0000-00000000000c', '00000000-0000-0000-0000-00000000000c', '2026-11-27', 'claude-haiku-5-5', 2) is null, 'the third use of the day is refused');
+update ai_usage set input_tokens = 1200, output_tokens = 300, cost_usd = 0.00027 where user_id = '00000000-0000-0000-0000-00000000000c';
+select ai_begin('00000000-0000-0000-0000-00000000000f', '00000000-0000-0000-0000-00000000000c', '2026-11-27', 'claude-haiku-5-5', 2);
+select set_config('request.jwt.claims', '', false);
+reset role;
+set role authenticated;
+select pg_temp.login('00000000-0000-0000-0000-00000000000c');
+select pg_temp.check((select count(*) from ai_usage) = 2 and (select sum(output_tokens) from ai_usage) = 600, 'each person sees their own AI use');
+select pg_temp.expect_error($$insert into ai_usage (user_id, work_date, model) values ('00000000-0000-0000-0000-00000000000c', '2026-11-27', 'x')$$, 'only the server records AI use');
+select pg_temp.expect_error($$select ai_begin('00000000-0000-0000-0000-00000000000c', null, '2026-11-27', 'x', 99)$$, 'users cannot start a use themselves');
+reset role;
+set role authenticated;
+select pg_temp.login('00000000-0000-0000-0000-00000000000a');
+select pg_temp.check((select count(*) from ai_usage) = 3, 'admin sees everyone''s AI use');
+reset role;
+
+-- proposals: f (L2) → c (L1 below) yes; f → e (L3 above) no; c (L1) → anyone no; e (L3) → c yes; admin → e yes
+set role authenticated;
+select pg_temp.login('00000000-0000-0000-0000-00000000000f');
+insert into correction_proposals (owner_id, author_id, work_date, items, note) values
+  ('00000000-0000-0000-0000-00000000000c', '00000000-0000-0000-0000-00000000000f', '2026-11-16',
+   '[{"slots":[15],"before":{"group_project_id":null,"label":"일반","work_type_id":null,"description":""},"after":{"group_project_id":null,"label":"일반","work_type_id":null,"description":"메일 정리"},"reason":"업무 내용"}]', '업무를 적어 주세요');
+select pg_temp.check((select count(*) from correction_proposals) = 1, 'L2 proposes a correction to an L1 below them');
+select pg_temp.expect_error($$insert into correction_proposals (owner_id, author_id, work_date, items) values ('00000000-0000-0000-0000-00000000000e', '00000000-0000-0000-0000-00000000000f', '2026-11-16', '[{"slots":[1]}]')$$, 'L2 cannot propose to their L3');
+select pg_temp.expect_error($$insert into correction_proposals (owner_id, author_id, work_date, items) values ('00000000-0000-0000-0000-00000000000c', '00000000-0000-0000-0000-00000000000e', '2026-11-16', '[{"slots":[1]}]')$$, 'nobody proposes in someone else''s name');
+select pg_temp.expect_error($$insert into correction_proposals (owner_id, author_id, work_date, items) values ('00000000-0000-0000-0000-00000000000c', '00000000-0000-0000-0000-00000000000f', '2026-11-16', '[]')$$, 'a proposal needs at least one change');
+reset role;
+set role authenticated;
+select pg_temp.login('00000000-0000-0000-0000-00000000000c');
+select pg_temp.expect_error($$insert into correction_proposals (owner_id, author_id, work_date, items) values ('00000000-0000-0000-0000-00000000000f', '00000000-0000-0000-0000-00000000000c', '2026-11-16', '[{"slots":[1]}]')$$, 'L1 cannot propose');
+reset role;
+set role authenticated;
+select pg_temp.login('00000000-0000-0000-0000-00000000000e');
+insert into correction_proposals (owner_id, author_id, work_date, items, by_ai) values
+  ('00000000-0000-0000-0000-00000000000c', '00000000-0000-0000-0000-00000000000e', '2026-11-16', '[{"slots":[15]},{"slots":[16]}]', true);
+select pg_temp.check((select count(*) from correction_proposals) = 1, 'L3 proposes to an L1 two steps below and sees only their own proposal');
+reset role;
+set role authenticated;
+select pg_temp.login('00000000-0000-0000-0000-00000000000a');
+insert into correction_proposals (owner_id, author_id, work_date, items) values ('00000000-0000-0000-0000-00000000000e', '00000000-0000-0000-0000-00000000000a', '2026-11-16', '[{"slots":[16]}]');
+select pg_temp.check((select count(*) from correction_proposals) = 3, 'admin proposes to anyone and sees every proposal');
+reset role;
+set role authenticated;
+select pg_temp.login('00000000-0000-0000-0000-00000000000c');
+select pg_temp.check((select count(*) from correction_proposals) = 2, 'the person sees the proposals sent to them');
+select answer_proposal(id, '{0}') from correction_proposals where author_id = '00000000-0000-0000-0000-00000000000f';
+select pg_temp.check((select status = 'answered' and applied = '{0}' and answered_at is not null from correction_proposals where author_id = '00000000-0000-0000-0000-00000000000f'), 'the person answers which rows they applied');
+select pg_temp.expect_error($$select answer_proposal(id, '{}') from correction_proposals where author_id = '00000000-0000-0000-0000-00000000000f'$$, 'a proposal is answered once');
+select pg_temp.expect_error($$select answer_proposal(id, '{5}') from correction_proposals where author_id = '00000000-0000-0000-0000-00000000000e'$$, 'only items that exist can be applied');
+select pg_temp.check(pg_temp.affected($$update correction_proposals set note = 'x'$$) = 0, 'proposals are not edited directly');
+reset role;
+set role authenticated;
+select pg_temp.login('00000000-0000-0000-0000-00000000000f');
+select pg_temp.expect_error($$select answer_proposal(id, '{0}') from correction_proposals limit 1$$, 'the author cannot answer for the person');
+select pg_temp.check(pg_temp.affected($$delete from correction_proposals$$) = 0, 'an answered proposal cannot be taken back');
+reset role;
+set role authenticated;
+select pg_temp.login('00000000-0000-0000-0000-00000000000e');
+select pg_temp.check(pg_temp.affected($$delete from correction_proposals$$) = 1, 'the author takes back an open proposal');
+reset role;
+set role anon;
+select pg_temp.login('');
+select set_config('request.jwt.claims', '{"role":"anon"}', false);
+select pg_temp.expect_error($$select count(*) from correction_proposals$$, 'anon cannot read proposals');
+select pg_temp.expect_error($$select get_ai_key()$$, 'anon cannot read the AI key');
+select pg_temp.expect_error($$select count(*) from ai_usage$$, 'anon cannot read AI use');
+select set_config('request.jwt.claims', '', false);
+reset role;

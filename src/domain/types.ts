@@ -45,6 +45,8 @@ export interface Profile {
 export interface OrgSettings {
   ai_enabled: boolean
   ai_model: string
+  /** AI 정리 uses per person per day (0014) */
+  ai_daily_limit: number
 }
 
 export interface GroupProject {

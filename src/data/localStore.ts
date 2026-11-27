@@ -1,5 +1,6 @@
 import { planKanbanSync, taskKey, type KanbanCard, type KanbanStatus, type KanbanTask, type MoveReason } from '../domain/kanban'
-import { canRequest, GRANT_HOURS, visibleIds, wouldLoop, type AccessRequest } from '../domain/org'
+import { canPropose, canRequest, GRANT_HOURS, visibleIds, wouldLoop, type AccessRequest } from '../domain/org'
+import { AI_MODEL, koreaDayStart, readItems, type AiCleanupResult, type AiUsage, type CorrectionProposal } from '../domain/aiCleanup'
 import { aliasConflict, diffMaster, projectNameKey, sheetNameAfterRename } from '../domain/projects'
 import { deleteUserProblem, normalizeRole } from '../domain/roles'
 import { SEED_ALIASES, SEED_PROJECTS } from '../domain/seed'
@@ -44,6 +45,10 @@ interface DemoState {
   kanbanCards: KanbanCard[]
   kanbanMoves: { id: number; card_id: string; user_id: string; from_status: KanbanStatus | null; to_status: KanbanStatus; reason: MoveReason; moved_at: string }[]
   accessRequests: AccessRequest[]
+  /** demo: only the hint of the AI key is kept ('…abcd'), never the key */
+  aiKeyHint: string | null
+  aiUsage: AiUsage[]
+  proposals: CorrectionProposal[]
 }
 
 const uid = () => crypto.randomUUID()
@@ -85,7 +90,7 @@ function seed(): DemoState {
         team: '',
       },
     ],
-    org: { ai_enabled: false, ai_model: 'claude-opus-5-5' },
+    org: { ai_enabled: false, ai_model: AI_MODEL, ai_daily_limit: 10 },
     projects,
     aliases: SEED_ALIASES.map((a) => ({
       id: uid(),
@@ -105,6 +110,9 @@ function seed(): DemoState {
     kanbanCards: [],
     kanbanMoves: [],
     accessRequests: [],
+    aiKeyHint: null,
+    aiUsage: [],
+    proposals: [],
   }
 }
 
@@ -120,7 +128,7 @@ export class LocalStore implements DataStore {
     const legacy = localStorage.getItem(LEGACY_KEY)
     const raw = localStorage.getItem(KEY) ?? legacy
     if (raw) {
-      const saved = JSON.parse(raw) as Partial<DemoState> & Omit<DemoState, 'templates' | 'workDays' | 'backgrounds' | 'workTypes' | 'kanbanCards' | 'kanbanMoves' | 'accessRequests'>
+      const saved = JSON.parse(raw) as Partial<DemoState> & Omit<DemoState, 'templates' | 'workDays' | 'backgrounds' | 'workTypes' | 'kanbanCards' | 'kanbanMoves' | 'accessRequests' | 'aiKeyHint' | 'aiUsage' | 'proposals'>
       // demo data saved by older versions lacks these collections / fields
       const epoch = '2026-01-01T00:00:00.000Z'
       this.state = {
@@ -134,6 +142,10 @@ export class LocalStore implements DataStore {
         kanbanCards: saved.kanbanCards ?? [],
         kanbanMoves: saved.kanbanMoves ?? [],
         accessRequests: saved.accessRequests ?? [],
+        org: { ...saved.org, ai_model: AI_MODEL, ai_daily_limit: saved.org.ai_daily_limit ?? 10 },
+        aiKeyHint: saved.aiKeyHint ?? null,
+        aiUsage: saved.aiUsage ?? [],
+        proposals: saved.proposals ?? [],
         profiles: saved.profiles.map((p) => ({
           ...p,
           email: ['demo@jarvis.local', 'demo@timecrumbs.local'].includes(p.email) ? DEMO_EMAIL : p.email,
@@ -259,6 +271,69 @@ export class LocalStore implements DataStore {
       // a teammate already asked the demo user (answer it on the Org Chart while the demo level is L2)
       s.accessRequests.push({ id: uid(), requester_id: `${DEMO_TEAM}3`, owner_id: DEMO_USER_ID, status: 'pending', created_at: now, decided_at: null, expires_at: null })
     })
+  }
+
+  private me() {
+    return this.state.profiles.find((p) => p.id === DEMO_USER_ID)!
+  }
+
+  async setAiKey(key: string | null) {
+    if (this.me().role !== 'admin') throw new Error('only admins can set the AI key')
+    const k = (key ?? '').trim()
+    if (k && k.length < 20) throw new Error('AI 키가 너무 짧습니다')
+    this.mutate((s) => void (s.aiKeyHint = k ? `…${k.slice(-4)}` : null))
+  }
+  async aiKeyHint() {
+    return this.me().role === 'admin' ? this.state.aiKeyHint : null
+  }
+  async listAiUsage(since: string) {
+    const admin = this.me().role === 'admin'
+    return this.state.aiUsage.filter((u) => (admin || u.user_id === DEMO_USER_ID) && u.created_at >= since).map((u) => ({ ...u })).reverse()
+  }
+  /** Demo: the same checks as the server; the answer comes from /api/ai/cleanup (browser tests answer it). */
+  async aiCleanup(date: string, ownerId: string): Promise<AiCleanupResult> {
+    const { org, profiles } = this.state
+    const me = this.me()
+    const owner = profiles.find((p) => p.id === ownerId)
+    if (!org.ai_enabled) throw new Error('AI 정리가 꺼져 있습니다. 관리자에게 알려 주세요.')
+    if (!owner || (ownerId !== me.id && !canPropose(me, owner, profiles))) throw new Error('이 사람의 기록에는 제안할 수 없습니다.')
+    if (!this.state.aiKeyHint) throw new Error('AI 키가 아직 없습니다. 관리자에게 알려 주세요.')
+    const since = koreaDayStart(new Date()).toISOString()
+    const used = () => this.state.aiUsage.filter((u) => u.user_id === me.id && u.created_at >= since).length
+    if (used() >= org.ai_daily_limit) throw new Error(`오늘 AI 정리 ${org.ai_daily_limit}회를 모두 썼습니다. 내일 다시 쓸 수 있습니다.`)
+    const res = await fetch('/api/ai/cleanup', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ date, owner_id: ownerId }) })
+    if (!res.ok) throw new Error('데모 모드에서는 AI 정리를 쓸 수 없습니다 (Supabase에 연결된 사이트에서 됩니다).')
+    const body = (await res.json()) as AiCleanupResult
+    const usage = body.usage ?? { input_tokens: 0, output_tokens: 0, cost_usd: 0 }
+    this.mutate((s) => {
+      s.aiUsage.push({ id: s.aiUsage.length + 1, user_id: me.id, owner_id: ownerId, work_date: date, model: AI_MODEL, ...usage, created_at: new Date().toISOString() })
+    })
+    return { items: readItems(body.items), remaining: Math.max(0, org.ai_daily_limit - used()), usage }
+  }
+  async listProposals() {
+    const admin = this.me().role === 'admin'
+    return this.state.proposals
+      .filter((p) => admin || p.owner_id === DEMO_USER_ID || p.author_id === DEMO_USER_ID)
+      .map((p) => ({ ...p, items: readItems(p.items) }))
+      .sort((a, b) => b.created_at.localeCompare(a.created_at))
+  }
+  async sendProposal(p: Pick<CorrectionProposal, 'owner_id' | 'work_date' | 'items' | 'note' | 'by_ai'>) {
+    const owner = this.state.profiles.find((x) => x.id === p.owner_id)
+    if (!owner || !canPropose(this.me(), owner, this.state.profiles)) throw new Error('이 사람의 기록에는 제안할 수 없습니다.')
+    if (!p.items.length || p.items.length > 48) throw new Error('바꿀 줄이 없습니다')
+    this.mutate((s) => {
+      s.proposals.push({ ...p, id: uid(), author_id: DEMO_USER_ID, status: 'open', applied: null, created_at: new Date().toISOString(), answered_at: null })
+    })
+  }
+  async answerProposal(id: string, applied: number[]) {
+    const p = this.state.proposals.find((x) => x.id === id)
+    if (!p || p.owner_id !== DEMO_USER_ID) throw new Error('only the person it was sent to can answer')
+    if (p.status !== 'open') throw new Error('this proposal has already been answered')
+    if (applied.some((i) => i < 0 || i >= p.items.length)) throw new Error('unknown item')
+    this.mutate((s) => Object.assign(s.proposals.find((x) => x.id === id)!, { status: 'answered', applied, answered_at: new Date().toISOString() }))
+  }
+  async withdrawProposal(id: string) {
+    this.mutate((s) => void (s.proposals = s.proposals.filter((x) => !(x.id === id && x.author_id === DEMO_USER_ID && x.status === 'open'))))
   }
 
   /** Reading someone's time follows the org chart, as in the database (0013 → visible_user_ids). */

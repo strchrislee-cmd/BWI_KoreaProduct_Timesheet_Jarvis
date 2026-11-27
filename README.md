@@ -22,12 +22,14 @@
 | **조직도** (Org Chart) | Timesheets 마지막 탭. **모두(L1·L2·L3·Admin) 전체 조직**을 보고 라인대로 들여쓰기로 보고, 사람마다 등급·팀 이름 표시. **관리자만** 상위자(더 높은 등급이고 보고 라인이 돌아오지 않는 사람만 고를 수 있음)와 팀을 지정. 볼 수 있는 사람 옆 **볼 수 있음**(관리자는 **보기** 링크로 그 사람 Daily Log). L1은 L2 옆 **열람 요청** → 그 L2가 오른쪽 **받은 열람 요청**에서 **1시간·하루·1주** 중 골라 승인(또는 거절) → 그 기간 동안 읽기만. Supabase에서 `0013_org_access.sql`을 실행해야 쓸 수 있고, 실행 전에는 모두 자기 기록만 봄. 데모에서는 **데모 팀원 만들기**(가상 이름)로 해 볼 수 있음 |
 | **팀원 창** | 볼 수 있는 사람이 있으면 Daily Log에 Today 같은 **팀원**(Team) 창이 생김(옮기기·크기·오른쪽 Dock도 같음). 이름을 체크하면 그 사람의 30분 기록이 **내 기록 아래에 체크한 순서대로** 같은 표로 나옴(읽기 전용, 아래로 스크롤). 체크한 사람은 위에 번호와 함께 모이고 끌어서 순서 변경, **모두 해제** 후 다시 체크하면 그 순서. 각 기록의 × 로 숨기기(관리자는 **크게 보기**로 그 사람 Daily Log). 순서는 계정에 저장. 이름 앞 **색 점**을 눌러 사람마다 색 지정(나에게만 적용, 데일리 칸반과 같은 색, 정하지 않으면 조직도 순서대로 서로 다른 기본 색) |
 | **Leave** | 월간 캘린더와 휴가 신청. 연차·반차·병가는 `00.Timelog--Leave`, 회사지정휴가와 출장은 각자의 행에 자동 반영 |
-| **Settings** | 프로필, 엔지니어 코드, 근무시간, 목표시간, 템플릿 스타일, 조직 AI 설정(관리자) |
-| **Admin** | 사용자 초대(이메일), 등급(Admin / L1 / L2 / L3), 내보내기 권한, 초대 취소 (상위자·팀은 조직도 탭에서) |
+| **Settings** | 프로필, 엔지니어 코드, 근무시간, 목표시간, 템플릿 스타일 (AI 설정은 개인 설정에 없고 관리자 화면에만) |
+| **AI 정리** | 관리자가 켜면 Daily Log에 **AI 정리** 버튼(자기 기록만). 그날 기록을 같은 업무끼리 묶어 Claude(가장 저렴한 **Claude Haiku 5.5**)에게 보내고, **Project**(매핑 안 된 글자 → 맞는 프로젝트), **Type**(빈 유형 채우기), **Task**(오타·띄어쓰기·표현 통일)를 **제안**만 받음. 바뀌는 칸을 지운 글자(빨강) → 새 글자(초록)로 보여 주고 줄마다 골라 적용(Ctrl+Z로 되돌리기, 그사이 바뀐 칸은 건너뜀). 1인당 하루 사용 횟수 제한, 사용할 때마다 토큰·비용 기록. 서버 함수 `/api/ai/cleanup`이 기록을 직접 읽고 회사 키로 호출 |
+| **수정 제안** | 관리자와 상위자(조직도에서 아래에 있는 낮은 등급)가 Daily Log 팀원 기록의 **수정 제안**으로 줄마다 Project·Type·Task를 고치거나 **AI로 채우기** + 메모 → 받는 사람에게 보일 비교 화면을 미리 보고 보냄. 받은 사람은 Daily Log 위 **받은 수정 제안** 알림 → 같은 비교 화면에서 줄마다 적용/모두 적용 안 함. 보낸 사람은 조직도 **보낸 수정 제안**에서 결과(기다리는 중·n줄 적용)와 비교 화면을 보고, 답하기 전이면 취소. 비교 화면은 스크린샷으로 보내기도 좋게 한 장에 정리 |
+| **Admin** | 사용자 초대(이메일), 등급(Admin / L1 / L2 / L3), 내보내기 권한, 초대 취소 (상위자·팀은 조직도 탭에서). **AI 정리**: 켜기, 1인당 하루 횟수, **Anthropic API 키**(서버에만 저장, 끝 4자리만 보임, Claude Console에서 회사 계정으로 발급), 최근 30일 사람별 사용량(오늘/30일 횟수·토큰·비용) |
 | **Home** | 요청대로 위젯 자리만 있음(내용 미정) |
 | **`/api/ingest`** | Power Automate가 마스터 .xlsx를 POST하면 자동으로 반영(토큰 인증, 중복 파일 무시) |
 
-2단계로 미룬 것: AI 매핑 제안, 엑셀 템플릿 3종 다운로드, 신규 프로젝트 메일 알림, 관리자용 팀 매트릭스(하루 × 전원) 내보내기.
+2단계로 미룬 것: 엑셀 템플릿 3종 다운로드, 신규 프로젝트 메일 알림, 관리자용 팀 매트릭스(하루 × 전원) 내보내기.
 
 ## 로컬 실행
 
@@ -62,7 +64,7 @@ npm run dev
 
 ### 1. Supabase
 1. [supabase.com](https://supabase.com)에서 프로젝트를 만듭니다(리전: Seoul `ap-northeast-2` 권장).
-2. **SQL Editor**에서 `supabase/migrations/`의 SQL 파일(`0001_init.sql` → `0002_seed.sql` → `0003_task_templates.sql` → `0004_work_days_colors.sql` → `0005_user_backgrounds.sql` → `0006_project_manage.sql` → `0007_slot_details.sql` → `0008_project_edit.sql` → `0009_levels_personal_aliases.sql` → `0010_api_privileges.sql` → `0011_work_types.sql` → `0012_kanban.sql` → `0013_org_access.sql`)을 **번호 순서대로** 실행합니다. Supabase CLI를 쓴다면 `supabase db push`도 됩니다. 이미 앞 파일을 실행했다면 새로 추가된 파일만 실행하면 됩니다.
+2. **SQL Editor**에서 `supabase/migrations/`의 SQL 파일(`0001_init.sql` → `0002_seed.sql` → `0003_task_templates.sql` → `0004_work_days_colors.sql` → `0005_user_backgrounds.sql` → `0006_project_manage.sql` → `0007_slot_details.sql` → `0008_project_edit.sql` → `0009_levels_personal_aliases.sql` → `0010_api_privileges.sql` → `0011_work_types.sql` → `0012_kanban.sql` → `0013_org_access.sql` → `0014_ai_assist.sql`)을 **번호 순서대로** 실행합니다. Supabase CLI를 쓴다면 `supabase db push`도 됩니다. 이미 앞 파일을 실행했다면 새로 추가된 파일만 실행하면 됩니다.
 3. **Authentication → URL Configuration**: Site URL과 Redirect URL에 Vercel 주소를 넣습니다.
 4. **Authentication → SMTP Settings**: **외부 SMTP를 반드시 연결**하세요. 기본 발송기는 시간당 2통, 그것도 Supabase 팀 멤버에게만 보냅니다. 회사 SMTP나 Resend·Brevo 등을 쓰면 됩니다.
 5. **Authentication → Sign In / Providers**에서 공개 가입(**Allow new users to sign up**)을 끕니다. DB 트리거가 초대받지 않은 가입은 거부하지만, 켜 두면 초대 대기 중인 주소로 다른 사람이 먼저 비밀번호를 정해 가입할 수 있습니다. 꺼도 TeamEmbedded의 초대·계정 만들기는 그대로 동작합니다.

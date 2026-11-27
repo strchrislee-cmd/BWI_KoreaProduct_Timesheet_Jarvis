@@ -1,5 +1,6 @@
 import type { KanbanCard, KanbanStatus, KanbanTask, MoveReason } from '../domain/kanban'
 import type { AccessRequest } from '../domain/org'
+import type { AiCleanupResult, AiUsage, CorrectionProposal } from '../domain/aiCleanup'
 import type {
   GroupProject,
   Invitation,
@@ -99,6 +100,23 @@ export interface DataStore {
   listAccessRequests(): Promise<AccessRequest[]>
   requestAccess(ownerId: string): Promise<void>
   decideAccessRequest(id: string, approve: boolean, hours?: number): Promise<void>
+
+  // AI 정리 and correction proposals (0014): the company's Claude key stays on the server
+  /** admins: set (or, with null, remove) the key */
+  setAiKey(key: string | null): Promise<void>
+  /** admins: '…abcd' when a key is set, else null */
+  aiKeyHint(): Promise<string | null>
+  /** uses since `since` (ISO time): your own; admins everyone's */
+  listAiUsage(since: string): Promise<AiUsage[]>
+  /** proposed changes for one day of yourself or of someone you may send proposals to (counts one use) */
+  aiCleanup(date: string, ownerId: string): Promise<AiCleanupResult>
+  /** proposals sent to you or by you (admins: all), newest first */
+  listProposals(): Promise<CorrectionProposal[]>
+  sendProposal(p: Pick<CorrectionProposal, 'owner_id' | 'work_date' | 'items' | 'note' | 'by_ai'>): Promise<void>
+  /** the person it was sent to: which items they applied (their log is changed separately) */
+  answerProposal(id: string, applied: number[]): Promise<void>
+  /** the author takes back a proposal that is not answered yet */
+  withdrawProposal(id: string): Promise<void>
 
   /** Uploaded background photo of the signed-in user (data URL), or null. */
   getBackground(userId: string): Promise<string | null>

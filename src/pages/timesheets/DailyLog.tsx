@@ -1,4 +1,4 @@
-import { ChartPie, CircleAlert, GripVertical, LayoutDashboard, List, Plus, Upload } from 'lucide-react'
+import { ChartPie, CircleAlert, GripVertical, LayoutDashboard, List, Plus, Sparkles, Upload } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useLocation } from 'react-router'
 import { SLOTS_CHANGED } from '../../components/ReminderToast'
@@ -29,13 +29,16 @@ import { QuickSlotTabs } from './QuickSlotTabs'
 import { withPersonalColors } from '../../domain/workTypes'
 import { orgRows } from '../../domain/org'
 import { TeamPicker, TeamSheets, type SheetBase } from './TeamSheets'
+import { applyItems, type AiCleanupResult, type ProposalItem } from '../../domain/aiCleanup'
+import { ApplyItemsDialog } from './ProposalDialogs'
+import { fieldNames } from './ProposalDiff'
 
 export function DailyLog() {
   const tr = useT()
   const { store } = useStore()
   const user = useUser()
   const { search } = useLocation()
-  const { date, engineer, projects, aliases, workTypes, latestImport, reloadMaster, profiles, visible } = useTimesheets()
+  const { date, setDate, engineer, projects, aliases, workTypes, latestImport, reloadMaster, profiles, visible, aiEnabled } = useTimesheets()
   const canEdit = engineer.id === user.id || user.role === 'admin'
 
   const q = useAsync(() => store.listSlots(engineer.id, date, date), [store, engineer.id, date])
@@ -178,6 +181,36 @@ export function DailyLog() {
   function undo() {
     const last = undoStack.current.pop()
     if (last) void persist(last, false)
+  }
+
+  // AI 정리 of your own day, and correction proposals sent to you: a diff to choose from, then applied
+  // through persist (Ctrl+Z works, the Daily Kanban follows)
+  const [aiResult, setAiResult] = useState<AiCleanupResult | null>(null)
+  const [aiBusy, setAiBusy] = useState(false)
+  const [aiNotice, setAiNotice] = useState('')
+  const [openProposal, setOpenProposal] = useState<string | null>(null)
+  const proposalsQ = useAsync(() => store.listProposals().catch(() => []), [store, user.id])
+  const received = engineer.id === user.id ? (proposalsQ.data ?? []).filter((p) => p.status === 'open' && p.owner_id === user.id) : []
+  const shownProposal = received.find((p) => p.id === openProposal && p.work_date === date)
+  const nameOf = (id: string) => profiles.find((p) => p.id === id)?.name ?? '알 수 없음'
+
+  async function runAiCleanup() {
+    setAiBusy(true)
+    setAiNotice('')
+    try {
+      setAiResult(await store.aiCleanup(date, user.id))
+      setError(null)
+    } catch (e) {
+      setError(e as Error)
+    }
+    setAiBusy(false)
+  }
+
+  /** apply the chosen changes; half hours changed since the proposal are left alone */
+  async function applyChosen(items: ProposalItem[]) {
+    const { slots: next, skipped } = applyItems(slots, items)
+    await persist(next.map((s) => ({ index: s.slot_index, slot: s })))
+    setAiNotice(`${items.length - skipped}개 적용했습니다${skipped ? ` · ${skipped}개는 그사이 바뀐 칸이 있어 건너뛰었습니다` : ''} (Ctrl+Z로 되돌리기)`)
   }
 
   const onSelectionChange = useCallback((rowsSel: number[], active: number) => setSelection({ rows: rowsSel, active }), [])
@@ -364,6 +397,11 @@ export function DailyLog() {
               <Upload size={16} /> Import .xlsx
             </Button>
           )}
+          {aiEnabled && engineer.id === user.id && (
+            <Button variant="ghost" disabled={aiBusy} onClick={() => void runAiCleanup()} title="AI가 Project · Type · Task를 살펴보고 고칠 곳을 제안합니다 (확인 후 적용)">
+              <Sparkles size={16} /> {aiBusy ? 'AI가 살펴보는 중…' : 'AI 정리'}
+            </Button>
+          )}
           {layout.enabled && !layout.editing && (
             <Button variant="ghost" onClick={layout.beginEdit} title="창을 옮기고 크기를 바꿉니다">
               <LayoutDashboard size={16} /> 배치 편집
@@ -373,6 +411,11 @@ export function DailyLog() {
       }
     >
       <ErrorNote error={error ?? q.error ?? colorPrefs.error} />
+      {aiNotice && (
+        <p className="mb-2 rounded-control bg-emerald-50 px-3 py-1.5 text-sm text-emerald-900" role="status">
+          {aiNotice}
+        </p>
+      )}
       {q.loading && !q.data ? (
         <Loading />
       ) : isMobile ? (
@@ -588,8 +631,28 @@ export function DailyLog() {
     </>
   )
 
+  const names = fieldNames(byId, workTypeById)
+
   return (
     <>
+      {received.length > 0 && (
+        <div className="mb-3 flex flex-wrap items-center gap-2 rounded-card bg-amber-50/95 px-4 py-2 text-sm shadow-sm" data-testid="proposal-banner">
+          <strong>받은 수정 제안 {received.length}건</strong>
+          {received.map((p) => (
+            <button
+              key={p.id}
+              type="button"
+              className="rounded-chip bg-white px-2 py-1 text-xs font-semibold shadow-sm hover:bg-white/70"
+              onClick={() => {
+                if (p.work_date !== date) setDate(p.work_date)
+                setOpenProposal(p.id)
+              }}
+            >
+              {p.work_date.slice(5).replace('-', '/')} · {nameOf(p.author_id)} · {p.items.length}줄
+            </button>
+          ))}
+        </div>
+      )}
       {canvas ? (
         <>
           <div
@@ -654,6 +717,47 @@ export function DailyLog() {
       )}
       {layout.editing && <LayoutToast layout={layout} />}
       {layout.near && <EdgeDropHint />}
+
+      {aiResult && (
+        <ApplyItemsDialog
+          title="AI 정리"
+          intro={<p className="text-sm text-muted">{date} 기록에서 AI가 제안한 수정입니다. 적용할 줄만 골라 주세요 · 오늘 남은 AI 정리 {aiResult.remaining}회</p>}
+          items={aiResult.items}
+          names={names}
+          onApply={async (idx) => {
+            await applyChosen(idx.map((i) => aiResult.items[i]))
+            setAiResult(null)
+          }}
+          onClose={() => setAiResult(null)}
+        />
+      )}
+      {shownProposal && !q.loading && (
+        <ApplyItemsDialog
+          title={`수정 제안 · ${nameOf(shownProposal.author_id)}`}
+          intro={
+            <div className="space-y-1 text-sm">
+              <p className="text-muted">
+                {nameOf(shownProposal.author_id)}님이 {shownProposal.work_date} 기록에 보낸 제안입니다{shownProposal.by_ai && ' (AI로 만든 제안)'}. 적용할 줄만 골라 주세요.
+              </p>
+              {shownProposal.note && <p className="rounded-control bg-white/80 px-3 py-2">📝 {shownProposal.note}</p>}
+            </div>
+          }
+          items={shownProposal.items}
+          names={names}
+          onApply={async (idx) => {
+            await applyChosen(idx.map((i) => shownProposal.items[i]))
+            await store.answerProposal(shownProposal.id, idx)
+            setOpenProposal(null)
+            proposalsQ.reload()
+          }}
+          onDismissAll={async () => {
+            await store.answerProposal(shownProposal.id, [])
+            setOpenProposal(null)
+            proposalsQ.reload()
+          }}
+          onClose={() => setOpenProposal(null)}
+        />
+      )}
 
       {importing && (
         <ImportWizard

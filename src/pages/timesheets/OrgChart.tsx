@@ -4,10 +4,13 @@ import { Link, useLocation } from 'react-router'
 import { Button, Card, ErrorNote, Pill, cx } from '../../components/ui'
 import { LocalStore } from '../../data/localStore'
 import { useStore, useUser } from '../../data/StoreContext'
-import { GRANT_HOURS, canRequest, managerOptions, orgRows, requestState } from '../../domain/org'
+import { GRANT_HOURS, canPropose, canRequest, managerOptions, orgRows, requestState } from '../../domain/org'
 import { roleLabel } from '../../domain/roles'
 import type { Profile } from '../../domain/types'
 import { useTimesheets } from './TimesheetsLayout'
+import { useAsync } from '../../lib/hooks'
+import { ProposalDiff, fieldNames } from './ProposalDiff'
+import type { CorrectionProposal } from '../../domain/aiCleanup'
 
 const LEVEL_TONE = { admin: 'orange', l3: 'blue', l2: 'yellow', l1: 'grey' } as const
 
@@ -23,7 +26,12 @@ export function OrgChart() {
   const { store } = useStore()
   const user = useUser()
   const { search } = useLocation()
-  const { date, profiles, visible, requests, orgReady, reloadMaster } = useTimesheets()
+  const { date, profiles, visible, requests, orgReady, reloadMaster, projects, workTypes } = useTimesheets()
+  const proposalsQ = useAsync(() => store.listProposals().catch(() => [] as CorrectionProposal[]), [store])
+  const sent = (proposalsQ.data ?? []).filter((p) => p.author_id === user.id)
+  const canSend = profiles.some((p) => canPropose(user, p, profiles))
+  const [openSent, setOpenSent] = useState<string | null>(null)
+  const names = fieldNames(new Map(projects.map((p) => [p.id, p])), new Map(workTypes.map((w) => [w.id, w])))
   const [error, setError] = useState<Error | null>(null)
   const isAdmin = user.role === 'admin'
   const now = new Date()
@@ -193,6 +201,52 @@ export function OrgChart() {
             </ul>
           )}
         </Card>
+        {(canSend || sent.length > 0) && (
+          <Card title="보낸 수정 제안">
+            {sent.length === 0 ? (
+              <p className="text-sm text-muted">Daily Log의 팀원 기록에서 <strong>수정 제안</strong>을 누르면 비교 화면으로 보낼 수 있습니다.</p>
+            ) : (
+              <ul className="space-y-2" aria-label="Sent proposals">
+                {sent.map((p) => {
+                  const applied = p.applied ?? []
+                  const status =
+                    p.status === 'open' ? '기다리는 중' : applied.length === p.items.length ? '모두 적용' : applied.length ? `${applied.length}/${p.items.length}줄 적용` : '적용 안 함'
+                  return (
+                    <li key={p.id} className="rounded-control bg-white/70 p-2 text-sm" data-testid="sent-proposal">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <strong>{byId.get(p.owner_id)?.name ?? '알 수 없음'}</strong>
+                        <span className="text-muted">
+                          {p.work_date} · {p.items.length}줄{p.by_ai && ' · AI'}
+                        </span>
+                        <Pill tone={p.status === 'open' ? 'yellow' : 'green'}>{status}</Pill>
+                        <span className="ml-auto flex gap-1">
+                          <button type="button" className="rounded-chip px-2 py-0.5 text-xs font-semibold text-primary hover:bg-white" onClick={() => setOpenSent(openSent === p.id ? null : p.id)}>
+                            {openSent === p.id ? '접기' : '비교 보기'}
+                          </button>
+                          {p.status === 'open' && (
+                            <button
+                              type="button"
+                              className="rounded-chip px-2 py-0.5 text-xs font-semibold text-muted hover:bg-white"
+                              onClick={() => void run(() => store.withdrawProposal(p.id)).then(() => proposalsQ.reload())}
+                            >
+                              취소
+                            </button>
+                          )}
+                        </span>
+                      </div>
+                      {openSent === p.id && (
+                        <div className="mt-2 space-y-2">
+                          {p.note && <p className="rounded-control bg-white px-3 py-2">📝 {p.note}</p>}
+                          <ProposalDiff items={p.items} names={names} applied={p.status === 'answered' ? applied : null} />
+                        </div>
+                      )}
+                    </li>
+                  )
+                })}
+              </ul>
+            )}
+          </Card>
+        )}
         <Card title="열람 규칙" tone="sage">
           <ul className="list-disc space-y-1 pl-5 text-sm">
             <li>L1: 자기 기록만</li>
@@ -200,6 +254,7 @@ export function OrgChart() {
             <li>L3: + 아래에 있는 L2와 그 아래 L1</li>
             <li>L1이 L2의 기록을 보려면 조직도에서 <strong>열람 요청</strong> → 그 L2가 1시간·하루·1주 중 골라 승인</li>
             <li>보는 곳: Daily Log의 팀원 창 · 데일리 칸반의 팀원 줄 (읽기만)</li>
+            <li>관리자와 상위자는 아래 사람의 기록에 <strong>수정 제안</strong>(비교 화면)을 보낼 수 있고, 받은 사람이 줄마다 골라 적용합니다</li>
           </ul>
         </Card>
       </div>

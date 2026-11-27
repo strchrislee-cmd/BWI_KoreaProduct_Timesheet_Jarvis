@@ -1,5 +1,5 @@
-import { GripVertical, X } from 'lucide-react'
-import { useMemo, useRef } from 'react'
+import { GitCompareArrows, GripVertical, X } from 'lucide-react'
+import { useMemo, useRef, useState } from 'react'
 import { Link, useLocation } from 'react-router'
 import { Card, ErrorNote, Loading, Pill, cx } from '../../components/ui'
 import { useStore, useUser } from '../../data/StoreContext'
@@ -14,6 +14,12 @@ import type { GridContext } from './grid/gridModel'
 import type { GridPrefs } from '../../data/preferences'
 import { MobileDayLog } from './mobile/MobileDayLog'
 import { PersonColorDot } from './PersonColor'
+import { canPropose } from '../../domain/org'
+import { isSelectable } from '../../domain/projects'
+import { selectableWorkTypes } from '../../domain/workTypes'
+import { ProposalEditor } from './ProposalDialogs'
+import { fieldNames } from './ProposalDiff'
+import { useTimesheets } from './TimesheetsLayout'
 
 /**
  * Team window: the people you may read, with a checkbox each. Checked people are listed first in the
@@ -121,6 +127,9 @@ function PersonSheet({ person, sheet, onHide }: { person: Profile; sheet: SheetB
   const { store } = useStore()
   const user = useUser()
   const { search } = useLocation()
+  const { profiles, aiEnabled } = useTimesheets()
+  const [proposing, setProposing] = useState(false)
+  const [sent, setSent] = useState('')
   const { date } = sheet
   const q = useAsync(() => Promise.all([store.listSlots(person.id, date, date), store.getWorkDay(person.id, date)]), [store, person.id, date])
   const slots = useMemo(() => new Map((q.data?.[0] ?? []).map((s) => [s.slot_index, s])), [q.data])
@@ -163,6 +172,21 @@ function PersonSheet({ person, sheet, onHide }: { person: Profile; sheet: SheetB
       }
       action={
         <span className="flex items-center gap-1">
+          {sent && (
+            <span className="text-xs font-semibold text-emerald-800" role="status">
+              {sent}
+            </span>
+          )}
+          {canPropose(user, person, profiles) && (
+            <button
+              type="button"
+              className="flex items-center gap-1 rounded-chip px-2 py-1 text-xs font-semibold text-primary hover:bg-white"
+              title="이 사람의 기록에 수정 제안을 보냅니다 (비교 화면으로 전달, 그 사람이 골라 적용)"
+              onClick={() => setProposing(true)}
+            >
+              <GitCompareArrows size={14} /> 수정 제안
+            </button>
+          )}
           {user.role === 'admin' && (
             // admins can open anyone's Daily Log (Timesheets person picker)
             <Link to={{ pathname: '/timesheets', search: `?${open}` }} className="rounded-chip px-2 py-1 text-xs font-semibold text-primary hover:bg-white">
@@ -175,6 +199,22 @@ function PersonSheet({ person, sheet, onHide }: { person: Profile; sheet: SheetB
         </span>
       }
     >
+      {proposing && (
+        <ProposalEditor
+          person={person}
+          date={date}
+          slots={q.data?.[0] ?? []}
+          projects={sheet.base.projects.filter(isSelectable)}
+          types={selectableWorkTypes(sheet.base.workTypes)}
+          names={fieldNames(sheet.base.byId, sheet.base.workTypeById)}
+          aiEnabled={aiEnabled}
+          onClose={() => setProposing(false)}
+          onSent={() => {
+            setProposing(false)
+            setSent('제안을 보냈습니다')
+          }}
+        />
+      )}
       <div data-testid="team-sheet" data-person={person.name}>
         <ErrorNote error={q.error} />
         {q.loading && !q.data ? (

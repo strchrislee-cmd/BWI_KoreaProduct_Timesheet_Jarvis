@@ -47,6 +47,7 @@ psql -h "$WORK" -p "$PORT" -U postgres -d postgres -X -q -v ON_ERROR_STOP=1 \
   -f supabase/migrations/0011_work_types.sql \
   -f supabase/migrations/0012_kanban.sql \
   -f supabase/migrations/0013_org_access.sql \
+  -f supabase/migrations/0014_ai_assist.sql \
   -f tests/db/helpers.sql \
   -f "$WORK/name_keys.sql" \
   -f tests/db/rls.sql -o /dev/null 2>&1 | sed -e 's/^psql:[^ ]* NOTICE:  /  /'
