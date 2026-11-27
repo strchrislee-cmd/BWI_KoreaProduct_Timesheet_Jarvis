@@ -1,0 +1,185 @@
+{
+  "id": "kanban",
+  "title": "Daily Kanban (Daily Log와 연동)",
+  "suite": "tests/e2e/batchR.e2e.cjs",
+  "request": "Daily Log 옆에 Daily Kanban. Backlog · ToDo · Wait · Doing · DoneCheck · Done. Doing은 Daily Log에서 지금 하는 업무가 기록되면, 이전 업무도 자연스럽게 칸반에. 완료까지 표시. (이동 여정 분석은 나중에, 기록은 지금부터)",
+  "criteria": [
+    "Timesheets에 Daily Log 다음 탭으로 Daily Kanban, 칸 6개.",
+    "업무(Project · Type · Task) 하나가 카드 하나. Daily Log에 처음 나온 업무는 카드가 생긴다.",
+    "오늘 이미 시작된 가장 늦은 칸에 기록한 업무가 Doing, 그 전에 Doing이던 카드는 Wait.",
+    "Backlog에 카드를 직접 추가하고, 카드를 끌어서 다른 칸으로 옮기거나 … 메뉴로 옮긴다. Done은 완료 날짜 표시.",
+    "끝난(Done) 업무를 다시 기록하면 Doing으로 돌아온다.",
+    "모든 칸 이동이 기록된다(나중에 Wait ↔ Doing 반복 분석용).",
+    "새로 고쳐도 그대로, 휴대폰에서는 칸이 옆으로 넘어간다."
+  ],
+  "date": "2026-11-26",
+  "commit": "f5d5a68",
+  "env": {
+    "browser": "Chromium 157.0.8103.78",
+    "viewport": "1440×900 (휴대폰 390×844), 시계 2026-11-26 10:10 고정"
+  },
+  "checks": [
+    {
+      "n": 1,
+      "name": "Daily Log 다음 탭에 Daily Kanban, 칸 6개",
+      "expected": "Daily Log → Daily Kanban 순서, backlog·todo·wait·doing·donecheck·done",
+      "actual": "순서 맞음, backlog·todo·wait·doing·donecheck·done",
+      "how": "탭 순서 && data-column 6개",
+      "pass": true,
+      "shot": 1
+    },
+    {
+      "n": 2,
+      "name": "기록한 업무마다 카드, 지금(09:30 칸)의 업무가 Doing, 앞의 업무는 Wait",
+      "expected": "Doing '도면 검토', Wait '주간 회의'",
+      "actual": "Doing '도면 검토', Wait '주간 회의'",
+      "how": "doing === ['도면 검토'] && wait === ['주간 회의']",
+      "pass": true,
+      "shot": 1
+    },
+    {
+      "n": 3,
+      "name": "다음 칸(10:00)을 기록하면 그 업무가 Doing, 도면 검토는 Wait로",
+      "expected": "Doing '8D 보고', Wait '주간 회의, 도면 검토'",
+      "actual": "Doing '8D 보고', Wait '주간 회의, 도면 검토'",
+      "how": "doing === ['8D 보고'] && wait === ['주간 회의','도면 검토']",
+      "pass": true,
+      "shot": 2
+    },
+    {
+      "n": 4,
+      "name": "Backlog에 카드 추가, 끌어서 ToDo로",
+      "expected": "추가 후 Backlog '견적 검토' → ToDo로 이동",
+      "actual": "추가 후 Backlog '견적 검토', 끈 뒤 ToDo '견적 검토', Backlog ''",
+      "how": "backlog 에 추가 → todo === ['견적 검토'] && backlog 비어 있음",
+      "pass": true,
+      "shot": 2
+    },
+    {
+      "n": 5,
+      "name": "… 메뉴로 DoneCheck → Done, 완료 날짜 표시",
+      "expected": "DoneCheck를 거쳐 Done에 '도면 검토', '완료 …' 표시",
+      "actual": "DoneCheck '도면 검토' → Done 카드 '도면 검토 ⚠ 설계 개발-신규 완료 11/26/2026'",
+      "how": "donecheck 에 있다가 done 에 있고 '완료' 글자",
+      "pass": true,
+      "shot": 3
+    },
+    {
+      "n": 6,
+      "name": "새로 고쳐도 보드 그대로",
+      "expected": "Done '도면 검토', ToDo '견적 검토', Doing '8D 보고'",
+      "actual": "Done '도면 검토', ToDo '견적 검토', Doing '8D 보고'",
+      "how": "새로 고침 후 같은 칸",
+      "pass": true,
+      "shot": null
+    },
+    {
+      "n": 7,
+      "name": "끝난 업무를 다시 기록하면 Doing으로 돌아옴",
+      "expected": "10:30 칸에 '도면 검토' → Doing, '8D 보고' → Wait",
+      "actual": "Doing '도면 검토', Wait '주간 회의, 8D 보고', Done ''",
+      "how": "doing === ['도면 검토'] && wait 에 '8D 보고' && done 비어 있음",
+      "pass": true,
+      "shot": 4
+    },
+    {
+      "n": 8,
+      "name": "칸 이동이 모두 기록됨(여정)",
+      "expected": "doing(log) → wait(log) → donecheck(manual) → done(manual) → doing(log)",
+      "actual": "doing(log) → wait(log) → donecheck(manual) → done(manual) → doing(log)",
+      "how": "kanban_moves 의 to_status(reason) 순서",
+      "pass": true,
+      "shot": 4
+    },
+    {
+      "n": 9,
+      "name": "휴대폰: 칸은 보드 안에서 옆으로 넘어가고 페이지는 넘치지 않음",
+      "expected": "페이지 폭 ≤ 390, 보드 내용 > 390(옆으로 스크롤)",
+      "actual": "페이지 390px, 보드 내용 1380px",
+      "how": "documentElement.scrollWidth ≤ 390 && board.scrollWidth > 390",
+      "pass": true,
+      "shot": null
+    },
+    {
+      "n": 10,
+      "name": "페이지 오류 없음",
+      "expected": "0건",
+      "actual": "0건",
+      "how": "pageerror 수 === 0",
+      "pass": true,
+      "shot": null
+    }
+  ],
+  "shots": [
+    {
+      "id": 1,
+      "file": "shot-01.jpg",
+      "width": 1440,
+      "height": 900,
+      "caption": "09:00 · 09:30을 기록한 뒤의 보드",
+      "marks": [
+        {
+          "n": 1,
+          "label": "새 탭"
+        },
+        {
+          "n": 2,
+          "label": "지금 업무"
+        },
+        {
+          "n": 2,
+          "label": "이전 업무"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "file": "shot-02.jpg",
+      "width": 1440,
+      "height": 900,
+      "caption": "10:00 기록 뒤 + 직접 만든 카드를 ToDo로 끈 뒤",
+      "marks": [
+        {
+          "n": 3,
+          "label": "8D 보고"
+        },
+        {
+          "n": 4,
+          "label": "끌어서 옮김"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "file": "shot-03.jpg",
+      "width": 1440,
+      "height": 900,
+      "caption": "Done으로 옮긴 카드(완료 날짜)",
+      "marks": [
+        {
+          "n": 5,
+          "label": "완료"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "file": "shot-04.jpg",
+      "width": 1440,
+      "height": 900,
+      "caption": "다시 기록한 '도면 검토'가 Doing으로",
+      "marks": [
+        {
+          "n": 7,
+          "label": "돌아옴"
+        },
+        {
+          "n": 8,
+          "label": "이동 기록"
+        }
+      ]
+    }
+  ],
+  "passed": 10,
+  "total": 10
+}
