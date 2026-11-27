@@ -23,6 +23,7 @@ import { MobileDayLog } from './mobile/MobileDayLog'
 import { displayName } from './projectUi'
 import { useTimesheets } from './TimesheetsLayout'
 import { useColorPrefs } from './useColorPrefs'
+import { syncKanban } from '../../data/kanbanSync'
 import { EMPTY_TASK_CONFIRM, QUICK_SLOTS, QUICK_TASKS, quickTaskName, slotOf } from '../../domain/quickTasks'
 import { QuickSlotTabs } from './QuickSlotTabs'
 import { withPersonalColors } from '../../domain/workTypes'
@@ -155,10 +156,21 @@ export function DailyLog() {
       await store.saveSlots(real.flatMap((c) => (c.slot ? [c.slot] : [])))
       await store.clearSlots(engineer.id, date, real.filter((c) => !c.slot).map((c) => c.index))
       setError(null)
+      if (engineer.id === user.id) syncBoard()
     } catch (e) {
       setError(e as Error)
       q.reload()
     }
+  }
+
+  /** The Daily Kanban follows your own log (the task logged now → Doing); never blocks the log. */
+  function syncBoard() {
+    const clockNow = new Date()
+    const nowSlot = date === todayLocal(clockNow) ? (currentSlot(clockNow)?.slot ?? null) : null
+    void store
+      .listSlots(user.id, date, date)
+      .then((day) => syncKanban(store, user.id, day, nowSlot))
+      .catch((e) => console.warn('Daily Kanban sync failed', e))
   }
 
   function undo() {

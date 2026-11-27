@@ -1,3 +1,4 @@
+import type { KanbanCard, KanbanStatus, KanbanTask, MoveReason } from '../domain/kanban'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import type {
   GroupProject,
@@ -219,6 +220,32 @@ export class SupabaseStore implements DataStore {
   }
   async deleteTemplate(id: string) {
     must(await this.sb.from('task_templates').delete().eq('id', id))
+  }
+
+  async listKanban(userId: string) {
+    return must<KanbanCard[]>(
+      await this.sb
+        .from('kanban_cards')
+        .select('id, user_id, group_project_id, label, work_type_id, description, status, sort_order, created_at, updated_at, done_at')
+        .eq('user_id', userId)
+        .order('sort_order'),
+    )
+  }
+  async addKanbanCard(card: KanbanTask & { user_id: string; status: KanbanStatus; sort_order: number }, reason: MoveReason) {
+    const done_at = card.status === 'done' ? new Date().toISOString() : null
+    const { id } = must<{ id: string }>(await this.sb.from('kanban_cards').insert({ ...card, done_at }).select('id').single())
+    must(await this.sb.from('kanban_moves').insert({ card_id: id, user_id: card.user_id, from_status: null, to_status: card.status, reason }))
+    return id
+  }
+  async moveKanbanCard(card: KanbanCard, to: KanbanStatus, sortOrder: number, reason: MoveReason) {
+    const now = new Date().toISOString()
+    const changed = card.status !== to
+    const patch = changed ? { status: to, sort_order: sortOrder, updated_at: now, done_at: to === 'done' ? now : null } : { sort_order: sortOrder }
+    must(await this.sb.from('kanban_cards').update(patch).eq('id', card.id))
+    if (changed) must(await this.sb.from('kanban_moves').insert({ card_id: card.id, user_id: card.user_id, from_status: card.status, to_status: to, reason }))
+  }
+  async deleteKanbanCard(id: string) {
+    must(await this.sb.from('kanban_cards').delete().eq('id', id))
   }
 
   async getBackground(userId: string) {

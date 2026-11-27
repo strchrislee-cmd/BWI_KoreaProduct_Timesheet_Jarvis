@@ -1,3 +1,4 @@
+import { taskKey, type KanbanCard, type KanbanStatus, type KanbanTask, type MoveReason } from '../domain/kanban'
 import { aliasConflict, diffMaster, projectNameKey, sheetNameAfterRename } from '../domain/projects'
 import { deleteUserProblem, normalizeRole } from '../domain/roles'
 import { SEED_ALIASES, SEED_PROJECTS } from '../domain/seed'
@@ -39,6 +40,8 @@ interface DemoState {
   workTypes: WorkType[]
   workDays: WorkDay[]
   backgrounds: Record<string, string>
+  kanbanCards: KanbanCard[]
+  kanbanMoves: { id: number; card_id: string; user_id: string; from_status: KanbanStatus | null; to_status: KanbanStatus; reason: MoveReason; moved_at: string }[]
 }
 
 const uid = () => crypto.randomUUID()
@@ -93,6 +96,8 @@ function seed(): DemoState {
     workTypes: seedWorkTypes(),
     workDays: [],
     backgrounds: {},
+    kanbanCards: [],
+    kanbanMoves: [],
   }
 }
 
@@ -108,7 +113,7 @@ export class LocalStore implements DataStore {
     const legacy = localStorage.getItem(LEGACY_KEY)
     const raw = localStorage.getItem(KEY) ?? legacy
     if (raw) {
-      const saved = JSON.parse(raw) as Partial<DemoState> & Omit<DemoState, 'templates' | 'workDays' | 'backgrounds' | 'workTypes'>
+      const saved = JSON.parse(raw) as Partial<DemoState> & Omit<DemoState, 'templates' | 'workDays' | 'backgrounds' | 'workTypes' | 'kanbanCards' | 'kanbanMoves'>
       // demo data saved by older versions lacks these collections / fields
       const epoch = '2026-01-01T00:00:00.000Z'
       this.state = {
@@ -119,6 +124,8 @@ export class LocalStore implements DataStore {
         workTypes: saved.workTypes ?? seedWorkTypes(),
         workDays: saved.workDays ?? [],
         backgrounds: saved.backgrounds ?? {},
+        kanbanCards: saved.kanbanCards ?? [],
+        kanbanMoves: saved.kanbanMoves ?? [],
         profiles: saved.profiles.map((p) => ({ ...p, email: ['demo@jarvis.local', 'demo@timecrumbs.local'].includes(p.email) ? DEMO_EMAIL : p.email, role: normalizeRole(p.role) })),
         invitations: saved.invitations.map((i) => ({ ...i, role: normalizeRole(i.role) })),
         aliases: saved.aliases.map((a) => ({ ...a, user_id: a.user_id ?? null })),
@@ -427,6 +434,40 @@ export class LocalStore implements DataStore {
       } else s.workTypes = s.workTypes.filter((x) => x.id !== id)
     })
     return used ? 'hidden' : 'deleted'
+  }
+
+  async listKanban(userId: string) {
+    return this.state.kanbanCards.filter((c) => c.user_id === userId).map((c) => ({ ...c }))
+  }
+  async addKanbanCard(card: KanbanTask & { user_id: string; status: KanbanStatus; sort_order: number }, reason: MoveReason) {
+    if (!card.group_project_id && !card.label.trim() && !card.description.trim()) throw new Error('A card needs a project or a Task')
+    // one card per task and person, as in the database
+    if (this.state.kanbanCards.some((c) => c.user_id === card.user_id && taskKey(c) === taskKey(card))) throw new Error('This task already has a card')
+    const id = uid()
+    const now = new Date().toISOString()
+    this.mutate((s) => {
+      s.kanbanCards.push({ ...card, id, created_at: now, updated_at: now, done_at: card.status === 'done' ? now : null })
+      s.kanbanMoves.push({ id: s.kanbanMoves.length + 1, card_id: id, user_id: card.user_id, from_status: null, to_status: card.status, reason, moved_at: now })
+    })
+    return id
+  }
+  async moveKanbanCard(card: KanbanCard, to: KanbanStatus, sortOrder: number, reason: MoveReason) {
+    const now = new Date().toISOString()
+    this.mutate((s) => {
+      const c = s.kanbanCards.find((x) => x.id === card.id)
+      if (!c) throw new Error('Card not found')
+      if (c.status !== to) {
+        s.kanbanMoves.push({ id: s.kanbanMoves.length + 1, card_id: c.id, user_id: c.user_id, from_status: c.status, to_status: to, reason, moved_at: now })
+        Object.assign(c, { status: to, updated_at: now, done_at: to === 'done' ? now : null })
+      }
+      c.sort_order = sortOrder
+    })
+  }
+  async deleteKanbanCard(id: string) {
+    this.mutate((s) => {
+      s.kanbanCards = s.kanbanCards.filter((c) => c.id !== id)
+      s.kanbanMoves = s.kanbanMoves.filter((m) => m.card_id !== id)
+    })
   }
 
   async listTemplates(userId: string) {

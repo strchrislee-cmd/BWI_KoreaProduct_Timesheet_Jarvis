@@ -1,3 +1,4 @@
+import type { KanbanCard, KanbanStatus, KanbanTask, MoveReason } from '../domain/kanban'
 import type {
   GroupProject,
   Invitation,
@@ -83,6 +84,14 @@ export interface DataStore {
   addTemplate(template: Omit<TaskTemplate, 'id' | 'created_at'>): Promise<string>
   updateTemplate(id: string, patch: Partial<Pick<TaskTemplate, 'color' | 'description' | 'sort_order'>>): Promise<void>
   deleteTemplate(id: string): Promise<void>
+
+  // Daily Kanban (one card per Project · Type · Task; every column change is kept in kanban_moves)
+  listKanban(userId: string): Promise<KanbanCard[]>
+  /** resolves to the new card's id; records its first move (into `status`) */
+  addKanbanCard(card: KanbanTask & { user_id: string; status: KanbanStatus; sort_order: number }, reason: MoveReason): Promise<string>
+  /** to another column (recorded as a move) or to another place in the same column */
+  moveKanbanCard(card: KanbanCard, to: KanbanStatus, sortOrder: number, reason: MoveReason): Promise<void>
+  deleteKanbanCard(id: string): Promise<void>
 
   /** Uploaded background photo of the signed-in user (data URL), or null. */
   getBackground(userId: string): Promise<string | null>

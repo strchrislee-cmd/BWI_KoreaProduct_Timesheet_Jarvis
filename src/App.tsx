@@ -7,6 +7,7 @@ import { Admin } from './pages/Admin'
 import { Home } from './pages/Home'
 import { Login } from './pages/Login'
 import { Settings } from './pages/Settings'
+import { DailyKanban } from './pages/timesheets/DailyKanban'
 import { DailyLog } from './pages/timesheets/DailyLog'
 import { GroupTimesheetPage } from './pages/timesheets/GroupTimesheet'
 import { LeavePage } from './pages/timesheets/Leave'
@@ -49,6 +50,7 @@ export function App() {
         <Route index element={<Home />} />
         <Route path="timesheets" element={<TimesheetsLayout />}>
           <Route index element={<DailyLog />} />
+          <Route path="kanban" element={<DailyKanban />} />
           <Route path="weekly" element={<WeeklyPlanPage />} />
           <Route path="group" element={<GroupTimesheetPage />} />
           <Route path="projects" element={<ProjectsPage />} />

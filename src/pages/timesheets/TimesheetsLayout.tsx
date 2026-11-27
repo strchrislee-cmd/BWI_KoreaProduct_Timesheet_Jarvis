@@ -39,6 +39,7 @@ const DATE_FIELD_WIDTH = `calc(${new Intl.DateTimeFormat(undefined).format(new D
 
 const TABS: { to: string; label: TextKey; end?: boolean }[] = [
   { to: '/timesheets', label: 'Daily Log', end: true },
+  { to: '/timesheets/kanban', label: 'Daily Kanban' },
   { to: '/timesheets/weekly', label: 'Weekly Result' },
   { to: '/timesheets/group', label: 'Group Timesheet' },
   { to: '/timesheets/projects', label: 'Projects' },

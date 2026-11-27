@@ -326,3 +326,40 @@ select set_config('request.jwt.claims', '{"role":"anon"}', false);
 select pg_temp.expect_error($$select count(*) from work_types$$, 'anon cannot read the MID list');
 select set_config('request.jwt.claims', '', false);
 reset role;
+
+-- ── Daily Kanban (0012) ──────────────────────────────────────────────────────
+set role authenticated;
+select pg_temp.login('00000000-0000-0000-0000-00000000000c');
+insert into kanban_cards (id, user_id, label, description, status) values ('00000000-0000-0000-0000-0000000000c1', '00000000-0000-0000-0000-00000000000c', '품질', '8D 보고', 'doing');
+select pg_temp.check((select count(*) from kanban_cards) = 1, 'L1 adds a card to their own board');
+select pg_temp.expect_error($$insert into kanban_cards (user_id, label, description) values ('00000000-0000-0000-0000-00000000000c', ' 품질 ', ' 8D 보고 ')$$, 'one card per task (same project text, type and Task)');
+insert into kanban_cards (user_id, label, work_type_id, description)
+  select '00000000-0000-0000-0000-00000000000c', '품질', id, '8D 보고' from work_types where name = '회의-INT';
+select pg_temp.check((select count(*) from kanban_cards) = 2, 'the same Task with another Type is another card');
+select pg_temp.expect_error($$insert into kanban_cards (user_id, label, description) values ('00000000-0000-0000-0000-00000000000c', '', '')$$, 'a card needs a project or a Task');
+select pg_temp.expect_error($$insert into kanban_cards (user_id, description) values ('00000000-0000-0000-0000-00000000000e', '남의 업무')$$, 'L1 cannot add to another person''s board');
+insert into kanban_moves (card_id, user_id, from_status, to_status, reason)
+  select id, user_id, 'doing', 'wait', 'log' from kanban_cards where description = '8D 보고' and work_type_id is null;
+select pg_temp.check((select count(*) from kanban_moves) = 1, 'L1 records a move of their own card');
+select pg_temp.expect_error($$insert into kanban_moves (card_id, user_id, to_status, reason) select id, user_id, 'done', 'sideways' from kanban_cards limit 1$$, 'move reason is manual or log');
+select pg_temp.check(pg_temp.affected($$update kanban_moves set to_status = 'done'$$) = 0, 'moves cannot be rewritten (history)');
+reset role;
+set role authenticated;
+select pg_temp.login('00000000-0000-0000-0000-00000000000e');
+select pg_temp.check((select count(*) from kanban_cards) = 0 and (select count(*) from kanban_moves) = 0, 'another L1 sees nothing of that board');
+select pg_temp.check(pg_temp.affected($$update kanban_cards set status = 'done'$$) = 0, 'another L1 cannot move those cards');
+select pg_temp.expect_error($$insert into kanban_moves (card_id, user_id, to_status) values ('00000000-0000-0000-0000-0000000000c1', '00000000-0000-0000-0000-00000000000e', 'done')$$, 'another L1 cannot log moves on cards that are not theirs');
+reset role;
+set role authenticated;
+select pg_temp.login('00000000-0000-0000-0000-00000000000a');
+select pg_temp.check((select count(*) from kanban_cards) = 2 and (select count(*) from kanban_moves) = 1, 'admin reads every board');
+select pg_temp.check(pg_temp.affected($$update kanban_cards set status = 'done'$$) = 0, 'admin does not move other people''s cards');
+reset role;
+delete from kanban_cards where description = '8D 보고' and work_type_id is null;
+select pg_temp.check((select count(*) from kanban_moves) = 0, 'deleting a card removes its moves');
+set role anon;
+select pg_temp.login('');
+select set_config('request.jwt.claims', '{"role":"anon"}', false);
+select pg_temp.expect_error($$select count(*) from kanban_cards$$, 'anon cannot read boards');
+select set_config('request.jwt.claims', '', false);
+reset role;

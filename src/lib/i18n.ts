@@ -19,6 +19,7 @@ const KO = {
   'Welcome back,': '다시 오셨네요,',
   // Timesheets tabs
   'Daily Log': '일일 기록',
+  'Daily Kanban': '데일리 칸반',
   'Weekly Result': '주간 결과',
   'Group Timesheet': '그룹 타임시트',
   Projects: '프로젝트',
