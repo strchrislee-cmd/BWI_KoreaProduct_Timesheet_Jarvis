@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { boardColumns, onDayBoard, planKanbanSync, replayDay, taskKey, teamBlocks, nextSortOrder, type KanbanCard, type KanbanMove } from '../src/domain/kanban'
+import { boardColumns, dayBoard, planKanbanSync, replayDay, taskKey, teamBlocks, nextSortOrder, type KanbanCard, type KanbanMove } from '../src/domain/kanban'
 import { personColor, personColorKey } from '../src/pages/timesheets/colors'
 import { readPrefs } from '../src/data/preferences'
 import type { TimeSlot } from '../src/domain/types'
@@ -92,8 +92,9 @@ describe('Daily Kanban from the Daily Log', () => {
       card('C', 'done', { label: '품질', description: '8D' }),
       card('D', 'backlog', { description: '다음 할 일' }),
       card('Y', 'doing', { description: '어제 하던 일' }),
+      card('N', 'backlog', { description: '오늘 만든 할 일' }),
     ]
-    const moves = [move('B', 'wait', 'doing', 'log', '09:05'), move('C', 'wait', 'done', 'manual', '15:10')]
+    const moves = [move('B', 'wait', 'doing', 'log', '09:05'), move('C', 'wait', 'done', 'manual', '15:10'), move('N', null, 'backlog', 'manual', '10:05')]
     const daySlots = [
       slot(18, { label: '설계', description: '도면' }),
       slot(19, { label: '설계', description: '도면' }),
@@ -113,9 +114,17 @@ describe('Daily Kanban from the Daily Log', () => {
     expect(statusAt(30, 'C')).toBe('done') // moved to Done by hand at 15:10
     const gone = r.at[28].find((x) => x.card.id.startsWith('day:'))
     expect([gone?.card.description, gone?.status]).toEqual(['지운 카드', 'doing']) // its card was deleted, the day still shows it
-    expect([...r.touched].sort()).toEqual(['B', 'C', gone!.card.id].sort())
-    // the day's board: that day's cards and the to-do piles, not last week's waiting card
-    expect(cards.filter((c) => onDayBoard(c, r.touched)).map((c) => c.id)).toEqual(['B', 'C', 'D'])
+    expect([...r.since]).toEqual([['B', 18], ['C', 20], ['N', 20], [gone!.card.id, 28]])
+    // the day's board: the Doing card and what changed in that half hour; never another day's card
+    const ids = (xs: { card: { id: string } }[]) => xs.map((x) => x.card.id)
+    expect(ids(dayBoard(r, 18, false))).toEqual(['B'])
+    expect(ids(dayBoard(r, 20, false))).toEqual(['B', 'C', 'N']) // Doing switched to C (B waits), N made by hand
+    expect(ids(dayBoard(r, 21, false))).toEqual(['C'])
+    expect(ids(dayBoard(r, 21, true))).toEqual(['B', 'C', 'N']) // 지난 카드도 보기: the day's cards so far
+    expect(ids(dayBoard(r, 21, false, 20))).toEqual(['B', 'C', 'N']) // live board: changes since the last logged half hour
+    expect(ids(dayBoard(r, 30, false))).toEqual(['C', gone!.card.id]) // C moved to Done by hand at 15:10
+    expect(ids(dayBoard(r, 47, true))).toEqual(['B', 'C', 'N', gone!.card.id]) // not last week's, nor yesterday's, nor an old Backlog card
+    expect(dayBoard(undefined, 20, true)).toEqual([])
   })
 
   it('team board: my cards everywhere, teammates only while Doing, one block per task with everyone Doing it', () => {

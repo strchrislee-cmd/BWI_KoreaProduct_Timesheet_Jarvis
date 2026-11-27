@@ -108,8 +108,8 @@ export interface ReplayCard {
 export interface DayReplay {
   /** the board at the end of each half hour 0..47 of the day */
   at: ReplayCard[][]
-  /** the cards that belong to the day: logged in its Daily Log or moved by hand during it */
-  touched: Set<string>
+  /** the cards that belong to the day (logged in its Daily Log, or made or moved by hand during it) → the half hour they first did */
+  since: Map<string, number>
 }
 
 const HALF_HOUR = 30 * 60_000
@@ -140,7 +140,8 @@ export function replayDay(cards: KanbanCard[], moves: KanbanMove[], daySlots: Ti
     manual.set(i, [...(manual.get(i) ?? []), m])
   }
   const logged = new Map(daySlots.filter(isTaskSlot).map((s) => [s.slot_index, s]))
-  const touched = new Set<string>()
+  const since = new Map<string, number>()
+  const touch = (id: string, i: number) => !since.has(id) && since.set(id, i)
   const at: ReplayCard[][] = []
   let before = new Map([...state].map(([id, v]) => [id, v.status]))
   for (let i = 0; i < 48; i++) {
@@ -157,25 +158,37 @@ export function replayDay(cards: KanbanCard[], moves: KanbanMove[], daySlots: Ti
       }
       for (const v of state.values()) if (v.status === 'doing') v.status = 'wait'
       state.get(id)!.status = 'doing'
-      touched.add(id)
+      touch(id, i)
     }
     for (const m of manual.get(i) ?? []) {
       const v = state.get(m.card_id)
       if (!v) continue
       v.status = m.to_status
-      touched.add(m.card_id)
+      touch(m.card_id, i)
     }
     const snap: ReplayCard[] = []
     for (const [id, v] of state) if (v.status) snap.push({ card: v.card, status: v.status, moved: before.get(id) !== v.status })
     at.push(snap)
     before = new Map([...state].map(([id, v]) => [id, v.status]))
   }
-  return { at, touched }
+  return { at, since }
 }
 
-/** The Daily Kanban of a day shows that day's cards and the to-do piles (Backlog, ToDo), not every card ever. */
-export const onDayBoard = (c: { id: string; status: KanbanStatus }, touched: Set<string> | undefined) =>
-  c.status === 'backlog' || c.status === 'todo' || !!touched?.has(c.id)
+/**
+ * What the Daily Kanban shows at half hour `slot`: only that day's cards, from the half hour they first
+ * belonged to it (never another day's). By default just the card in Doing and the cards that changed
+ * (when Doing switches: the new one and the one that went to Wait); with `earlier`, also the day's
+ * cards from before. A change counts from half hour `changedFrom` (the live board: the last one logged).
+ */
+export function dayBoard(r: DayReplay | undefined, slot: number, earlier: boolean, changedFrom = slot): ReplayCard[] {
+  if (!r) return []
+  const changed = new Set<string>()
+  for (let i = Math.max(0, changedFrom); i <= slot; i++) for (const x of r.at[i]) if (x.moved) changed.add(x.card.id)
+  return r.at[slot].filter((x) => {
+    const from = r.since.get(x.card.id)
+    return from !== undefined && from <= slot && (earlier || x.status === 'doing' || changed.has(x.card.id))
+  })
+}
 
 /**
  * Columns of a board that can hold several people's cards: in each column the people come in `people`

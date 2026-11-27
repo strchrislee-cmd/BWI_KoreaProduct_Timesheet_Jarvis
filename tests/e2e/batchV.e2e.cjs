@@ -68,8 +68,10 @@ const report = createReport({
   await cell(18, 'category').waitFor()
   await paste(18, '설계\t도면검토\n설계\t도면검토\n품질\t8D 보고')
   await paste(26, '설계\t도면검토')
-  // 15:10: 8D 보고 moved to Done by hand
+  // 15:10: 8D 보고 moved to Done by hand (it waits since 13:00: shown with 지난 카드도 보기)
   await toKanban()
+  await page.getByLabel('Show earlier cards').check()
+  await page.waitForTimeout(300)
   const card8d = column('wait').getByTestId('kanban-card').filter({ hasText: '8D 보고' })
   await card8d.getByRole('button', { name: 'Options for 8D 보고' }).click()
   await page.getByRole('menu', { name: 'Card menu' }).getByRole('menuitem', { name: '→ Done', exact: true }).click()
@@ -85,14 +87,25 @@ const report = createReport({
   await page.getByLabel('Show earlier cards').uncheck()
   await page.waitForTimeout(300)
   const c1 = report.check({
-    name: '그날의 카드만 (지난 카드는 "지난 카드도 보기"로만)',
-    expected: "오늘 보드: Doing '도면검토', Done '8D 보고', 어제의 '지난주 이슈' 없음; 지난 카드도 보기 → Wait에 '지난주 이슈'",
-    actual: `오늘 Doing [${today.doing}], Done [${today.done}], Wait [${today.wait}] · 지난 카드 포함 Wait [${all.wait}]`,
+    name: '그날의 카드만: 기본은 Doing(과 방금 바뀐 카드), 지난 카드도 보기는 그날 앞선 카드까지 · 다른 날 카드는 없음',
+    expected: "16:10 기본: Doing '도면검토'만 · 지난 카드도 보기: Doing '도면검토', Done '8D 보고' · 어제의 '지난주 이슈'는 어디에도 없음",
+    actual: `기본 [${Object.entries(today).filter(([, v]) => v.length).map(([k, v]) => `${k}: ${v}`).join(' / ')}] · 지난 카드도 보기 [${Object.entries(all).filter(([, v]) => v.length).map(([k, v]) => `${k}: ${v}`).join(' / ')}]`,
     how: '칸별 카드 제목, Show earlier cards 체크 전후',
-    pass: today.doing.join('|') === '도면검토' && today.done.join('|') === '8D 보고' && !Object.values(today).flat().includes('지난주 이슈') && all.wait.includes('지난주 이슈'),
+    pass:
+      today.doing.join('|') === '도면검토' &&
+      Object.values(today).flat().length === 1 &&
+      all.doing.join('|') === '도면검토' &&
+      all.done.join('|') === '8D 보고' &&
+      Object.values(all).flat().length === 2 &&
+      !Object.values(all).flat().includes('지난주 이슈'),
   })
+  await page.getByLabel('Show earlier cards').check()
+  await page.waitForTimeout(300)
   await page.mouse.move(700, 880)
-  await report.shot(page, { caption: '오늘의 보드: 어제 카드는 빠지고, 위에 하루 되감기 슬라이더', marks: [{ target: page.getByTestId('kanban-board'), n: c1, label: '그날의 카드' }, { target: page.getByTestId('kanban-replay'), n: c1 + 1, label: '되감기' }] })
+  await report.shot(page, { caption: '지난 카드도 보기: 오늘 앞서 있었던 8D 보고(Done)까지, 어제 카드는 없음', marks: [{ target: page.getByTestId('kanban-board'), n: c1, label: '그날의 카드' }, { target: page.getByTestId('kanban-replay'), n: c1 + 1, label: '되감기' }] })
+
+  await page.getByLabel('Show earlier cards').uncheck()
+  await page.waitForTimeout(300)
 
   // ── replay half hour by half hour ──
   const { min, max } = await range()
@@ -108,7 +121,7 @@ const report = createReport({
   const c2 = report.check({
     name: '하루 되감기: 30분마다 Daily Log대로, 손으로 옮긴 건 옮긴 시각에',
     expected:
-      "09:00 Doing '도면검토'(노란 테두리), 10:00 Doing '8D 보고'·Wait '도면검토', 14:30 Doing '도면검토'·Wait '8D 보고', 15:00 Done '8D 보고'(이 30분에 옮김), 되감기 중 메뉴 0개·끌기 불가",
+      "09:00 Doing '도면검토'(노란 테두리), 10:00 바뀜 → Doing '8D 보고'·Wait '도면검토' 2장, 14:30 바뀐 것 없음 → Doing '도면검토'만, 15:00 Done '8D 보고'(이 30분에 옮김), 되감기 중 메뉴 0개·끌기 불가",
     actual: `범위 ${min}~${max} · 09:00(${at0900.time}) Doing [${at0900.b.doing}] 테두리 [${at0900.moved}] · 10:00 Doing [${at1000.doing}] Wait [${at1000.wait}] · 14:30 Doing [${at1430.doing}] Wait [${at1430.wait}] · 15:00 Done [${at1500.b.done}] 테두리 [${at1500.moved}] · 메뉴 ${ro.menus}, draggable=${ro.drag}`,
     how: '슬라이더 위치별 칸 제목, data-moved, Options 버튼 수, draggable',
     pass:
@@ -118,7 +131,7 @@ const report = createReport({
       at1000.doing.join('|') === '8D 보고' &&
       at1000.wait.join('|') === '도면검토' &&
       at1430.doing.join('|') === '도면검토' &&
-      at1430.wait.join('|') === '8D 보고' &&
+      at1430.wait.length === 0 &&
       at1500.b.done.join('|') === '8D 보고' &&
       at1500.moved.includes('8D 보고') &&
       ro.menus === 0 &&

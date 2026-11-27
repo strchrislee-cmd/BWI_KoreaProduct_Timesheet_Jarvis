@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState, type DragEvent } from 'react'
 import { Button, Card, ErrorNote, Loading, cx } from '../../components/ui'
 import { useStore, useUser } from '../../data/StoreContext'
 import { syncKanban } from '../../data/kanbanSync'
-import { KANBAN_LABEL, KANBAN_STATUSES, boardColumns, isTaskSlot, nextSortOrder, onDayBoard, replayDay, teamBlocks, type KanbanCard, type KanbanStatus } from '../../domain/kanban'
+import { KANBAN_LABEL, KANBAN_STATUSES, boardColumns, dayBoard, isTaskSlot, nextSortOrder, replayDay, teamBlocks, type KanbanCard, type KanbanStatus } from '../../domain/kanban'
 import { KANBAN_CHANGED } from '../../components/DoingLogToast'
 import { SHOW_REMINDER_TOAST, SLOTS_CHANGED } from '../../components/ReminderToast'
 import { orgRows } from '../../domain/org'
@@ -100,17 +100,21 @@ export function DailyKanban() {
   useEffect(() => setPos(null), [date])
   const [showAll, setShowAll] = useState(false)
   const live = pos === null && isToday
-  const shown: KanbanCard[] = live
-    ? allCards
-    : people.flatMap((id) => (replays.get(id)?.at[pos ?? 47] ?? []).map((r) => ({ ...r.card, status: r.status })))
+  // only the day's cards: the Doing one and what just changed (지난 카드도 보기: the day's cards so far).
+  // Live, your own cards are the saved ones (to move them); teammates' follow their Daily Log up to now.
+  const nowSlot = currentSlot(new Date()).slot
+  const saved = new Map(allCards.map((c) => [c.id, c]))
+  const shown: KanbanCard[] = people.flatMap((id) =>
+    dayBoard(replays.get(id), live ? nowSlot : (pos ?? 47), showAll, live ? nowSlot - 1 : undefined).flatMap((r) => {
+      if (!live || id !== engineer.id) return [{ ...r.card, status: r.status }]
+      const c = saved.get(r.card.id)
+      return c ? [c] : []
+    }),
+  )
   const movedNow = new Set(pos === null ? [] : people.flatMap((id) => (replays.get(id)?.at[pos] ?? []).filter((r) => r.moved).map((r) => r.card.id)))
   // teammates show only while Doing; the same task Doing for several people is one block with their avatars
   const shownPeople = people.filter((id) => !filter.length || filter.includes(colorOf(id)))
-  const blocks = teamBlocks(
-    shown.filter((c) => showAll || onDayBoard(c, replays.get(c.user_id)?.touched)),
-    engineer.id,
-    shownPeople,
-  )
+  const blocks = teamBlocks(shown, engineer.id, shownPeople)
   const columns = boardColumns(blocks, people)
   const own = (c: KanbanCard) => live && canEdit && c.user_id === engineer.id
   const initial = (id: string) => (nameOf(id) || '?').trim().charAt(0).toUpperCase()
@@ -306,7 +310,7 @@ export function DailyKanban() {
                   {isToday ? '지금으로' : '하루 끝으로'}
                 </button>
               )}
-              <label className="flex items-center gap-1 text-xs text-muted" title="이날 움직이지 않은 지난 카드(Wait·Done 등)도 함께 보기">
+              <label className="flex items-center gap-1 text-xs text-muted" title="그날 앞서 있었던 카드도 함께 보기 (다른 날 카드는 보이지 않음)">
                 <input type="checkbox" aria-label="Show earlier cards" checked={showAll} onChange={(e) => setShowAll(e.target.checked)} /> 지난 카드도 보기
               </label>
             </div>

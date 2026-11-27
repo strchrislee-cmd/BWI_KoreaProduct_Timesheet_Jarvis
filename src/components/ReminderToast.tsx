@@ -1,16 +1,12 @@
 import { BellRing, X } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useStore, useUser } from '../data/StoreContext'
-import { isSelectable, projectNumbers, sortProjects } from '../domain/projects'
 import { continuePlan } from '../domain/reminders'
-import { selectableWorkTypes } from '../domain/workTypes'
-import { slotToTime, timeToSlot } from '../domain/time'
+import { slotToTime } from '../domain/time'
 import type { TimeSlot } from '../domain/types'
-import { useAsync } from '../lib/hooks'
-import { NONWORK_CHOICES } from '../pages/timesheets/grid/DailyGrid'
 import { buildChanges, cellText, type GridContext } from '../pages/timesheets/grid/gridModel'
-import { KIND_LABEL, displayName } from '../pages/timesheets/projectUi'
+import { ProjectSelect, TypeSelect, useEntryForm } from './entryForm'
 import { Button, ErrorNote } from './ui'
 
 /** Fired after the toast saves slots, so an open Daily Log reloads. detail: { date } */
@@ -27,11 +23,7 @@ export const SHOW_REMINDER_TOAST = 'teamembedded:reminder-toast'
 export function ReminderToast({ date, slot, onClose }: { date: string; slot: number; onClose: () => void }) {
   const { store } = useStore()
   const user = useUser()
-  const data = useAsync(
-    () =>
-      Promise.all([store.listProjects(), store.listAliases(), store.listSlots(user.id, date, date), store.getWorkDay(user.id, date), store.listWorkTypes()]),
-    [store, user.id, date],
-  )
+  const { data, lunch, ctxFor, groups } = useEntryForm(date)
   const [category, setCategory] = useState('')
   const [mid, setMid] = useState('')
   const [task, setTask] = useState('')
@@ -39,39 +31,9 @@ export function ReminderToast({ date, slot, onClose }: { date: string; slot: num
   const [error, setError] = useState<Error | null>(null)
   const [busy, setBusy] = useState(false)
 
-  const lunch = useMemo(() => {
-    const s = new Set<number>()
-    for (let i = timeToSlot(user.lunch_start); i < timeToSlot(user.lunch_end); i++) s.add(i)
-    return s
-  }, [user.lunch_start, user.lunch_end])
   const start = data.data?.[3]?.start_time ?? user.work_start
 
-  const ctxFor = (saved: TimeSlot[]): GridContext | null => {
-    if (!data.data) return null
-    const [projects, aliases, , , workTypes] = data.data
-    return {
-      projects,
-      aliases: aliases.filter((a) => !a.user_id || a.user_id === user.id),
-      byId: new Map(projects.map((p) => [p.id, p])),
-      workTypes,
-      workTypeById: new Map(workTypes.map((w) => [w.id, w])),
-      saved: new Map(saved.map((s) => [s.slot_index, s])),
-      lunch,
-      blank: (index) => ({ user_id: user.id, work_date: date, slot_index: index, kind: 'work', group_project_id: null, label: '', description: '', details: '', focus: null, work_type_id: null }),
-      color: () => '', // not shown here
-    }
-  }
-
   const plan = data.data ? continuePlan(slot, data.data[2], { start, lunch }) : null
-  const groups = useMemo(() => {
-    if (!data.data) return []
-    const projects = data.data[0]
-    const numbers = projectNumbers(projects)
-    const selectable = sortProjects(projects.filter(isSelectable))
-    return (['project', 'timelog', 'local_section'] as const)
-      .map((kind) => ({ label: KIND_LABEL[kind], items: selectable.filter((p) => p.kind === kind).map((p) => ({ text: displayName(p), no: numbers.get(p.id) })) }))
-      .filter((g) => g.items.length)
-  }, [data.data])
 
   /** save with the day's slots as they are now (the grid may have changed since the toast opened) */
   async function run(build: (saved: TimeSlot[], ctx: GridContext) => TimeSlot[]) {
@@ -152,34 +114,8 @@ export function ReminderToast({ date, slot, onClose }: { date: string; slot: num
           void save()
         }}
       >
-        <select aria-label="Project" className="field" value={category} onChange={(e) => setCategory(e.target.value)}>
-          <option value="">프로젝트 (Project)</option>
-          {groups.map((g) => (
-            <optgroup key={g.label} label={g.label}>
-              {g.items.map((o) => (
-                <option key={o.text} value={o.text}>
-                  {o.no ? `${o.no}. ` : ''}
-                  {o.text}
-                </option>
-              ))}
-            </optgroup>
-          ))}
-          <optgroup label="비업무">
-            {NONWORK_CHOICES.map((l) => (
-              <option key={l} value={l}>
-                {l}
-              </option>
-            ))}
-          </optgroup>
-        </select>
-        <select aria-label="Type" className="field" value={mid} onChange={(e) => setMid(e.target.value)}>
-          <option value="">유형 (Type)</option>
-          {selectableWorkTypes(data.data?.[4] ?? []).map((w) => (
-            <option key={w.id} value={w.name}>
-              {w.name}
-            </option>
-          ))}
-        </select>
+        <ProjectSelect groups={groups} value={category} onChange={setCategory} />
+        <TypeSelect workTypes={data.data?.[4] ?? []} value={mid} onChange={setMid} />
         <input aria-label="Task" className="field" placeholder="업무 (Task)" value={task} onChange={(e) => setTask(e.target.value)} />
         <input aria-label="Content" className="field" placeholder="업무내용 (Content)" value={details} onChange={(e) => setDetails(e.target.value)} />
         <div className="flex gap-2 pt-1">

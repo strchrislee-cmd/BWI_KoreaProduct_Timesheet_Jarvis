@@ -28,8 +28,9 @@ const report = createReport({
   const browser = await chromium.launch()
   const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } })
   const page = await ctx.newPage()
-  await page.clock.setFixedTime(new Date(`${DAY}T10:10:00`))
-  report.env(`Chromium ${browser.version()}`, `1440×900, 시계 ${DAY} 10:10 고정, 데모 모드(가상 팀원)`)
+  // 13:10: the demo teammates' Daily Logs have them Doing their 13:00 tasks
+  await page.clock.setFixedTime(new Date(`${DAY}T13:10:00`))
+  report.env(`Chromium ${browser.version()}`, `1440×900, 시계 ${DAY} 13:10 고정, 데모 모드(가상 팀원)`)
   const errors = []
   page.on('pageerror', (e) => errors.push(e.message))
 
@@ -104,10 +105,10 @@ const report = createReport({
   const at1300 = await blocks('doing')
   const c3 = report.check({
     name: '슬라이더를 옮기면 아이콘이 그 시간의 Doing 블록으로',
-    expected: "11:00: 3D 모델링@나 · 시험 지원@서지아 · 설계 회의@윤도현 / 13:00: 3D 모델링@나,윤도현 · 부품 리스트 정리@서지아",
+    expected: "11:00: 시험 지원@서지아 · 설계 회의@윤도현 (내 3D 모델링 카드는 13:10에 만들어 아직 없음) / 13:00: 3D 모델링@나,윤도현 · 부품 리스트 정리@서지아",
     actual: `11:00 [${at1100}] / 13:00 [${at1300}]`,
     how: '되감은 Doing 칸의 블록과 data-people',
-    pass: at1100.join('|') === '3D 모델링@나|시험 지원@서지아|설계 회의@윤도현' && at1300.join('|') === '3D 모델링@나,윤도현|부품 리스트 정리@서지아',
+    pass: at1100.join('|') === '시험 지원@서지아|설계 회의@윤도현' && at1300.join('|') === '3D 모델링@나,윤도현|부품 리스트 정리@서지아',
   })
   await page.mouse.move(700, 880)
   await report.shot(page, { caption: '11:00으로 되감기: 윤도현 아이콘은 설계 회의, 서지아는 시험 지원 블록에', marks: [{ target: column('doing'), n: c3, label: '11:00의 Doing' }] })

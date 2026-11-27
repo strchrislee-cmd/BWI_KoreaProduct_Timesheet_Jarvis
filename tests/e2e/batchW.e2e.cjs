@@ -1,6 +1,6 @@
 // 2026-11-27 (16): Daily Kanban → Log Enable. Every :00 / :30 a popup asks to log the half hour that just
-// ended with the card in Doing: 기록 (one click), 수정 (pick another card → it moves to Doing, the one Doing
-// before waits, that task is logged) or 건너뛰기. On any page; no popup for a half hour already logged.
+// ended with the card in Doing: 기록 (one click), 수정 (type the task: Project · Type chosen, Task typed → it is logged
+// and becomes Doing, the one Doing before waits) or 건너뛰기. On any page; no popup for a half hour already logged.
 // Demo build with a fake clock (Fri 2026-11-27; demo hours 07:30–16:30, lunch 12:00–13:00).
 // REPORT=1 writes docs/test-reports/<date>-kanban-log/ (see report.cjs).
 const { chromium } = require('playwright')
@@ -13,11 +13,11 @@ const report = createReport({
   title: 'Daily Kanban: Log Enable — 30분마다 Doing 업무를 Daily Log에 기록',
   suite: 'tests/e2e/batchW.e2e.cjs',
   request:
-    'Kanban 모드에서 Log Enable을 켜면 30분 정각·정시에 "Doing에 있는 내용을 Log로 기록하겠습니까?" 팝업을 띄워 간단히 클릭하게 하고, 다를 경우 수정 버튼으로 다른 업무를 Doing에 놓고 Daily Log에는 변경된 정보로 기록.',
+    'Kanban 모드에서 Log Enable을 켜면 30분 정각·정시에 "Doing에 있는 내용을 Log로 기록하겠습니까?" 팝업을 띄워 간단히 클릭하게 하고, 다를 경우 수정 버튼으로 다른 업무를 Doing에 놓고 Daily Log에는 변경된 정보로 기록. (추가) 수정을 누르면 직접 타이핑해서 고치게(Task는 타이핑, Project·Type은 선택), 이전 칸반에 남아 있던 카드 목록은 의미 없음.',
   criteria: [
     'Daily Kanban의 Log Enable을 켜면 정각·30분마다 방금 끝난 30분을 Doing 카드로 기록할지 묻는다 (앱 어느 화면에서나, 브라우저 알림도).',
     '기록: 한 번 눌러 그 30분을 Doing 카드의 Project·Type·Task로 Daily Log에 저장.',
-    '수정: 다른 카드를 고르면 그 카드가 Doing으로 가고(원래 Doing은 Wait로) 그 업무로 기록.',
+    '수정: 직접 적기(Project·Type은 고르고 Task는 타이핑, 지금 Doing이 미리 적혀 있음) → 그 업무로 기록, 그 업무가 Doing(없으면 새 카드), 원래 Doing은 Wait로. 예전 카드 목록은 보이지 않음.',
     '건너뛰기: 아무것도 저장하지 않음. 이미 기록된 30분은 묻지 않음. 끄면 더 묻지 않음.',
   ],
 })
@@ -145,56 +145,73 @@ const fakeNotification = () => {
     pass: after1000.slots.join('|') === '18:도면검토|19:도면검토' && after1000.doing.join('|') === '도면검토' && after1000.flow.join('|') === '도면검토@18+3',
   })
 
-  // 10:30: 수정 → pick 견적 검토 → it goes to Doing (도면검토 waits) and is logged
+  // 10:30: 수정 → type what was done (Project · Type chosen, Task typed) → logged, it is Doing now, 도면검토 waits
   await page.clock.runFor(30 * 60_000)
   await popup.waitFor()
   await popup.getByRole('button', { name: '수정' }).click()
-  const picks = await popup.getByTestId('pick-card').evaluateAll((els) => els.map((e) => e.innerText.replace(/\s+/g, ' ').trim()))
+  const typing = popup.getByRole('form', { name: 'Type what you did' })
+  const prefill = { task: await typing.getByLabel('Task').inputValue(), cards: await popup.getByTestId('pick-card').count() }
+  const project = await typing.getByLabel('Project').locator('optgroup').first().locator('option').first().getAttribute('value')
+  await typing.getByLabel('Project').selectOption(project)
+  await typing.getByLabel('Type').selectOption({ label: '지원-견적' })
+  await typing.getByLabel('Task').fill('견적서 작성')
   await page.mouse.move(700, 10)
-  await report.shot(page, { caption: '10:30 수정: 이 시간에 한 업무를 고르면 Doing으로 옮기고 그 업무로 기록', marks: [{ target: popup.getByRole('list', { name: 'Choose a card' }), n: c3 + 1, label: '다른 업무 고르기' }] })
-  await popup.getByTestId('pick-card').filter({ hasText: '견적 검토' }).click()
+  await report.shot(page, { caption: '10:30 수정: 이 시간에 한 업무를 직접 적기 (Project·Type은 고르고 Task는 타이핑)', marks: [{ target: typing, n: c3 + 1, label: '직접 적기' }] })
+  await typing.getByRole('button', { name: '기록' }).click()
   await popup.waitFor({ state: 'detached' })
-  await column('doing').getByTestId('kanban-card').filter({ hasText: '견적 검토' }).waitFor()
-  const after1030 = { slots: await slotsOf(), doing: await titles('doing'), wait: await titles('wait'), backlog: await titles('backlog') }
+  await column('doing').getByTestId('kanban-card').filter({ hasText: '견적서 작성' }).waitFor()
+  const after1030 = {
+    slots: await slotsOf(),
+    saved: await page.evaluate((day) => {
+      const st = JSON.parse(localStorage.getItem('timecrumbs-demo-v1'))
+      const s = st.slots.find((x) => x.work_date === day && x.slot_index === 20)
+      return { project: st.projects.find((p) => p.id === s.group_project_id)?.name ?? '', type: st.workTypes.find((w) => w.id === s.work_type_id)?.name ?? '' }
+    }, DAY),
+    doing: await titles('doing'),
+    wait: await titles('wait'),
+    detail: await column('doing').getByTestId('kanban-card').first().innerText(),
+  }
   const c4 = report.check({
-    name: '수정: 고른 카드가 Doing으로, 원래 Doing은 Wait로, 그 업무로 기록',
-    expected: "고를 목록에 '견적 검토 Backlog · 지원-견적' → 고른 뒤 Daily Log 20 '견적 검토', Doing '견적 검토', Wait '도면검토', Backlog 비어 있음",
-    actual: `목록 [${picks}] → Daily Log [${after1030.slots}] · Doing [${after1030.doing}] · Wait [${after1030.wait}] · Backlog [${after1030.backlog}]`,
-    how: 'pick-card 글자, 저장된 칸, 보드 칸별 제목 (열린 보드가 바로 다시 읽힘)',
+    name: '수정: 직접 적은 업무로 기록, 그 업무가 Doing(새 카드), 원래 Doing은 Wait',
+    expected: `수정 → 적는 칸(Task에 지금 Doing '도면검토'가 미리), 예전 카드 목록 없음 → Project '${project}' · Type '지원-견적' · Task '견적서 작성' → Daily Log 20에 그대로, Doing '견적서 작성', Wait '도면검토'`,
+    actual: `미리 적힌 Task '${prefill.task}', 카드 목록 ${prefill.cards}개 → Daily Log [${after1030.slots}] (20: ${after1030.saved.project} · ${after1030.saved.type}) · Doing [${after1030.doing}] · Wait [${after1030.wait}]`,
+    how: "form 'Type what you did' 의 Task 값, pick-card 0개, 저장된 칸의 project·type, 보드 칸별 제목 (열린 보드가 바로 다시 읽힘)",
     pass:
-      picks.some((p) => p.includes('견적 검토') && p.includes('Backlog') && p.includes('지원-견적')) &&
-      after1030.slots.join('|') === '18:도면검토|19:도면검토|20:견적 검토' &&
-      after1030.doing.join('|') === '견적 검토' &&
-      after1030.wait.join('|') === '도면검토' &&
-      after1030.backlog.length === 0,
+      prefill.task === '도면검토' &&
+      prefill.cards === 0 &&
+      after1030.slots.join('|') === '18:도면검토|19:도면검토|20:견적서 작성' &&
+      !!after1030.saved.project && after1030.saved.project.includes(project) &&
+      after1030.saved.type === '지원-견적' &&
+      after1030.doing.join('|') === '견적서 작성' &&
+      after1030.wait.join('|') === '도면검토',
   })
   await page.mouse.move(700, 880)
-  await report.shot(page, { caption: '수정 후 보드: 견적 검토가 Doing, 도면검토는 Wait', marks: [{ target: column('doing'), n: c4, label: 'Doing으로' }, { target: column('wait'), n: c4, label: 'Wait로' }] })
+  await report.shot(page, { caption: '수정 후 보드: 적은 업무 견적서 작성이 Doing, 도면검토는 Wait (바뀐 2장)', marks: [{ target: column('doing'), n: c4, label: 'Doing으로' }, { target: column('wait'), n: c4, label: 'Wait로' }] })
 
   // 11:00 on the Daily Log page: the popup shows there too → 건너뛰기 leaves 10:30 empty
   await page.goto(BASE + `/timesheets?date=${DAY}`)
-  await cell(20, 'task').filter({ hasText: '견적 검토' }).waitFor()
+  await cell(20, 'task').filter({ hasText: '견적서 작성' }).waitFor()
   await page.clock.runFor(30 * 60_000)
   await popup.waitFor()
   const at1100 = { title: await popup.innerText(), doing: await popup.getByTestId('doing-card').innerText(), url: new URL(page.url()).pathname }
   const grid = { r19: await cell(19, 'task').innerText(), r20: await cell(20, 'task').innerText() }
   await page.mouse.move(700, 10)
-  await report.shot(page, { caption: '11:00, Daily Log 화면에서도 같은 팝업 (Doing: 견적 검토). 위 칸에 기록된 09:30·10:00', marks: [{ target: popup, n: c4 + 1, label: '어디서나' }, { target: cell(20, 'task'), n: c4 + 1, label: '수정으로 기록' }] })
+  await report.shot(page, { caption: '11:00, Daily Log 화면에서도 같은 팝업 (Doing: 견적서 작성). 위 칸에 기록된 09:30·10:00', marks: [{ target: popup, n: c4 + 1, label: '어디서나' }, { target: cell(20, 'task'), n: c4 + 1, label: '수정으로 기록' }] })
   await popup.getByRole('button', { name: '건너뛰기' }).click()
   await popup.waitFor({ state: 'detached' })
   const after1100 = await slotsOf()
   report.check({
     name: '앱 어디서나 (Daily Log 화면에서도) · 건너뛰기는 저장하지 않음',
-    expected: "/timesheets 에서 '10:30–11:00' 팝업, Doing '견적 검토' · Daily Log 칸 19 도면검토, 20 견적 검토 · 건너뛰기 후 21 비어 있음",
+    expected: "/timesheets 에서 '10:30–11:00' 팝업, Doing '견적서 작성' · Daily Log 칸 19 도면검토, 20 견적서 작성 · 건너뛰기 후 21 비어 있음",
     actual: `${at1100.url} '${at1100.title.split('\n')[1]}' · Doing '${at1100.doing.replace(/\s+/g, ' ')}' · 칸 19 '${grid.r19}', 20 '${grid.r20}' · 건너뛴 뒤 [${after1100}]`,
     how: 'Daily Log 페이지에서 clock.runFor → dialog, grid 칸 글자, 저장된 칸',
     pass:
       at1100.url === '/timesheets' &&
       at1100.title.includes('10:30–11:00') &&
-      at1100.doing.includes('견적 검토') &&
+      at1100.doing.includes('견적서 작성') &&
       grid.r19.includes('도면검토') &&
-      grid.r20.includes('견적 검토') &&
-      after1100.join('|') === '18:도면검토|19:도면검토|20:견적 검토',
+      grid.r20.includes('견적서 작성') &&
+      after1100.join('|') === '18:도면검토|19:도면검토|20:견적서 작성',
   })
 
   // Log Enable off → no more popups (the 30-minute reminder is off too)
@@ -213,7 +230,7 @@ const fakeNotification = () => {
     pass: off.popups === 0 && off.reminders === 0 && off.notes === 0 && off.saved === false,
   })
 
-  // (bug) the card that waited because of 수정 is not one of the day's cards once its log is gone
+  // (bug) a card that only waited because the log moved on is not one of the day's cards once its log is gone
   await page.goto(BASE + `/timesheets?date=${DAY}`)
   await cell(18, 'category').click()
   await cell(19, 'details').click({ modifiers: ['Shift'] })
@@ -221,13 +238,15 @@ const fakeNotification = () => {
   await page.waitForTimeout(600)
   const afterDelete = await slotsOf()
   await toKanban()
-  const ghost = { wait: await titles('wait'), doing: await titles('doing') }
+  await page.getByLabel('Show earlier cards').check()
+  await page.waitForTimeout(300)
+  const ghost = { wait: await titles('wait'), doing: await titles('doing'), backlog: await titles('backlog') }
   report.check({
-    name: '(버그) 수정 때 Wait로 밀려난 카드는 그날 기록이 없으면 오늘 보드에 남지 않음',
-    expected: "Daily Log에서 09:00·09:30 도면검토를 지우면 → 남은 기록 [20 견적 검토], 오늘 보드 Wait 비어 있음, Doing '견적 검토'",
-    actual: `남은 기록 [${afterDelete}] · Wait [${ghost.wait}] · Doing [${ghost.doing}]`,
-    how: "Daily Log 18~19행 지우기 → 저장된 칸, 보드 칸별 제목 (밀려난 카드의 이동은 'log', 고른 카드만 손 이동)",
-    pass: afterDelete.join('|') === '20:견적 검토' && ghost.wait.length === 0 && ghost.doing.join('|') === '견적 검토',
+    name: '(버그) 밀려나 Wait로 간 카드는 그날 기록이 없으면 오늘 보드에 남지 않음 (지난 카드도 보기에서도)',
+    expected: "Daily Log에서 09:00·09:30 도면검토를 지우면 → 남은 기록 [20 견적서 작성], 지난 카드도 보기: Wait 비어 있음, Doing '견적서 작성', Backlog '견적 검토'(오늘 만든 카드)",
+    actual: `남은 기록 [${afterDelete}] · Wait [${ghost.wait}] · Doing [${ghost.doing}] · Backlog [${ghost.backlog}]`,
+    how: 'Daily Log 18~19행 지우기 → 저장된 칸, 지난 카드도 보기를 켠 보드의 칸별 제목',
+    pass: afterDelete.join('|') === '20:견적서 작성' && ghost.wait.length === 0 && ghost.doing.join('|') === '견적서 작성' && ghost.backlog.join('|') === '견적 검토',
   })
 
   report.check({ name: '페이지 오류 없음', expected: '0건', actual: `${errors.length}건${errors.length ? ': ' + errors.join(' | ') : ''}`, how: 'pageerror 수 === 0', pass: errors.length === 0 })

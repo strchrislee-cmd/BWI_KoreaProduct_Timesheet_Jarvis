@@ -1,12 +1,16 @@
 import { ClipboardCheck, X } from 'lucide-react'
 import { useState } from 'react'
 import { createPortal } from 'react-dom'
+import { syncKanban } from '../data/kanbanSync'
 import { useStore, useUser } from '../data/StoreContext'
-import { KANBAN_LABEL, nextSortOrder, type KanbanCard } from '../domain/kanban'
+import type { KanbanCard } from '../domain/kanban'
 import { EMPTY_TASK_LABEL } from '../domain/quickTasks'
-import { slotToTime } from '../domain/time'
+import { currentSlot, slotToTime } from '../domain/time'
+import type { TimeSlot } from '../domain/types'
 import { useAsync } from '../lib/hooks'
+import { buildChanges } from '../pages/timesheets/grid/gridModel'
 import { displayName } from '../pages/timesheets/projectUi'
+import { ProjectSelect, TypeSelect, useEntryForm } from './entryForm'
 import { SLOTS_CHANGED } from './ReminderToast'
 import { Button, ErrorNote, cx } from './ui'
 
@@ -15,55 +19,48 @@ export const KANBAN_CHANGED = 'teamembedded:kanban'
 
 /**
  * Daily Kanban → Log Enable: every :00 / :30, log the half hour that just ended with the card in
- * Doing (one click), or pick another card — it moves to Doing (the one Doing before waits) and that
- * task is logged instead. Shown on any page, bottom right, like the 30-minute reminder it replaces.
+ * Doing (one click), or 수정: type what was done instead (Project · Type · Task, as in the Daily Log).
+ * Either way it goes into the Daily Log and the board follows the log (that task is Doing, the one
+ * before waits). Shown on any page, bottom right, like the 30-minute reminder it replaces.
  */
 export function DoingLogToast({ date, slot, onClose }: { date: string; slot: number; onClose: () => void }) {
   const { store } = useStore()
   const user = useUser()
-  const data = useAsync(() => Promise.all([store.listKanban(user.id), store.listProjects(), store.listWorkTypes()]), [store, user.id])
-  const [picking, setPicking] = useState(false)
+  const form = useEntryForm(date)
+  const kanban = useAsync(() => store.listKanban(user.id), [store, user.id])
+  const [editing, setEditing] = useState(false)
+  const [category, setCategory] = useState('')
+  const [mid, setMid] = useState('')
+  const [task, setTask] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<Error | null>(null)
 
-  const cards = data.data?.[0] ?? []
-  const byId = new Map((data.data?.[1] ?? []).map((p) => [p.id, p]))
-  const typeName = new Map((data.data?.[2] ?? []).map((w) => [w.id, w.name]))
-  const doing = cards.filter((c) => c.status === 'doing').sort((a, b) => a.sort_order - b.sort_order)[0]
-  const order = (c: KanbanCard) => ['wait', 'todo', 'backlog', 'donecheck', 'done', 'doing'].indexOf(c.status)
-  const others = cards.filter((c) => c.id !== doing?.id).sort((a, b) => order(a) - order(b) || a.sort_order - b.sort_order)
-  const project = (c: KanbanCard) => {
+  const projects = form.data.data?.[0] ?? []
+  const workTypes = form.data.data?.[4] ?? []
+  const byId = new Map(projects.map((p) => [p.id, p]))
+  const typeName = new Map(workTypes.map((w) => [w.id, w.name]))
+  const doing = (kanban.data ?? []).filter((c) => c.status === 'doing').sort((a, b) => a.sort_order - b.sort_order)[0]
+  const projectText = (c: KanbanCard) => {
     const p = c.group_project_id ? byId.get(c.group_project_id) : undefined
-    return p ? displayName(p) : c.label ? `⚠ ${c.label}` : ''
+    return p ? displayName(p) : c.label
   }
-  const detail = (c: KanbanCard) => [project(c), c.work_type_id ? typeName.get(c.work_type_id) : ''].filter(Boolean).join(' · ')
+  const detail = (c: KanbanCard) => [projectText(c), c.work_type_id ? typeName.get(c.work_type_id) : ''].filter(Boolean).join(' · ')
+  const showForm = editing || !doing
 
-  /**
-   * log the half hour with this card; a card that was not Doing moves there (the Doing one waits).
-   * Only the chosen card counts as moved by hand: the one that waits just follows the log, so it does
-   * not become one of the day's cards (Daily Kanban shows a day's logged or hand-moved cards).
-   */
-  async function record(card: KanbanCard) {
+  function edit() {
+    setCategory(doing ? projectText(doing) : '')
+    setMid(doing?.work_type_id ? (typeName.get(doing.work_type_id) ?? '') : '')
+    setTask(doing?.description ?? '')
+    setEditing(true)
+  }
+
+  /** save the half hour, bring the board in line with the log, tell open pages */
+  async function save(build: (saved: TimeSlot[]) => TimeSlot[]) {
     setBusy(true)
     try {
-      await store.saveSlots([
-        {
-          user_id: user.id,
-          work_date: date,
-          slot_index: slot,
-          kind: 'work',
-          group_project_id: card.group_project_id,
-          label: card.group_project_id ? '' : card.label,
-          description: card.description,
-          details: '',
-          focus: null,
-          work_type_id: card.work_type_id,
-        },
-      ])
-      if (card.status !== 'doing') {
-        for (const c of cards) if (c.status === 'doing') await store.moveKanbanCard(c, 'wait', nextSortOrder(cards, 'wait'), 'log')
-        await store.moveKanbanCard(card, 'doing', nextSortOrder(cards, 'doing'), 'manual')
-      }
+      const rows = build(await store.listSlots(user.id, date, date))
+      if (rows.length) await store.saveSlots(rows)
+      await syncKanban(store, user.id, await store.listSlots(user.id, date, date), currentSlot(new Date()).slot)
       window.dispatchEvent(new CustomEvent(SLOTS_CHANGED, { detail: { date } }))
       window.dispatchEvent(new CustomEvent(KANBAN_CHANGED))
       onClose()
@@ -72,6 +69,38 @@ export function DoingLogToast({ date, slot, onClose }: { date: string; slot: num
       setBusy(false)
     }
   }
+
+  /** 기록: the Doing card as it is */
+  const recordDoing = (card: KanbanCard) =>
+    save(() => [
+      {
+        user_id: user.id,
+        work_date: date,
+        slot_index: slot,
+        kind: 'work',
+        group_project_id: card.group_project_id,
+        label: card.group_project_id ? '' : card.label,
+        description: card.description,
+        details: '',
+        focus: null,
+        work_type_id: card.work_type_id,
+      },
+    ])
+
+  /** 수정 → 기록: what was typed, read exactly like a Daily Log row */
+  const recordTyped = () =>
+    save((saved) => {
+      const ctx = form.ctxFor(saved)
+      if (!ctx) return []
+      return buildChanges(
+        [
+          { index: slot, col: 'category', text: category },
+          { index: slot, col: 'mid', text: mid },
+          { index: slot, col: 'task', text: task },
+        ],
+        ctx,
+      ).flatMap((c) => (c.slot ? [c.slot] : []))
+    })
 
   const time = (
     <>
@@ -96,43 +125,36 @@ export function DoingLogToast({ date, slot, onClose }: { date: string; slot: num
           <X size={16} />
         </button>
       </div>
-      <ErrorNote error={error ?? data.error} />
-      {!data.data ? (
+      <ErrorNote error={error ?? kanban.error ?? form.data.error} />
+      {!kanban.data || !form.data.data ? (
         <p className="text-sm text-muted">불러오는 중…</p>
-      ) : picking || !doing ? (
-        <div>
-          <p className="mb-2 text-sm text-muted">{doing ? '이 시간에 한 업무를 고르면 Doing으로 옮기고 그 업무로 기록합니다.' : 'Doing에 업무가 없습니다. 이 시간에 한 업무를 골라 주세요.'}</p>
-          <ul className="max-h-64 space-y-1 overflow-y-auto" aria-label="Choose a card">
-            {others.map((c) => (
-              <li key={c.id}>
-                <button
-                  type="button"
-                  disabled={busy}
-                  className="w-full rounded-control bg-white/80 px-3 py-1.5 text-left text-sm shadow-sm hover:bg-white"
-                  onClick={() => void record(c)}
-                  data-testid="pick-card"
-                >
-                  <span className="flex items-baseline gap-2">
-                    <span className="min-w-0 flex-1 font-semibold [overflow-wrap:anywhere]">{c.description.trim() || EMPTY_TASK_LABEL}</span>
-                    <span className="shrink-0 text-[11px] text-muted">{KANBAN_LABEL[c.status]}</span>
-                  </span>
-                  {detail(c) && <span className="block truncate text-xs text-muted">{detail(c)}</span>}
-                </button>
-              </li>
-            ))}
-            {!others.length && <li className="text-sm text-muted">카드가 없습니다. Daily Kanban에서 카드를 먼저 만들어 주세요.</li>}
-          </ul>
-          <div className="mt-3 flex justify-end gap-2">
+      ) : showForm ? (
+        <form
+          className="space-y-2"
+          aria-label="Type what you did"
+          onSubmit={(e) => {
+            e.preventDefault()
+            void recordTyped()
+          }}
+        >
+          <p className="text-sm text-muted">{doing ? '이 시간에 한 업무로 고쳐 주세요. 그 업무가 Doing이 되고 Daily Log에 기록됩니다.' : 'Doing에 업무가 없습니다. 이 시간에 한 업무를 적어 주세요.'}</p>
+          <ProjectSelect groups={form.groups} value={category} onChange={setCategory} />
+          <TypeSelect workTypes={workTypes} value={mid} onChange={setMid} />
+          <input aria-label="Task" className="field" placeholder="업무 (Task)" value={task} onChange={(e) => setTask(e.target.value)} />
+          <div className="flex justify-end gap-2 pt-1">
             {doing && (
-              <Button variant="ghost" onClick={() => setPicking(false)}>
+              <Button type="button" variant="ghost" onClick={() => setEditing(false)}>
                 돌아가기
               </Button>
             )}
-            <Button variant="ghost" onClick={onClose}>
+            <Button type="button" variant="ghost" onClick={onClose}>
               건너뛰기
             </Button>
+            <Button type="submit" className={cx(busy && 'opacity-60')} disabled={busy || !(category || mid || task.trim())}>
+              기록
+            </Button>
           </div>
-        </div>
+        </form>
       ) : (
         <div>
           <div className="rounded-control bg-white/85 px-3 py-2 shadow-sm" data-testid="doing-card">
@@ -144,10 +166,10 @@ export function DoingLogToast({ date, slot, onClose }: { date: string; slot: num
             <Button variant="ghost" onClick={onClose}>
               건너뛰기
             </Button>
-            <Button variant="outline" disabled={busy} onClick={() => setPicking(true)}>
+            <Button variant="outline" disabled={busy} onClick={edit}>
               수정
             </Button>
-            <Button className={cx(busy && 'opacity-60')} disabled={busy} onClick={() => void record(doing)}>
+            <Button className={cx(busy && 'opacity-60')} disabled={busy} onClick={() => void recordDoing(doing)}>
               기록
             </Button>
           </div>
