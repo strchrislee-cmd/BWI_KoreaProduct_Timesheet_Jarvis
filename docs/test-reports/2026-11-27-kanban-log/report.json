@@ -2,15 +2,15 @@
   "id": "kanban-log",
   "title": "Daily Kanban: Log Enable — 30분마다 Doing 업무를 Daily Log에 기록",
   "suite": "tests/e2e/batchW.e2e.cjs",
-  "request": "Kanban 모드에서 Log Enable을 켜면 30분 정각·정시에 \"Doing에 있는 내용을 Log로 기록하겠습니까?\" 팝업을 띄워 간단히 클릭하게 하고, 다를 경우 수정 버튼으로 다른 업무를 Doing에 놓고 Daily Log에는 변경된 정보로 기록.",
+  "request": "Kanban 모드에서 Log Enable을 켜면 30분 정각·정시에 \"Doing에 있는 내용을 Log로 기록하겠습니까?\" 팝업을 띄워 간단히 클릭하게 하고, 다를 경우 수정 버튼으로 다른 업무를 Doing에 놓고 Daily Log에는 변경된 정보로 기록. (추가) 수정을 누르면 직접 타이핑해서 고치게(Task는 타이핑, Project·Type은 선택), 이전 칸반에 남아 있던 카드 목록은 의미 없음.",
   "criteria": [
     "Daily Kanban의 Log Enable을 켜면 정각·30분마다 방금 끝난 30분을 Doing 카드로 기록할지 묻는다 (앱 어느 화면에서나, 브라우저 알림도).",
     "기록: 한 번 눌러 그 30분을 Doing 카드의 Project·Type·Task로 Daily Log에 저장.",
-    "수정: 다른 카드를 고르면 그 카드가 Doing으로 가고(원래 Doing은 Wait로) 그 업무로 기록.",
+    "수정: 직접 적기(Project·Type은 고르고 Task는 타이핑, 지금 Doing이 미리 적혀 있음) → 그 업무로 기록, 그 업무가 Doing(없으면 새 카드), 원래 Doing은 Wait로. 예전 카드 목록은 보이지 않음.",
     "건너뛰기: 아무것도 저장하지 않음. 이미 기록된 30분은 묻지 않음. 끄면 더 묻지 않음."
   ],
   "date": "2026-11-27",
-  "commit": "f8756fd",
+  "commit": "40df939",
   "env": {
     "browser": "Chromium 157.0.8103.78",
     "viewport": "1440×900, 가짜 시계 2026-11-27(금) 09:20부터 흐름, 데모 모드(근무 07:30–16:30, 점심 12:00–13:00)"
@@ -18,10 +18,10 @@
   "checks": [
     {
       "n": 1,
-      "name": "Daily Kanban에 Log Enable · 켜면 안내와 \"지금 해 보기\"",
-      "expected": "끈 상태 안내 '켜면 …' → 켜면 '정각·30분마다 …' + 지금 해 보기 → 08:30–09:00 팝업, Doing 카드 '도면검토'",
-      "actual": "끈 상태 'Log Enable 켜면 정각·30분마다 Doing 업무를 Daily Log에 기록할지 묻습니다' → 켠 상태 'Log Enable 정각·30분마다 방금 끝난 30분을 Doing 업무로 기록할지 묻습니다 (앱 어느 화면에서나) 지금 해 보기' · 팝업 'TeamEmbedded · Daily Kanban 기록 / 08:30–09:00 을 Doing 업무로 기록할까요?' · Doing 'DOING 도면검토 ⚠ 설계'",
-      "how": "kanban-log 글자, 지금 해 보기 → dialog \"Log the Doing card\" 와 doing-card",
+      "name": "Daily Kanban에 Log Enable · 켜면 브라우저 알림 권한을 묻고, 안내와 \"지금 해 보기\"",
+      "expected": "끈 상태 안내 '켜면 …' → 켤 때 브라우저 알림 권한을 한 번 물음(아직 묻지 않음 → 허용) → 켜면 '정각·30분마다 … 브라우저 알림으로도' + 지금 해 보기 → 08:30–09:00 팝업, Doing 카드 '도면검토'",
+      "actual": "끈 상태 'Log Enable 켜면 정각·30분마다 Doing 업무를 Daily Log에 기록할지 묻습니다' → 권한 default → 물음 1번 → granted · 켠 상태 'Log Enable 정각·30분마다 방금 끝난 30분을 Doing 업무로 기록할지 묻습니다 (앱 어느 화면에서나 · 브라우저 알림으로도) 지금 해 보기' · 팝업 'TeamEmbedded · Daily Kanban 기록 / 08:30–09:00 을 Doing 업무로 기록할까요?' · Doing 'DOING 도면검토 설계'",
+      "how": "Notification.permission / requestPermission 호출 수, kanban-log 글자, 지금 해 보기 → dialog \"Log the Doing card\" 와 doing-card",
       "pass": true,
       "shot": 1
     },
@@ -29,7 +29,7 @@
       "n": 2,
       "name": "정각·30분마다 팝업 (이미 기록된 30분은 묻지 않음), 브라우저 알림도",
       "expected": "09:30 팝업·알림 없음(09:00–09:30 기록됨) → 10:00 '09:30–10:00 을 Doing 업무로 기록할까요?', Doing '도면검토', 알림 'TeamEmbedded · Daily Kanban 기록'",
-      "actual": "09:30 팝업 0개·알림 0건 → 10:00 '09:30–10:00 을 Doing 업무로 기록할까요?' · Doing 'DOING 도면검토 ⚠ 설계' · 알림 'TeamEmbedded · Daily Kanban 기록: 09:30–10:00 업무를 기록해 주세요 (Doing 업무로 기록하기)'",
+      "actual": "09:30 팝업 0개·알림 0건 → 10:00 '09:30–10:00 을 Doing 업무로 기록할까요?' · Doing 'DOING 도면검토 설계' · 알림 'TeamEmbedded · Daily Kanban 기록: 09:30–10:00 업무를 기록해 주세요 (Doing 업무로 기록하기)'",
       "how": "clock.runFor 로 09:30·10:00 경계, dialog 수, window.__notes",
       "pass": true,
       "shot": 2
@@ -45,19 +45,19 @@
     },
     {
       "n": 4,
-      "name": "수정: 고른 카드가 Doing으로, 원래 Doing은 Wait로, 그 업무로 기록",
-      "expected": "고를 목록에 '견적 검토 Backlog · 지원-견적' → 고른 뒤 Daily Log 20 '견적 검토', Doing '견적 검토', Wait '도면검토', Backlog 비어 있음",
-      "actual": "목록 [견적 검토 Backlog 지원-견적] → Daily Log [18:도면검토,19:도면검토,20:견적 검토] · Doing [견적 검토] · Wait [도면검토] · Backlog []",
-      "how": "pick-card 글자, 저장된 칸, 보드 칸별 제목 (열린 보드가 바로 다시 읽힘)",
+      "name": "수정: 직접 적은 업무로 기록, 그 업무가 Doing(새 카드), 원래 Doing은 Wait",
+      "expected": "수정 → 적는 칸(Task에 지금 Doing '도면검토'가 미리), 예전 카드 목록 없음 → Project 'Change Requests (non-project) 변경 요청 대응 (프로젝트 외 업무)' · Type '지원-견적' · Task '견적서 작성' → Daily Log 20에 그대로, Doing '견적서 작성', Wait '도면검토'",
+      "actual": "미리 적힌 Task '도면검토', 카드 목록 0개 → Daily Log [18:도면검토,19:도면검토,20:견적서 작성] (20: 00.Timelog--Change Requests (non-project) 변경 요청 대응 (프로젝트 외 업무) · 지원-견적) · Doing [견적서 작성] · Wait [도면검토]",
+      "how": "form 'Type what you did' 의 Task 값, pick-card 0개, 저장된 칸의 project·type, 보드 칸별 제목 (열린 보드가 바로 다시 읽힘)",
       "pass": true,
       "shot": 4
     },
     {
       "n": 5,
-      "name": "앱 어디서나 (Daily Log 화면에서도) · 건너뛰기는 저장하지 않음",
-      "expected": "/timesheets 에서 '10:30–11:00' 팝업, Doing '견적 검토' · Daily Log 칸 19 도면검토, 20 견적 검토 · 건너뛰기 후 21 비어 있음",
-      "actual": "/timesheets '10:30–11:00 을 Doing 업무로 기록할까요?' · Doing 'DOING 견적 검토 지원-견적' · 칸 19 '도면검토', 20 '견적 검토' · 건너뛴 뒤 [18:도면검토,19:도면검토,20:견적 검토]",
-      "how": "Daily Log 페이지에서 clock.runFor → dialog, grid 칸 글자, 저장된 칸",
+      "name": "앱 어디서나 (Daily Log 화면에서도) · 브라우저 알림을 누르면 Daily Kanban으로 · 건너뛰기는 저장하지 않음",
+      "expected": "/timesheets 에서 '10:30–11:00' 팝업, Doing '견적서 작성' · Daily Log 칸 19 도면검토, 20 견적서 작성 · 브라우저 알림 '10:30–11:00 … (Doing 업무로 기록하기)'을 누르면 /timesheets/kanban, 팝업 그대로 · 건너뛰기 후 21 비어 있음",
+      "actual": "/timesheets '10:30–11:00 을 Doing 업무로 기록할까요?' · Doing 'DOING 견적서 작성 Change Requests (non-project) 변경 요청 대응 (프로젝트 외 업무) · 지원-견적' · 칸 19 '도면검토', 20 '견적서 작성' · 알림 '10:30–11:00 업무를 기록해 주세요 (Doing 업무로 기록하기)' 누른 뒤 /timesheets/kanban, 팝업 1개 · 건너뛴 뒤 [18:도면검토,19:도면검토,20:견적서 작성]",
+      "how": "Daily Log 페이지에서 clock.runFor → dialog, grid 칸 글자, 마지막 알림의 onclick → 주소·dialog 수, 저장된 칸",
       "pass": true,
       "shot": null
     },
@@ -72,10 +72,10 @@
     },
     {
       "n": 7,
-      "name": "(버그) 수정 때 Wait로 밀려난 카드는 그날 기록이 없으면 오늘 보드에 남지 않음",
-      "expected": "Daily Log에서 09:00·09:30 도면검토를 지우면 → 남은 기록 [20 견적 검토], 오늘 보드 Wait 비어 있음, Doing '견적 검토'",
-      "actual": "남은 기록 [20:견적 검토] · Wait [] · Doing [견적 검토]",
-      "how": "Daily Log 18~19행 지우기 → 저장된 칸, 보드 칸별 제목 (밀려난 카드의 이동은 'log', 고른 카드만 손 이동)",
+      "name": "(버그) 밀려나 Wait로 간 카드는 그날 기록이 없으면 오늘 보드에 남지 않음 (지난 카드도 보기에서도)",
+      "expected": "Daily Log에서 09:00·09:30 도면검토를 지우면 → 남은 기록 [20 견적서 작성], 지난 카드도 보기: Wait 비어 있음, Doing '견적서 작성', Backlog '견적 검토'(오늘 만든 카드)",
+      "actual": "남은 기록 [20:견적서 작성] · Wait [] · Doing [견적서 작성] · Backlog [견적 검토]",
+      "how": "Daily Log 18~19행 지우기 → 저장된 칸, 지난 카드도 보기를 켠 보드의 칸별 제목",
       "pass": true,
       "shot": null
     },
@@ -125,11 +125,11 @@
       "file": "shot-03.jpg",
       "width": 1440,
       "height": 900,
-      "caption": "10:30 수정: 이 시간에 한 업무를 고르면 Doing으로 옮기고 그 업무로 기록",
+      "caption": "10:30 수정: 이 시간에 한 업무를 직접 적기 (Project·Type은 고르고 Task는 타이핑)",
       "marks": [
         {
           "n": 4,
-          "label": "다른 업무 고르기"
+          "label": "직접 적기"
         }
       ]
     },
@@ -138,7 +138,7 @@
       "file": "shot-04.jpg",
       "width": 1440,
       "height": 900,
-      "caption": "수정 후 보드: 견적 검토가 Doing, 도면검토는 Wait",
+      "caption": "수정 후 보드: 적은 업무 견적서 작성이 Doing, 도면검토는 Wait (바뀐 2장)",
       "marks": [
         {
           "n": 4,
@@ -155,7 +155,7 @@
       "file": "shot-05.jpg",
       "width": 1440,
       "height": 900,
-      "caption": "11:00, Daily Log 화면에서도 같은 팝업 (Doing: 견적 검토). 위 칸에 기록된 09:30·10:00",
+      "caption": "11:00, Daily Log 화면에서도 같은 팝업 (Doing: 견적서 작성). 위 칸에 기록된 09:30·10:00",
       "marks": [
         {
           "n": 5,
