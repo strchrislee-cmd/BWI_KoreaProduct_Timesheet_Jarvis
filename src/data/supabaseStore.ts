@@ -1,4 +1,5 @@
 import type { KanbanCard, KanbanStatus, KanbanTask, MoveReason } from '../domain/kanban'
+import type { AccessRequest } from '../domain/org'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import type {
   GroupProject,
@@ -24,6 +25,9 @@ import type { DataStore } from './store'
 import type { ProjectImportPlan } from '../domain/projectFile'
 
 type Result<T> = { data: T | null; error: { message: string } | null }
+
+/** manager / team arrive with migration 0013; until then a profile has neither */
+const withOrg = (p: Profile): Profile => ({ ...p, manager_id: p.manager_id ?? null, team: p.team ?? '' })
 
 function must<T>(res: Result<T>): T {
   if (res.error) throw new Error(res.error.message)
@@ -51,7 +55,8 @@ export class SupabaseStore implements DataStore {
   async currentUser() {
     const { data } = await this.sb.auth.getSession()
     if (!data.session) return null
-    return must<Profile | null>(await this.sb.from('profiles').select('*').eq('id', data.session.user.id).maybeSingle())
+    const p = must<Profile | null>(await this.sb.from('profiles').select('*').eq('id', data.session.user.id).maybeSingle())
+    return p && withOrg(p)
   }
   async sendMagicLink(email: string) {
     const { error } = await this.sb.auth.signInWithOtp({
@@ -77,7 +82,7 @@ export class SupabaseStore implements DataStore {
   }
 
   async listProfiles() {
-    return must<Profile[]>(await this.sb.from('profiles').select('*').order('name'))
+    return must<Profile[]>(await this.sb.from('profiles').select('*').order('name')).map(withOrg)
   }
   async updateProfile(id: string, patch: Partial<Profile>) {
     must(await this.sb.from('profiles').update(patch).eq('id', id))
@@ -246,6 +251,19 @@ export class SupabaseStore implements DataStore {
   }
   async deleteKanbanCard(id: string) {
     must(await this.sb.from('kanban_cards').delete().eq('id', id))
+  }
+
+  async listAccessRequests() {
+    return must<AccessRequest[]>(
+      await this.sb.from('access_requests').select('id, requester_id, owner_id, status, created_at, decided_at, expires_at').order('created_at', { ascending: false }),
+    )
+  }
+  async requestAccess(ownerId: string) {
+    const { data } = await this.sb.auth.getSession()
+    must(await this.sb.from('access_requests').insert({ requester_id: data.session?.user.id, owner_id: ownerId }))
+  }
+  async decideAccessRequest(id: string, approve: boolean, hours?: number) {
+    must(await this.sb.rpc('decide_access_request', { p_id: id, p_approve: approve, p_hours: hours ?? null }))
   }
 
   async getBackground(userId: string) {

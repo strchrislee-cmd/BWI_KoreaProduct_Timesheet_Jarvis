@@ -34,21 +34,31 @@ describe('window layout on the dot grid', () => {
 
   it('snaps measured positions and sizes the page to fit', () => {
     expect(snapRect({ x: 1101, y: 3, w: 340, h: 150 }, 'today')).toEqual({ x: 1104, y: 0, w: 336, h: MIN_SIZE.today.h })
-    const rects = { log: { x: 0, y: 0, w: 960, h: 720 }, today: { x: 984, y: 0, w: 336, h: 240 }, quick: { x: 984, y: 264, w: 336, h: 600 } }
+    const rects = { log: { x: 0, y: 0, w: 960, h: 720 }, today: { x: 984, y: 0, w: 336, h: 240 }, quick: { x: 984, y: 264, w: 336, h: 600 }, team: { x: 984, y: 888, w: 336, h: 264 } }
     expect(canvasHeight(rects, ['log', 'today', 'quick'])).toBe(864 + GRID)
+    expect(canvasHeight(rects, ['log', 'today', 'quick', 'team'])).toBe(1152 + GRID)
     expect(canvasHeight(rects, ['log'])).toBe(720 + GRID)
   })
 
   it('reads saved layouts defensively', () => {
-    const rects = { log: { x: 0, y: 0, w: 960, h: 720 }, today: { x: 984, y: 0, w: 336, h: 240 }, quick: { x: 984, y: 264, w: 336, h: 600 } }
+    const saved = { log: { x: 0, y: 0, w: 960, h: 720 }, today: { x: 984, y: 0, w: 336, h: 240 }, quick: { x: 984, y: 264, w: 336, h: 600 } }
+    // saved before the Team window existed: Team goes under the lowest side window, as wide as quick tasks
+    const rects = { ...saved, team: { x: 984, y: 888, w: 336, h: 264 } }
+    expect(readRects(saved)).toEqual(rects)
     expect(readRects(rects)).toEqual(rects)
     expect(readRects({ ...rects, quick: { x: 'a' } })).toBeNull()
     expect(readRects(null)).toBeNull()
     const p = readPrefs({ layout: { rects, edge: { today: true }, magnet: false }, todayView: 'graph' })
-    expect(p.layout).toEqual({ rects, edge: { today: true, quick: false }, magnet: false })
+    expect(p.layout).toEqual({ rects, edge: { today: true, quick: false, team: false }, magnet: false })
     expect(p.todayView).toBe('graph')
-    expect(readPrefs({}).layout).toEqual({ rects: null, edge: { today: false, quick: false }, magnet: true })
+    expect(readPrefs({}).layout).toEqual({ rects: null, edge: { today: false, quick: false, team: false }, magnet: true })
     expect(readPrefs({}).todayView).toBe('list')
+  })
+
+  it('Team window: checked people in check order, read defensively', () => {
+    expect(readPrefs({}).teamView).toEqual([])
+    expect(readPrefs({ teamView: ['b', 'a', 'b', 3] }).teamView).toEqual(['b', 'a'])
+    expect(readPrefs({ teamView: 'a' }).teamView).toEqual([])
   })
 
   it('auto-wrap is on unless turned off', () => {

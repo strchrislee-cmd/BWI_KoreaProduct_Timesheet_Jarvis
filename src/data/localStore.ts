@@ -1,4 +1,5 @@
-import { taskKey, type KanbanCard, type KanbanStatus, type KanbanTask, type MoveReason } from '../domain/kanban'
+import { planKanbanSync, taskKey, type KanbanCard, type KanbanStatus, type KanbanTask, type MoveReason } from '../domain/kanban'
+import { canRequest, GRANT_HOURS, visibleIds, wouldLoop, type AccessRequest } from '../domain/org'
 import { aliasConflict, diffMaster, projectNameKey, sheetNameAfterRename } from '../domain/projects'
 import { deleteUserProblem, normalizeRole } from '../domain/roles'
 import { SEED_ALIASES, SEED_PROJECTS } from '../domain/seed'
@@ -42,10 +43,13 @@ interface DemoState {
   backgrounds: Record<string, string>
   kanbanCards: KanbanCard[]
   kanbanMoves: { id: number; card_id: string; user_id: string; from_status: KanbanStatus | null; to_status: KanbanStatus; reason: MoveReason; moved_at: string }[]
+  accessRequests: AccessRequest[]
 }
 
 const uid = () => crypto.randomUUID()
 const DEMO_USER_ID = 'demo-admin'
+/** ids of the made-up demo teammates (seedDemoTeam) */
+const DEMO_TEAM = 'demo-team-'
 
 function seed(): DemoState {
   const projects: GroupProject[] = SEED_PROJECTS.map((p) => ({
@@ -77,6 +81,8 @@ function seed(): DemoState {
         daily_target_hours: 8,
         template_style: 'detailed',
         preferences: {},
+        manager_id: null,
+        team: '',
       },
     ],
     org: { ai_enabled: false, ai_model: 'claude-opus-5-5' },
@@ -98,6 +104,7 @@ function seed(): DemoState {
     backgrounds: {},
     kanbanCards: [],
     kanbanMoves: [],
+    accessRequests: [],
   }
 }
 
@@ -113,7 +120,7 @@ export class LocalStore implements DataStore {
     const legacy = localStorage.getItem(LEGACY_KEY)
     const raw = localStorage.getItem(KEY) ?? legacy
     if (raw) {
-      const saved = JSON.parse(raw) as Partial<DemoState> & Omit<DemoState, 'templates' | 'workDays' | 'backgrounds' | 'workTypes' | 'kanbanCards' | 'kanbanMoves'>
+      const saved = JSON.parse(raw) as Partial<DemoState> & Omit<DemoState, 'templates' | 'workDays' | 'backgrounds' | 'workTypes' | 'kanbanCards' | 'kanbanMoves' | 'accessRequests'>
       // demo data saved by older versions lacks these collections / fields
       const epoch = '2026-01-01T00:00:00.000Z'
       this.state = {
@@ -126,7 +133,14 @@ export class LocalStore implements DataStore {
         backgrounds: saved.backgrounds ?? {},
         kanbanCards: saved.kanbanCards ?? [],
         kanbanMoves: saved.kanbanMoves ?? [],
-        profiles: saved.profiles.map((p) => ({ ...p, email: ['demo@jarvis.local', 'demo@timecrumbs.local'].includes(p.email) ? DEMO_EMAIL : p.email, role: normalizeRole(p.role) })),
+        accessRequests: saved.accessRequests ?? [],
+        profiles: saved.profiles.map((p) => ({
+          ...p,
+          email: ['demo@jarvis.local', 'demo@timecrumbs.local'].includes(p.email) ? DEMO_EMAIL : p.email,
+          role: normalizeRole(p.role),
+          manager_id: p.manager_id ?? null,
+          team: p.team ?? '',
+        })),
         invitations: saved.invitations.map((i) => ({ ...i, role: normalizeRole(i.role) })),
         aliases: saved.aliases.map((a) => ({ ...a, user_id: a.user_id ?? null })),
       }
@@ -176,6 +190,8 @@ export class LocalStore implements DataStore {
       if (!p) throw new Error('Profile not found')
       if (p.role === 'admin' && patch.role && patch.role !== 'admin' && !s.profiles.some((x) => x.id !== id && x.role === 'admin'))
         throw new Error('cannot remove the last admin')
+      if (patch.manager_id !== undefined && patch.manager_id !== p.manager_id && wouldLoop(s.profiles, id, patch.manager_id))
+        throw new Error('the reporting line cannot loop back to this person')
       Object.assign(p, patch)
     })
   }
@@ -186,6 +202,101 @@ export class LocalStore implements DataStore {
       if (p) p.role = role
     })
   }
+  /**
+   * Demo only: a small made-up team around the demo user so the Org Chart, the Team window and the
+   * level rules can be tried in one browser (names are fictional). Logs a few tasks on `date`.
+   */
+  async seedDemoTeam(date: string) {
+    if (this.state.profiles.some((p) => p.id.startsWith(DEMO_TEAM))) return
+    const base = this.state.profiles.find((p) => p.id === DEMO_USER_ID)!
+    const person = (n: number, name: string, code: string, role: Role, team: string, manager_id: string | null): Profile => ({
+      ...base,
+      id: `${DEMO_TEAM}${n}`,
+      email: `team${n}@teamembedded.local`,
+      name,
+      engineer_code: code,
+      role,
+      team,
+      manager_id,
+      preferences: {},
+    })
+    const team = [
+      person(1, '한서윤', 'HSY', 'l3', '제품개발', null),
+      person(2, '오하린', 'OHR', 'l2', '시험팀', DEMO_USER_ID),
+      person(3, '윤도현', 'YDH', 'l1', '설계팀', DEMO_USER_ID),
+      person(4, '서지아', 'SJA', 'l1', '설계팀', DEMO_USER_ID),
+      person(5, '강민호', 'KMH', 'l1', '시험팀', `${DEMO_TEAM}2`),
+    ]
+    const key = (k: string) => this.state.projects.find((p) => p.system_key === k)!.id
+    const log: [number, number, number, string, string][] = [
+      // person, first slot, last slot, project, Task
+      [1, 18, 20, key('meeting'), '리더 회의'],
+      [1, 21, 27, key('general'), '일정 검토'],
+      [2, 18, 23, key('general'), '시험 계획서'],
+      [2, 26, 29, key('meeting'), '고객 회의'],
+      [3, 18, 21, key('general'), '도면 검토'],
+      [3, 22, 23, key('meeting'), '설계 회의'],
+      [3, 26, 29, key('general'), '3D 모델링'],
+      [4, 18, 19, key('meeting'), '주간 회의'],
+      [4, 20, 25, key('support'), '시험 지원'],
+      [4, 26, 31, key('general'), '부품 리스트 정리'],
+      [5, 19, 24, key('support'), '시험 장비 점검'],
+      [5, 26, 30, key('general'), '데이터 정리'],
+    ]
+    const now = new Date().toISOString()
+    this.mutate((s) => {
+      s.profiles.push(...team)
+      const me = s.profiles.find((p) => p.id === DEMO_USER_ID)!
+      if (!me.manager_id) Object.assign(me, { manager_id: `${DEMO_TEAM}1`, team: me.team || '설계팀' })
+      for (const [n, first, last, projectId, task] of log)
+        for (let i = first; i <= last; i++)
+          s.slots.push({ user_id: `${DEMO_TEAM}${n}`, work_date: date, slot_index: i, kind: 'work', group_project_id: projectId, label: '', description: task, details: '', focus: null, work_type_id: null })
+      for (const p of team) {
+        const day = s.slots.filter((x) => x.user_id === p.id && x.work_date === date)
+        const plan = planKanbanSync([], day, Math.max(...day.map((x) => x.slot_index)))
+        plan.create.forEach((c, i) => s.kanbanCards.push({ ...c.task, id: uid(), user_id: p.id, status: c.status, sort_order: i + 1, created_at: now, updated_at: now, done_at: null }))
+      }
+      // a teammate already asked the demo user (answer it on the Org Chart while the demo level is L2)
+      s.accessRequests.push({ id: uid(), requester_id: `${DEMO_TEAM}3`, owner_id: DEMO_USER_ID, status: 'pending', created_at: now, decided_at: null, expires_at: null })
+    })
+  }
+
+  /** Reading someone's time follows the org chart, as in the database (0013 → visible_user_ids). */
+  private canRead(userId: string) {
+    const me = this.state.profiles.find((p) => p.id === DEMO_USER_ID)
+    return !!me && visibleIds(me, this.state.profiles, this.state.accessRequests, new Date()).has(userId)
+  }
+
+  async listAccessRequests() {
+    const me = this.state.profiles.find((p) => p.id === DEMO_USER_ID)
+    return this.state.accessRequests
+      .filter((r) => me?.role === 'admin' || r.requester_id === DEMO_USER_ID || r.owner_id === DEMO_USER_ID)
+      .map((r) => ({ ...r }))
+      .sort((a, b) => b.created_at.localeCompare(a.created_at))
+  }
+  async requestAccess(ownerId: string) {
+    const me = this.state.profiles.find((p) => p.id === DEMO_USER_ID)
+    const owner = this.state.profiles.find((p) => p.id === ownerId)
+    if (!me || !owner || !canRequest(me, owner)) throw new Error('An L1 can ask only an L2')
+    if (this.state.accessRequests.some((r) => r.requester_id === me.id && r.owner_id === ownerId && r.status === 'pending')) throw new Error('이미 요청했습니다')
+    this.mutate((s) => {
+      s.accessRequests.push({ id: uid(), requester_id: me.id, owner_id: ownerId, status: 'pending', created_at: new Date().toISOString(), decided_at: null, expires_at: null })
+    })
+  }
+  async decideAccessRequest(id: string, approve: boolean, hours?: number) {
+    const r = this.state.accessRequests.find((x) => x.id === id)
+    if (!r || r.owner_id !== DEMO_USER_ID) throw new Error('only the person who was asked can answer this request')
+    if (r.status !== 'pending') throw new Error('this request has already been answered')
+    if (approve && !GRANT_HOURS.some((g) => g.hours === hours)) throw new Error('approve for 1 hour, 1 day or 1 week')
+    const now = Date.now()
+    this.mutate((s) => {
+      const x = s.accessRequests.find((y) => y.id === id)!
+      x.status = approve ? 'approved' : 'denied'
+      x.decided_at = new Date(now).toISOString()
+      x.expires_at = approve ? new Date(now + hours! * 3_600_000).toISOString() : null
+    })
+  }
+
   async getOrgSettings() {
     return { ...this.state.org }
   }
@@ -356,6 +467,7 @@ export class LocalStore implements DataStore {
   }
 
   async listSlots(userId: string, from: string, to: string) {
+    if (!this.canRead(userId)) return []
     return this.state.slots.filter((s) => s.user_id === userId && s.work_date >= from && s.work_date <= to).map((s) => ({ ...s }))
   }
   async saveSlots(slots: TimeSlot[]) {
@@ -382,6 +494,7 @@ export class LocalStore implements DataStore {
   }
 
   async getWorkDay(userId: string, date: string) {
+    if (!this.canRead(userId)) return null
     const d = this.state.workDays.find((w) => w.user_id === userId && w.work_date === date)
     return d ? { ...d } : null
   }
@@ -437,6 +550,7 @@ export class LocalStore implements DataStore {
   }
 
   async listKanban(userId: string) {
+    if (!this.canRead(userId)) return []
     return this.state.kanbanCards.filter((c) => c.user_id === userId).map((c) => ({ ...c }))
   }
   async addKanbanCard(card: KanbanTask & { user_id: string; status: KanbanStatus; sort_order: number }, reason: MoveReason) {

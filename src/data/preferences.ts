@@ -53,18 +53,20 @@ export interface Prefs extends ColorPrefs {
   todayView: 'list' | 'graph'
   /** Quick add preset slots (one per season / quarter) */
   quickSlots: QuickSlots
+  /** Team window: the people whose 30-min logs show under your own, in this order (check order) */
+  teamView: string[]
 }
 
 export interface LayoutPrefs {
   /** null = the default arrangement (30-min Log on the left, Today and quick tasks on the right) */
   rects: PanelRects | null
   /** windows kept in the dock at the right edge of the screen (slides in at the edge) */
-  edge: { today: boolean; quick: boolean }
+  edge: { today: boolean; quick: boolean; team: boolean }
   /** while moving Today / quick tasks, dropping at the right edge puts them in that dock */
   magnet: boolean
 }
 
-export const DEFAULT_LAYOUT: LayoutPrefs = { rects: null, edge: { today: false, quick: false }, magnet: true }
+export const DEFAULT_LAYOUT: LayoutPrefs = { rects: null, edge: { today: false, quick: false, team: false }, magnet: true }
 
 // 좁게 (30px) by default so a whole working day fits on one screen
 export const DEFAULT_GRID: GridPrefs = { timeWidth: 64, categoryWidth: 240, midWidth: 130, rowHeight: 30, wrap: true }
@@ -118,10 +120,11 @@ export function readPrefs(preferences: Profile['preferences']): Prefs {
     language: p.language === 'ko' ? 'ko' : 'en',
     layout: {
       rects: readRects(layout.rects),
-      edge: { today: edge.today === true, quick: edge.quick === true },
+      edge: { today: edge.today === true, quick: edge.quick === true, team: edge.team === true },
       magnet: layout.magnet !== false,
     },
     todayView: p.todayView === 'graph' ? 'graph' : 'list',
     quickSlots: readQuickSlots(p.quickSlots),
+    teamView: Array.isArray(p.teamView) ? [...new Set(p.teamView.filter((x): x is string => typeof x === 'string'))] : [],
   }
 }

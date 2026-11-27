@@ -36,6 +36,10 @@ export interface Profile {
   daily_target_hours: number
   template_style: TemplateStyle
   preferences: Record<string, unknown>
+  /** reporting line (Org Chart): who this person reports to; set by admins only */
+  manager_id: string | null
+  /** team name shown on the Org Chart; set by admins only */
+  team: string
 }
 
 export interface OrgSettings {

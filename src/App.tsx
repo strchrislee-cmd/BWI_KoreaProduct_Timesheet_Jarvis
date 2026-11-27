@@ -8,6 +8,7 @@ import { Home } from './pages/Home'
 import { Login } from './pages/Login'
 import { Settings } from './pages/Settings'
 import { DailyKanban } from './pages/timesheets/DailyKanban'
+import { OrgChart } from './pages/timesheets/OrgChart'
 import { DailyLog } from './pages/timesheets/DailyLog'
 import { GroupTimesheetPage } from './pages/timesheets/GroupTimesheet'
 import { LeavePage } from './pages/timesheets/Leave'
@@ -55,6 +56,7 @@ export function App() {
           <Route path="group" element={<GroupTimesheetPage />} />
           <Route path="projects" element={<ProjectsPage />} />
           <Route path="leave" element={<LeavePage />} />
+          <Route path="org" element={<OrgChart />} />
         </Route>
         <Route path="settings" element={<Settings />} />
         <Route path="admin" element={user.role === 'admin' ? <Admin /> : <Navigate to="/" replace />} />

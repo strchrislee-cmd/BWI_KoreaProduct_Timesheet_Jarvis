@@ -24,6 +24,8 @@ const KO = {
   'Group Timesheet': '그룹 타임시트',
   Projects: '프로젝트',
   Leave: '휴가',
+  'Org Chart': '조직도',
+  Team: '팀원',
   // Daily Log
   '30-min Log': '30분 간격 기록',
   Time: '시간',

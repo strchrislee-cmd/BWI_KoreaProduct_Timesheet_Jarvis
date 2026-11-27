@@ -27,13 +27,15 @@ import { syncKanban } from '../../data/kanbanSync'
 import { EMPTY_TASK_CONFIRM, QUICK_SLOTS, QUICK_TASKS, quickTaskName, slotOf } from '../../domain/quickTasks'
 import { QuickSlotTabs } from './QuickSlotTabs'
 import { withPersonalColors } from '../../domain/workTypes'
+import { orgRows } from '../../domain/org'
+import { TeamPicker, TeamSheets, type SheetBase } from './TeamSheets'
 
 export function DailyLog() {
   const tr = useT()
   const { store } = useStore()
   const user = useUser()
   const { search } = useLocation()
-  const { date, engineer, projects, aliases, workTypes, latestImport, reloadMaster } = useTimesheets()
+  const { date, engineer, projects, aliases, workTypes, latestImport, reloadMaster, profiles, visible } = useTimesheets()
   const canEdit = engineer.id === user.id || user.role === 'admin'
 
   const q = useAsync(() => store.listSlots(engineer.id, date, date), [store, engineer.id, date])
@@ -305,8 +307,17 @@ export function DailyLog() {
     page,
     enabled: !isMobile,
   })
+  // Team: the people you may read (Org Chart); the window shows only when there is someone
+  const teamRows = useMemo(() => {
+    const list = orgRows(profiles).filter((r) => r.person.id !== user.id && visible.has(r.person.id))
+    const top = Math.min(...list.map((r) => r.depth))
+    return list.map((r) => ({ ...r, depth: r.depth - top }))
+  }, [profiles, visible, user.id])
+  const teamShown = prefs.teamView.flatMap((id) => teamRows.find((r) => r.person.id === id)?.person ?? [])
+  const setTeamView = (ids: string[]) => void colorPrefs.update((p) => ({ ...p, teamView: ids }))
+  const sidePanels: SidePanelId[] = ['today', 'quick', ...(teamRows.length ? (['team'] as const) : [])]
   const inEdge = (id: SidePanelId) => layout.enabled && layout.cur.edge[id]
-  const onPage: PanelId[] = ['log', ...(['today', 'quick'] as const).filter((id) => !inEdge(id))]
+  const onPage: PanelId[] = ['log', ...sidePanels.filter((id) => !inEdge(id))]
   const canvas = layout.canvas && layout.rects
   const fitHeight = filled || !!canvas
 
@@ -505,6 +516,25 @@ export function DailyLog() {
     </SidePanel>
   )
 
+  const teamPanel = (
+    <SidePanel id="team" layout={layout} title={tr('Team')} testId="team-panel">
+      <p className="mb-2 text-xs text-muted">체크한 사람의 30분 기록이 내 기록 아래에 체크한 순서대로 나옵니다 (읽기 전용) · 끌어서 순서 바꾸기</p>
+      <TeamPicker people={teamRows} checked={prefs.teamView} onChange={setTeamView} />
+    </SidePanel>
+  )
+  const panel = (id: PanelId) => (id === 'log' ? logCard : id === 'today' ? todayPanel : id === 'quick' ? quickPanel : teamPanel)
+  const sheet: SheetBase = {
+    date,
+    base: { projects, aliases, byId, workTypes: myWorkTypes, workTypeById, color: ctx.color },
+    colors: gridColors,
+    options: optionsApi,
+    layout: prefs.grid,
+    onLayoutChange: (grid) => void colorPrefs.update((p) => ({ ...p, grid })),
+    now,
+    isMobile,
+  }
+  const teamSheets = <TeamSheets people={teamShown} sheet={sheet} onHide={(id) => setTeamView(prefs.teamView.filter((x) => x !== id))} />
+
   // shown under the windows (default layout: in the right column)
   const notices = (
     <>
@@ -572,10 +602,11 @@ export function DailyLog() {
             {layout.editing && <DotGrid />}
             {onPage.map((id) => (
               <LayoutWindow key={id} id={id} layout={layout}>
-                {id === 'log' ? logCard : id === 'today' ? todayPanel : quickPanel}
+                {panel(id)}
               </LayoutWindow>
             ))}
           </div>
+          {teamSheets}
           {(newProjects.length > 0 || unmappedLabels.length > 0) && <div className="mt-4 grid items-start gap-4 md:grid-cols-2 xl:grid-cols-3">{notices}</div>}
         </>
       ) : (
@@ -601,20 +632,24 @@ export function DailyLog() {
                 {quickPanel}
               </LayoutWindow>
             )}
+            {sidePanels.includes('team') && !inEdge('team') && (
+              <LayoutWindow id="team" layout={layout}>
+                {teamPanel}
+              </LayoutWindow>
+            )}
             {notices}
           </div>
         </div>
       )}
+      {!canvas && teamSheets}
 
-      {layout.enabled && (inEdge('today') || inEdge('quick')) && (
+      {layout.enabled && sidePanels.some(inEdge) && (
         <EdgeDock>
-          {(['today', 'quick'] as const)
-            .filter(inEdge)
-            .map((id) => (
-              <div key={id} ref={layout.register(id)} data-window={id}>
-                {id === 'today' ? todayPanel : quickPanel}
-              </div>
-            ))}
+          {sidePanels.filter(inEdge).map((id) => (
+            <div key={id} ref={layout.register(id)} data-window={id}>
+              {panel(id)}
+            </div>
+          ))}
         </EdgeDock>
       )}
       {layout.editing && <LayoutToast layout={layout} />}

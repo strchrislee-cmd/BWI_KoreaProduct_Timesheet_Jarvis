@@ -1,9 +1,10 @@
 // Daily Log window layout (Settings are per user, see data/preferences.ts → layout): the 30-min Log,
-// Today and the quick tasks (빠른 등록) can be moved and resized on a dot grid, and Today / quick
-// tasks can live in a dock at the right edge of the screen. Pure helpers, tested in tests/layout.test.ts.
+// Today, the quick tasks (빠른 등록) and Team (people you may read) can be moved and resized on a dot
+// grid, and the side windows can live in a dock at the right edge of the screen. Pure helpers, tested
+// in tests/layout.test.ts.
 
-export type PanelId = 'log' | 'today' | 'quick'
-export const PANEL_IDS: PanelId[] = ['log', 'today', 'quick']
+export type PanelId = 'log' | 'today' | 'quick' | 'team'
+export const PANEL_IDS: PanelId[] = ['log', 'today', 'quick', 'team']
 /** windows that can also go to the right-edge dock */
 export type SidePanelId = Exclude<PanelId, 'log'>
 
@@ -21,6 +22,7 @@ export const MIN_SIZE: Record<PanelId, { w: number; h: number }> = {
   log: { w: 480, h: 312 },
   today: { w: 240, h: 168 },
   quick: { w: 240, h: 168 },
+  team: { w: 240, h: 168 },
 }
 /** pointer within this many px of the screen's right edge = the window goes to the right-edge dock */
 export const SNAP_ZONE = 96
@@ -54,14 +56,22 @@ export function snapRect(r: PanelRect, id: PanelId): PanelRect {
 /** How tall the page must be so every window on the grid fits (plus one grid step). */
 export const canvasHeight = (rects: PanelRects, ids: PanelId[]) => Math.max(0, ...ids.map((id) => rects[id].y + rects[id].h)) + GRID
 
-/** Saved rects, read defensively: anything malformed → null (the default arrangement). */
+/**
+ * Saved rects, read defensively: anything malformed → null (the default arrangement). Team came later:
+ * a layout saved before it puts Team under the lowest of Today / quick tasks, as wide as quick tasks.
+ */
 export function readRects(v: unknown): PanelRects | null {
   if (!v || typeof v !== 'object') return null
   const out = {} as PanelRects
   for (const id of PANEL_IDS) {
     const r = (v as Record<string, unknown>)[id] as Record<string, unknown> | undefined
     const ok = r && ['x', 'y', 'w', 'h'].every((k) => typeof r[k] === 'number' && Number.isFinite(r[k] as number))
-    if (!ok) return null
+    if (!ok) {
+      if (id !== 'team') return null
+      const y = Math.max(out.today.y + out.today.h, out.quick.y + out.quick.h) + GRID
+      out.team = snapRect({ x: out.quick.x, y, w: out.quick.w, h: 264 }, 'team')
+      continue
+    }
     out[id] = snapRect({ x: r.x as number, y: r.y as number, w: r.w as number, h: r.h as number }, id)
   }
   return out

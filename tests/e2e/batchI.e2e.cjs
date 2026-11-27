@@ -69,7 +69,7 @@ const LEAVE = '00.Timelog--Leave(휴가 및 휴무)'
 
   // the personal alias maps L1's own time
   await page.goto(BASE + '/timesheets?date=2026-11-16')
-  expect((await page.getByLabel('Engineer').count()) === 0, 'L1 has no engineer picker (own time only for now)')
+  expect((await page.getByLabel('Engineer').count()) === 0, 'L1 has no engineer picker (nobody else to read)')
   await cell(18, 'category').click()
   await page.keyboard.type('내휴가')
   await page.keyboard.press('Enter')

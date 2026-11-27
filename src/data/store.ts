@@ -1,4 +1,5 @@
 import type { KanbanCard, KanbanStatus, KanbanTask, MoveReason } from '../domain/kanban'
+import type { AccessRequest } from '../domain/org'
 import type {
   GroupProject,
   Invitation,
@@ -92,6 +93,12 @@ export interface DataStore {
   /** to another column (recorded as a move) or to another place in the same column */
   moveKanbanCard(card: KanbanCard, to: KanbanStatus, sortOrder: number, reason: MoveReason): Promise<void>
   deleteKanbanCard(id: string): Promise<void>
+
+  // Org chart (0013): an L1 asks an L2 to see their time; that L2 approves for 1 h / 1 day / 1 week
+  /** requests you made or received (admins: all), newest first */
+  listAccessRequests(): Promise<AccessRequest[]>
+  requestAccess(ownerId: string): Promise<void>
+  decideAccessRequest(id: string, approve: boolean, hours?: number): Promise<void>
 
   /** Uploaded background photo of the signed-in user (data URL), or null. */
   getBackground(userId: string): Promise<string | null>

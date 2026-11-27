@@ -15,13 +15,15 @@
 | **스마트폰** | 화면 폭 768px 미만이면 휴대폰 화면: 아래 탭 바(Home·Timesheets·Admin·Settings), 30분 기록은 칸을 누르면 아래에서 올라오는 입력 창(프로젝트 검색·빠른 등록 칩·Task·업무내용·이어서 N칸 채우기·저장 후 다음 칸). 오늘이면 지금 칸으로 자동 스크롤. 모든 화면이 옆 스크롤 없이 들어감(넓은 표는 카드 안에서 스크롤) |
 | **화면 스타일·배경** | 블러(기본) 또는 **리퀴드 글래스**(맑은 유리, Chrome·Edge에서는 가장자리가 휘어 보임). **패널 불투명도 슬라이더**(스타일마다 따로 저장). 배경은 무작위 그라데이션(기본, WebGL로 하늘에서 내려다본 바다처럼 **오른쪽 → 왼쪽으로 한 방향 흐름**, 속도 3단계·Settings에서 실시간 미리보기), 내 사진 업로드, Unsplash 오늘의 사진(키 설정 시) 중 선택. 모서리는 아이폰 같은 작은 R(카드 16 · 메뉴 12 · 버튼 10 · 칩 6px). 폰트: 본문 Pretendard, 제목·큰 숫자 Bricolage Grotesque, 시간 JetBrains Mono(앱에 포함) |
 | **Import 마법사** | 개인 30분 로그 .xlsx(시트 1개 = 하루, `날짜` 행이나 시트명에서 날짜 인식) → 담당자 지정 → 로컬 카테고리 매핑 → 일괄 저장 |
-| **Daily Kanban** | Timesheets의 Daily Log 다음 탭. 칸: Backlog · ToDo · Wait · Doing · DoneCheck · Done. **업무(Project · Type · Task) 하나가 카드 하나**이고 사람마다 보드 하나(날짜와 상관없이 이어짐). **Daily Log와 연동**: Daily Log에 처음 나온 업무는 카드가 생기고(Wait), 오늘 이미 시작된 가장 늦은 칸에 기록한 업무가 **Doing**, 그 전에 Doing이던 카드는 **Wait**로(끝난 업무를 다시 기록하면 Doing으로 돌아옴). Backlog에 카드 직접 추가, 카드를 끌어서 옮기거나 `…` 메뉴로 옮기기·삭제, Done은 완료 날짜. 모든 칸 이동이 기록됨(`kanban_moves`, 나중에 Wait ↔ Doing 반복 같은 흐름 분석용). 관리자는 다른 사람 보드를 읽기만. Supabase에서 `0012_kanban.sql`을 실행해야 쓸 수 있고, 실행 전에도 Daily Log는 그대로 동작 |
+| **Daily Kanban** | Timesheets의 Daily Log 다음 탭. 칸: Backlog · ToDo · Wait · Doing · DoneCheck · Done. **업무(Project · Type · Task) 하나가 카드 하나**이고 사람마다 보드 하나(날짜와 상관없이 이어짐). **Daily Log와 연동**: Daily Log에 처음 나온 업무는 카드가 생기고(Wait), 오늘 이미 시작된 가장 늦은 칸에 기록한 업무가 **Doing**, 그 전에 Doing이던 카드는 **Wait**로(끝난 업무를 다시 기록하면 Doing으로 돌아옴). Backlog에 카드 직접 추가, 카드를 끌어서 옮기거나 `…` 메뉴로 옮기기·삭제, Done은 완료 날짜. 모든 칸 이동이 기록됨(`kanban_moves`, 나중에 Wait ↔ Doing 반복 같은 흐름 분석용). 다른 사람 보드는 볼 수 있는 사람(관리자, 조직도의 위 등급, 승인받은 L1)만 읽기만. Supabase에서 `0012_kanban.sql`을 실행해야 쓸 수 있고, 실행 전에도 Daily Log는 그대로 동작 |
 | **Weekly Result** (이전 이름 Weekly Plan) | 연속된 같은 업무(Project·Type·Task가 같은 칸)를 1행으로 병합. Local Project는 Daily Log의 Project와 같은 이름·색으로 표시. Work 열은 Type이 있으면 Type, 없으면 회의/기타(화면·엑셀 모두). 기존 주간계획 9개 열 + Group Project 열로 .xlsx 내보내기 |
 | **Group Timesheet** | 그룹 시트와 같은 행 구성(프로젝트 → 00.Timelog → 일반업무·회의… → Individual Sum). 일별 검증(목표시간, 미입력, 미매핑). .xlsx 내보내기 |
 | **Projects** | 그룹 마스터 시트 업로드 → 미리보기(신규, 일치, 빠진 항목) → 반영. **첫 업로드는 기준선**이라 NEW로 표시하지 않음. 같은 파일을 다시 올리면 무시. 별칭: 관리자가 넣은 **팀 별칭**(모두에게 적용, L1–L3에는 🔒 수정 불가)과 각자 넣는 **내 별칭**(나에게만 적용). L1–L3에게는 프로젝트 목록이 '관리자 설정 · 수정 불가'로 보임. **관리자는 프로젝트를 직접 추가·삭제(숨김)·되돌리기**, 누구나 **개인 색상** 지정(Daily Log와 연동) |
+| **조직도** (Org Chart) | Timesheets 마지막 탭. **모두(L1·L2·L3·Admin) 전체 조직**을 보고 라인대로 들여쓰기로 보고, 사람마다 등급·팀 이름 표시. **관리자만** 상위자(더 높은 등급이고 보고 라인이 돌아오지 않는 사람만 고를 수 있음)와 팀을 지정. 볼 수 있는 사람 옆 **보기**. L1은 L2 옆 **열람 요청** → 그 L2가 오른쪽 **받은 열람 요청**에서 **1시간·하루·1주** 중 골라 승인(또는 거절) → 그 기간 동안 읽기만. Supabase에서 `0013_org_access.sql`을 실행해야 쓸 수 있고, 실행 전에는 모두 자기 기록만 봄. 데모에서는 **데모 팀원 만들기**(가상 이름)로 해 볼 수 있음 |
+| **팀원 창** | 볼 수 있는 사람이 있으면 Daily Log에 Today 같은 **팀원**(Team) 창이 생김(옮기기·크기·오른쪽 Dock도 같음). 이름을 체크하면 그 사람의 30분 기록이 **내 기록 아래에 체크한 순서대로** 같은 표로 나옴(읽기 전용, 아래로 스크롤). 체크한 사람은 위에 번호와 함께 모이고 끌어서 순서 변경, **모두 해제** 후 다시 체크하면 그 순서. 각 기록의 × 로 숨기기, **크게 보기**로 그 사람 Daily Log. 순서는 계정에 저장 |
 | **Leave** | 월간 캘린더와 휴가 신청. 연차·반차·병가는 `00.Timelog--Leave`, 회사지정휴가와 출장은 각자의 행에 자동 반영 |
 | **Settings** | 프로필, 엔지니어 코드, 근무시간, 목표시간, 템플릿 스타일, 조직 AI 설정(관리자) |
-| **Admin** | 사용자 초대(이메일), 등급(Admin / L1 / L2 / L3), 내보내기 권한, 초대 취소 |
+| **Admin** | 사용자 초대(이메일), 등급(Admin / L1 / L2 / L3), 내보내기 권한, 초대 취소 (상위자·팀은 조직도 탭에서) |
 | **Home** | 요청대로 위젯 자리만 있음(내용 미정) |
 | **`/api/ingest`** | Power Automate가 마스터 .xlsx를 POST하면 자동으로 반영(토큰 인증, 중복 파일 무시) |
 
@@ -60,7 +62,7 @@ npm run dev
 
 ### 1. Supabase
 1. [supabase.com](https://supabase.com)에서 프로젝트를 만듭니다(리전: Seoul `ap-northeast-2` 권장).
-2. **SQL Editor**에서 `supabase/migrations/`의 SQL 파일(`0001_init.sql` → `0002_seed.sql` → `0003_task_templates.sql` → `0004_work_days_colors.sql` → `0005_user_backgrounds.sql` → `0006_project_manage.sql` → `0007_slot_details.sql` → `0008_project_edit.sql` → `0009_levels_personal_aliases.sql` → `0010_api_privileges.sql` → `0011_work_types.sql` → `0012_kanban.sql`)을 **번호 순서대로** 실행합니다. Supabase CLI를 쓴다면 `supabase db push`도 됩니다. 이미 앞 파일을 실행했다면 새로 추가된 파일만 실행하면 됩니다.
+2. **SQL Editor**에서 `supabase/migrations/`의 SQL 파일(`0001_init.sql` → `0002_seed.sql` → `0003_task_templates.sql` → `0004_work_days_colors.sql` → `0005_user_backgrounds.sql` → `0006_project_manage.sql` → `0007_slot_details.sql` → `0008_project_edit.sql` → `0009_levels_personal_aliases.sql` → `0010_api_privileges.sql` → `0011_work_types.sql` → `0012_kanban.sql` → `0013_org_access.sql`)을 **번호 순서대로** 실행합니다. Supabase CLI를 쓴다면 `supabase db push`도 됩니다. 이미 앞 파일을 실행했다면 새로 추가된 파일만 실행하면 됩니다.
 3. **Authentication → URL Configuration**: Site URL과 Redirect URL에 Vercel 주소를 넣습니다.
 4. **Authentication → SMTP Settings**: **외부 SMTP를 반드시 연결**하세요. 기본 발송기는 시간당 2통, 그것도 Supabase 팀 멤버에게만 보냅니다. 회사 SMTP나 Resend·Brevo 등을 쓰면 됩니다.
 5. **Authentication → Sign In / Providers**에서 공개 가입(**Allow new users to sign up**)을 끕니다. DB 트리거가 초대받지 않은 가입은 거부하지만, 켜 두면 초대 대기 중인 주소로 다른 사람이 먼저 비밀번호를 정해 가입할 수 있습니다. 꺼도 TeamEmbedded의 초대·계정 만들기는 그대로 동작합니다.
@@ -140,7 +142,12 @@ Mac에서는 Ctrl 대신 ⌘를 씁니다.
 | 역할 | 할 수 있는 일 |
 |---|---|
 | Admin | 모든 화면과 자료 조회·수정: 전원 기록, 마스터 업로드, 프로젝트 목록(No·이름·추가·숨김), 팀 별칭, 사용자 초대와 등급 변경, 조직 설정. 마지막 Admin은 강등할 수 없음 |
-| L1 · L2 · L3 | **지금은 셋 다 같은 권한**: 본인 기록·휴가·근무시간·빠른 등록, 프로젝트 목록과 팀 별칭은 읽기만(🔒 관리자 설정), **내 별칭**(본인 기록에만 적용)과 색·정렬 등 개인 설정. 등급별 차이(예: L2가 자기 그룹의 L1 기록 보기)는 다음 단계 |
+| L1 · L2 · L3 | 공통: 본인 기록·휴가·근무시간·빠른 등록, 프로젝트 목록과 팀 별칭은 읽기만(🔒 관리자 설정), **내 별칭**(본인 기록에만 적용)과 색·정렬 등 개인 설정, 조직도 전체 보기 |
+| L1 | 자기 기록만. L2에게 **열람 요청** → 그 L2가 승인한 1시간·하루·1주 동안 그 L2의 기록을 읽기만 |
+| L2 | + 조직도에서 **아래에 있는 L1**의 기록 읽기 |
+| L3 | + **아래에 있는 L2와 그 아래 L1**의 기록 읽기 (같거나 높은 등급은 아래에 있어도 안 보임) |
+
+다른 사람 기록을 볼 때는 **일일 기록 · 주간 결과 · 데일리 칸반**만, 읽기만 됩니다(Timesheets 오른쪽 위 사람 고르기, 또는 팀원 창). 휴가·그룹 타임시트 탭은 본인 것(관리자는 전원). 상위자·팀은 관리자만 바꿉니다(`0013_org_access.sql`).
 
 예전 Member는 L1, Viewer는 L2가 됩니다(`0009_levels_personal_aliases.sql`). 데모 모드에서는 Settings → Data → **데모: 등급 바꿔 보기**로 L1–L3 화면을 미리 볼 수 있습니다.
 

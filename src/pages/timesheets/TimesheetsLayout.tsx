@@ -4,6 +4,7 @@ import { NavLink, Outlet, useLocation, useSearchParams } from 'react-router'
 import { TITLE_CLASS } from '../../components/Shell'
 import { ErrorNote, Loading, cx } from '../../components/ui'
 import { useStore, useUser } from '../../data/StoreContext'
+import { visibleIds, type AccessRequest } from '../../domain/org'
 import { sortProjects } from '../../domain/projects'
 import { addDays, isoWeek, shortLabel, todayLocal } from '../../domain/time'
 import type { GroupProject, MasterImport, Profile, ProjectAlias, WorkType } from '../../domain/types'
@@ -14,9 +15,15 @@ import { useT, type TextKey } from '../../lib/i18n'
 interface TimesheetsValue {
   date: string
   setDate: (d: string) => void
-  /** The engineer being viewed (yourself unless an admin picked someone). */
+  /** The engineer being viewed (yourself unless you picked someone you may see). */
   engineer: Profile
   profiles: Profile[]
+  /** whose time you may read (Org Chart rules; admins: everyone) */
+  visible: Set<string>
+  /** access requests you made or received (admins: all) */
+  requests: AccessRequest[]
+  /** false until migration 0013 (org chart, access requests) has been run on the database */
+  orgReady: boolean
   projects: GroupProject[]
   aliases: ProjectAlias[]
   /** MID (중분류) list in the admin's order, hidden ones included */
@@ -44,32 +51,54 @@ const TABS: { to: string; label: TextKey; end?: boolean }[] = [
   { to: '/timesheets/group', label: 'Group Timesheet' },
   { to: '/timesheets/projects', label: 'Projects' },
   { to: '/timesheets/leave', label: 'Leave' },
+  { to: '/timesheets/org', label: 'Org Chart' },
 ]
+
+/** tabs where L1–L3 may look at someone they can see (reading only); other tabs show their own data */
+const PEOPLE_TABS = ['/timesheets', '/timesheets/kanban', '/timesheets/weekly']
 
 export function TimesheetsLayout() {
   const tr = useT()
   const { store } = useStore()
   const user = useUser()
   const [params, setParams] = useSearchParams()
-  const { search } = useLocation()
+  const { search, pathname } = useLocation()
   const date = params.get('date') ?? todayLocal()
-  // L1–L3 see their own time for now (an L2/L3 reading their group comes later)
-  const canPickEngineer = user.role === 'admin'
+  // admins pick anyone on every tab; L1–L3 pick the people they may see on the reading tabs
+  const peopleTab = user.role === 'admin' || PEOPLE_TABS.includes(pathname.replace(/\/$/, ''))
 
   const master = useAsync(
-    () => Promise.all([store.listProjects(), store.listAliases(), store.latestImport(), store.listProfiles(), store.listWorkTypes()]),
+    () =>
+      Promise.all([
+        store.listProjects(),
+        store.listAliases(),
+        store.latestImport(),
+        store.listProfiles(),
+        store.listWorkTypes(),
+        // before migration 0013 there are no requests: everyone reads their own time only
+        store.listAccessRequests().then(
+          (r) => ({ ok: true, list: r }),
+          () => ({ ok: false, list: [] as AccessRequest[] }),
+        ),
+      ]),
     [store],
   )
 
   const value = useMemo<TimesheetsValue | null>(() => {
     if (!master.data) return null
-    const [projects, aliases, latestImport, profiles, workTypes] = master.data
-    const engineerId = (canPickEngineer && params.get('eng')) || user.id
+    const [projects, aliases, latestImport, profiles, workTypes, requests] = master.data
+    const me = profiles.find((p) => p.id === user.id) ?? user
+    const visible = visibleIds(me, profiles, requests.list, new Date())
+    const picked = params.get('eng')
+    const engineerId = (peopleTab && picked && visible.has(picked) && picked) || user.id
     return {
       date,
       setDate: (d) => setParams((p) => (p.set('date', d), p)),
       engineer: profiles.find((p) => p.id === engineerId) ?? user,
       profiles,
+      visible,
+      requests: requests.list,
+      orgReady: requests.ok,
       projects: sortProjects(projects),
       // team aliases + the viewed person's personal ones (theirs decide how their own labels map)
       aliases: aliases.filter((a) => !a.user_id || a.user_id === engineerId),
@@ -77,7 +106,8 @@ export function TimesheetsLayout() {
       latestImport,
       reloadMaster: master.reload,
     }
-  }, [master.data, master.reload, date, params, setParams, user, canPickEngineer])
+  }, [master.data, master.reload, date, params, setParams, user, peopleTab])
+  const pickable = value ? value.profiles.filter((p) => value.visible.has(p.id)) : []
 
   const { week } = isoWeek(date)
 
@@ -119,21 +149,21 @@ export function TimesheetsLayout() {
               to={{ pathname: tab.to, search }}
               end={tab.end}
               className={({ isActive }) =>
-                cx('flex h-9 shrink-0 items-center rounded-control px-3 text-sm font-semibold', isActive ? 'bg-primary text-white shadow-md' : 'glass hover:bg-white/80')
+                cx('flex h-9 shrink-0 items-center rounded-control px-2.5 text-sm font-semibold', isActive ? 'bg-primary text-white shadow-md' : 'glass hover:bg-white/80')
               }
             >
               {tr(tab.label)}
             </NavLink>
           ))}
         </nav>
-        {canPickEngineer && value && (
+        {value && peopleTab && (user.role === 'admin' || pickable.length > 1) && (
           <select
             aria-label="Engineer"
             className="field !h-9 !rounded-control !py-0 text-sm max-md:!w-full md:ml-auto md:!w-auto"
             value={value.engineer.id}
             onChange={(e) => setParams((p) => (p.set('eng', e.target.value), p))}
           >
-            {value.profiles.map((p) => (
+            {pickable.map((p) => (
               <option key={p.id} value={p.id}>
                 {p.name} {p.engineer_code && `(${p.engineer_code})`}
               </option>
