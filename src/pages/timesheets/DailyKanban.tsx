@@ -493,7 +493,7 @@ export function DailyKanban() {
               )
             })}
           </div>
-          <KanbanFlow people={shownPeople.map((id) => ({ id, name: nameOf(id) || engineer.name }))} replays={replays} slots={range} pos={pos} onPick={setPos} />
+          <KanbanFlow people={shownPeople.map((id) => ({ id, name: nameOf(id) || engineer.name }))} replays={replays} slots={range} pos={pos} until={isToday ? currentSlot(new Date()).slot : null} onPick={setPos} />
         </>
       )}
     </Card>

@@ -132,13 +132,17 @@ const fakeNotification = () => {
   await popup.getByRole('button', { name: '기록', exact: true }).click()
   await popup.waitFor({ state: 'detached' })
   await page.waitForTimeout(400)
-  const after1000 = { slots: await slotsOf(), doing: await titles('doing') }
+  const after1000 = {
+    slots: await slotsOf(),
+    doing: await titles('doing'),
+    flow: await page.getByTestId('flow-block').evaluateAll((els) => els.map((e) => `${e.dataset.task}@${e.dataset.start}+${e.dataset.len}`)),
+  }
   const c3 = report.check({
     name: '기록: 한 번에 그 30분을 Doing 업무로 Daily Log에 저장',
-    expected: "Daily Log 18 '도면검토', 19 '도면검토' · Doing 그대로 '도면검토'",
-    actual: `Daily Log [${after1000.slots}] · Doing [${after1000.doing}]`,
-    how: '저장된 칸(slot_index:Task), 보드의 Doing',
-    pass: after1000.slots.join('|') === '18:도면검토|19:도면검토' && after1000.doing.join('|') === '도면검토',
+    expected: "Daily Log 18 '도면검토', 19 '도면검토' · Doing 그대로 '도면검토' · Kanban Flow는 지금(10:00–10:30)까지만: 도면검토 09:00부터 3칸",
+    actual: `Daily Log [${after1000.slots}] · Doing [${after1000.doing}] · Flow [${after1000.flow}]`,
+    how: '저장된 칸(slot_index:Task), 보드의 Doing, flow-block 의 data-start·data-len',
+    pass: after1000.slots.join('|') === '18:도면검토|19:도면검토' && after1000.doing.join('|') === '도면검토' && after1000.flow.join('|') === '도면검토@18+3',
   })
 
   // 10:30: 수정 → pick 견적 검토 → it goes to Doing (도면검토 waits) and is logged

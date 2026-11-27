@@ -18,13 +18,14 @@ interface Run {
 /**
  * Kanban Flow: only what was Doing. One row per person; along the day, each task they were Doing is a
  * block with its name (the same task has the same colour for everyone). Pressing a half hour replays the
- * board at that time.
+ * board at that time. Today, nothing is Doing after the half hour now.
  */
 export function KanbanFlow({
   people,
   replays,
   slots,
   pos,
+  until,
   onPick,
 }: {
   people: { id: string; name: string }[]
@@ -33,6 +34,8 @@ export function KanbanFlow({
   slots: number[]
   /** the half hour being replayed, or null for the board as it is */
   pos: number | null
+  /** today: the half hour now (later ones have not happened yet); null for a past day */
+  until: number | null
   onPick: (slot: number) => void
 }) {
   const rows = people.map((p) => {
@@ -41,7 +44,7 @@ export function KanbanFlow({
     slots.forEach((slot, k) => {
       const card = r?.at[slot]?.find((x) => x.status === 'doing')?.card
       const last = runs[runs.length - 1]
-      if (!card) return
+      if (!card || (until !== null && slot > until)) return
       if (last && last.start + last.len === k && taskKey(last.card) === taskKey(card)) last.len++
       else runs.push({ card, start: k, len: 1 })
     })
