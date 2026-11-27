@@ -1,0 +1,58 @@
+<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><title>Daily Kanban 팀원 보기 + 사람별 색 필터 검증 보고서</title><meta name="claude:viewport-fit-sides" content="cover"><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;700&family=IBM+Plex+Sans+KR:wght@400;600;700&display=swap"><style>
+:root {
+  /* QA sheet: summary band, a table of test cases, then the evidence; red marks match the screenshots */
+  --bg: #F6F7F8; --surface: #FFFFFF; --ink: #1B2228; --muted: #5E6A73; --line: #DDE2E6;
+  --pass: #1E7B4D; --pass-bg: #E3F3EA; --fail: #B4232B; --fail-bg: #FBE6E7; --mark: #E5484D; --accent: #1F4D3A;
+  --font: 'IBM Plex Sans KR', system-ui, -apple-system, 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
+  --mono: 'IBM Plex Mono', ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #12171B; --surface: #1A2126; --ink: #E7ECEF; --muted: #9AA7B0; --line: #2C363D;
+  --pass: #5FD39A; --pass-bg: #173528; --fail: #FF8A8F; --fail-bg: #3A1D20; --accent: #8FD1B2; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #12171B; --surface: #1A2126; --ink: #E7ECEF; --muted: #9AA7B0; --line: #2C363D;
+  --pass: #5FD39A; --pass-bg: #173528; --fail: #FF8A8F; --fail-bg: #3A1D20; --accent: #8FD1B2; color-scheme: dark }
+* { box-sizing: border-box }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.6 var(--font) }
+.wrap { max-width: 1180px; margin: 0 auto; padding-block: 28px 64px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: grid; gap: 28px }
+h1, h2, h3 { line-height: 1.25; text-wrap: balance; margin: 0 }
+h1 { font-size: 1.9rem; font-weight: 700 }
+h2 { font-size: 1.25rem; font-weight: 700 }
+.eyebrow { font: 600 12px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted) }
+.head { display: grid; gap: 10px }
+.meta { display: flex; flex-wrap: wrap; gap: 6px 18px; color: var(--muted); font-size: 13px }
+.meta code, td code, .assert { font-family: var(--mono); font-size: 12.5px }
+.pill { display: inline-flex; align-items: center; gap: 6px; padding: 2px 10px; border-radius: 999px; font: 700 12px/20px var(--mono); letter-spacing: .03em }
+.pill.pass { background: var(--pass-bg); color: var(--pass) } .pill.fail { background: var(--fail-bg); color: var(--fail) }
+.summary { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 14px 18px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px }
+.summary strong { font-size: 1.5rem; font-variant-numeric: tabular-nums }
+.req { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)) }
+.box { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px; min-width: 0 }
+.box p { margin: 6px 0 0; max-width: 68ch } .box ol { margin: 8px 0 0; padding-left: 1.3em; display: grid; gap: 4px }
+.tablewrap { overflow-x: auto; background: var(--surface); border: 1px solid var(--line); border-radius: 12px }
+table { border-collapse: collapse; width: 100%; min-width: 860px; font-size: 13.5px }
+th { text-align: left; font-weight: 600; color: var(--muted); font-size: 12px; letter-spacing: .04em; padding: 10px 12px; border-bottom: 1px solid var(--line); background: var(--surface); position: sticky; top: 0 }
+td { padding: 10px 12px; border-top: 1px solid var(--line); vertical-align: top }
+td.n { font: 700 13px var(--mono); color: var(--mark); width: 44px } td.n a { color: inherit; text-decoration: none }
+tr.fail td { background: var(--fail-bg) }
+.shots { display: grid; gap: 22px }
+figure { margin: 0; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; scroll-margin-top: 16px }
+figure img { display: block; width: 100%; height: auto; border-bottom: 1px solid var(--line) }
+figcaption { padding: 12px 16px; display: grid; gap: 6px }
+.marks { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 13px; color: var(--muted) }
+.badge { display: inline-flex; align-items: center; justify-content: center; min-width: 22px; height: 22px; padding: 0 5px; border-radius: 11px; background: var(--mark); color: #fff; font: 700 12px/22px var(--mono); margin-right: 4px }
+details { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 12px 18px }
+summary { cursor: pointer; font-weight: 600 }
+dl { display: grid; grid-template-columns: max-content 1fr; gap: 6px 18px; margin: 12px 0 4px } dt { font-weight: 600 } dd { margin: 0; color: var(--muted) }
+a { color: var(--accent) } a:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px }
+.list { display: grid; gap: 12px } .row { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: baseline; justify-content: space-between }
+@media (max-width: 640px) { dl { grid-template-columns: 1fr } h1 { font-size: 1.5rem } }
+</style></head><body><div class="wrap">
+<header class="head"><a href="../index.html" class="eyebrow">← 검증 보고서 목록</a><p class="eyebrow">검증 보고서 · E2E</p><h1>Daily Kanban 팀원 보기 + 사람별 색 필터</h1>
+<div class="meta"><span>날짜 2026-11-27</span><span>커밋 <code>a75e391</code></span><span>스위트 <code>tests/e2e/batchT.e2e.cjs</code></span><span>Chromium 157.0.8103.78 · 1440×900, 시계 2026-11-27 10:10 고정, 데모 모드(가상 팀원)</span><span>데모 모드(가상 데이터)</span></div></header>
+<section class="summary" aria-label="결과 요약"><span class="pill pass">PASS</span><strong>7 / 7</strong><span>테스트 케이스 통과 · 증적 화면 3장</span></section>
+<section class="req"><div class="box"><h2>요청</h2><p>Daily Kanban에도 Team 체크를 추가하고, 체크하면 그 사람의 업무를 같은 Kanban에 표시(카드에 이름). Team에 색상 속성을 부여해 인원별 색상으로 필터링. Daily Log는 지금처럼 아래쪽으로.</p></div><div class="box"><h2>인수 기준</h2><ol><li>Daily Kanban 위에 팀원 체크(볼 수 있는 사람만). 체크한 사람의 카드가 내 카드와 같은 칸에 들어오고, 카드에 그 사람 이름.</li><li>팀원 카드는 읽기만(끌기·… 메뉴 없음), 내 카드는 예전처럼 끌어서 옮김.</li><li>사람마다 색을 줄 수 있고(나에게만 적용), 카드의 이름표와 왼쪽 줄이 그 색. 팀원 창(Daily Log)에도 같은 색.</li><li>색으로 보기: 색을 누르면 그 색 사람의 카드만, 같은 색 사람은 함께, 전체로 되돌림.</li><li>체크와 색은 새로 고쳐도 그대로, 모두 해제하면 내 카드만.</li></ol></div></section>
+<section style="display:grid;gap:12px"><h2>테스트 케이스</h2><div class="tablewrap"><table><thead><tr><th>#</th><th>테스트 케이스</th><th>기대 결과</th><th>실제 결과</th><th>판정 근거 (Assertion)</th><th>결과</th><th>증적</th></tr></thead><tbody><tr class=""><td class="n"><a href="#shot-1" title="증적 보기">1</a></td><td>팀원을 체크하면 그 사람 카드가 같은 칸에, 카드에 이름</td><td>체크 목록에 볼 수 있는 5명, Wait·Doing에 서지아·윤도현 카드(이름표), 내 카드도 이름표 '나'</td><td>목록 [한서윤, 오하린, 강민호, 서지아, 윤도현] · Wait [주간 회의@서지아, 시험 지원@서지아, 도면 검토@윤도현, 설계 회의@윤도현] · Doing [부품 리스트 정리@서지아, 3D 모델링@윤도현] · Backlog [내 견적 검토@나]</td><td><code>kanban-team 체크박스 5개, 카드의 data-person 이 서지아/윤도현/나</code></td><td><span class="pill pass">PASS</span></td><td><a href="#shot-1">화면 1</a></td></tr><tr class=""><td class="n">2</td><td>팀원 카드는 읽기만, 내 카드는 팀원 카드 사이로 끌어 옮김</td><td>서지아 카드 draggable=false·메뉴 0, 내 카드 draggable=true·메뉴 1, 끌어 놓으면 내 카드만 Doing, 팀원 카드 그대로</td><td>서지아 false/0, 나 true/1, 내 카드 → doing, 팀원 카드 그대로 true</td><td><code>draggable 속성, Options 버튼 수, 저장된 상태(내 카드 status 'doing', 다른 사람 카드 상태·순서 변화 없음)</code></td><td><span class="pill pass">PASS</span></td><td>—</td></tr><tr class=""><td class="n"><a href="#shot-2" title="증적 보기">3</a></td><td>사람에게 색 주기: 카드 왼쪽 줄·이름표, 팀원 창에도 같은 색</td><td>서지아 = 빨간색 rgb(212, 76, 71): 카드 왼쪽 줄 같은 색, 이름표는 연한 빨강, Daily Log 팀원 창 점도 rgb(212, 76, 71)</td><td>왼쪽 줄 rgb(212, 76, 71), 이름표 color(srgb 0.929176 0.705176 0.696941), 팀원 창 rgb(212, 76, 71)</td><td><code>computed border-left-color / 팀원 창 색 점 background-color 비교, 이름표가 흰색·회색이 아님</code></td><td><span class="pill pass">PASS</span></td><td><a href="#shot-2">화면 2</a></td></tr><tr class=""><td class="n"><a href="#shot-2" title="증적 보기">4</a></td><td>색으로 보기: 그 색 사람의 카드만, 같은 색은 함께</td><td>서지아 색만 → 서지아 카드만; 윤도현도 빨강 → 색 칩 '서지아 · 윤도현' 하나, 누르면 두 사람 카드만(내 카드 없음)</td><td>서지아만 [서지아] · 칩 [전체 | 나 | 서지아 · 윤도현] · 빨강만 [서지아, 윤도현]</td><td><code>보이는 카드의 data-person 집합, Color filter 버튼 글자</code></td><td><span class="pill pass">PASS</span></td><td><a href="#shot-2">화면 2</a></td></tr><tr class=""><td class="n"><a href="#shot-3" title="증적 보기">5</a></td><td>새로 고쳐도 체크·색 그대로, 모두 해제하면 내 카드만</td><td>체크 [서지아, 윤도현], 서지아 줄 rgb(212, 76, 71); 해제 후 카드 1장(내 것), 이름표 0, 색 필터 없음</td><td>체크 [서지아, 윤도현], 줄 rgb(212, 76, 71); 해제 후 카드 1, 이름표 0, 색 필터 0</td><td><code>checked 체크박스 이름, border-left-color, 해제 후 kanban-card 1 · card-person 0 · Color filter 0</code></td><td><span class="pill pass">PASS</span></td><td><a href="#shot-3">화면 3</a></td></tr><tr class=""><td class="n">6</td><td>볼 사람이 없으면(L1) 팀원 줄 없음</td><td>0개</td><td>0개</td><td><code>kanban-team 수 === 0</code></td><td><span class="pill pass">PASS</span></td><td>—</td></tr><tr class=""><td class="n">7</td><td>페이지 오류 없음</td><td>0건</td><td>0건</td><td><code>pageerror 수 === 0</code></td><td><span class="pill pass">PASS</span></td><td>—</td></tr></tbody></table></div></section>
+<section class="shots"><h2>증적 (주석 스크린샷)</h2><p style="margin:0;color:var(--muted)">빨간 테두리와 번호는 표의 테스트 케이스 번호입니다. 그 요소를 확인해 판정했습니다.</p><figure id="shot-1"><img src="shot-01.jpg" alt="팀원 서지아·윤도현의 카드가 내 보드에 함께 (이름표)" loading="lazy" width="1440" height="900"><figcaption><strong>화면 1. 팀원 서지아·윤도현의 카드가 내 보드에 함께 (이름표)</strong><div class="marks"><span><span class="badge">1</span>팀원을 체크하면 그 사람 카드가 같은 칸에, 카드에 이름</span><span><span class="badge">1</span>팀원을 체크하면 그 사람 카드가 같은 칸에, 카드에 이름</span></div></figcaption></figure><figure id="shot-2"><img src="shot-02.jpg" alt="빨강(서지아·윤도현)만 보기" loading="lazy" width="1440" height="900"><figcaption><strong>화면 2. 빨강(서지아·윤도현)만 보기</strong><div class="marks"><span><span class="badge">4</span>색으로 보기: 그 색 사람의 카드만, 같은 색은 함께</span><span><span class="badge">3</span>사람에게 색 주기: 카드 왼쪽 줄·이름표, 팀원 창에도 같은 색</span></div></figcaption></figure><figure id="shot-3"><img src="shot-03.jpg" alt="모두 해제: 내 보드만" loading="lazy" width="1440" height="900"><figcaption><strong>화면 3. 모두 해제: 내 보드만</strong><div class="marks"><span><span class="badge">5</span>새로 고쳐도 체크·색 그대로, 모두 해제하면 내 카드만</span></div></figcaption></figure></section>
+<details><summary>용어</summary><dl><dt>테스트 리포트 (Test Report)</dt><dd>무엇을 어떻게 확인했고 결과가 어땠는지 정리한 검증 보고서. 이 문서.</dd><dt>테스트 케이스 (Test Case)</dt><dd>확인 항목 하나. 표의 한 줄.</dd><dt>인수 기준 (Acceptance Criteria)</dt><dd>요청이 &quot;다 됐다&quot;고 볼 조건. 테스트 케이스는 여기서 나온다.</dd><dt>기대 결과 / 실제 결과 (Expected / Actual)</dt><dd>나와야 하는 것과 실제로 나온 것. 판정 근거의 조건을 만족하면 PASS.</dd><dt>단언 (Assertion)</dt><dd>판정 조건을 코드로 쓴 것. 표의 &quot;판정 근거&quot; 열.</dd><dt>증적 (Test Evidence)</dt><dd>통과를 보여 주는 증거. 여기서는 주석 스크린샷.</dd><dt>주석 스크린샷 (Annotated Screenshot)</dt><dd>확인한 요소에 빨간 테두리와 테스트 케이스 번호를 그린 화면.</dd><dt>E2E 테스트 (End-to-End)</dt><dd>실제 브라우저(Chromium)로 사용자처럼 눌러 보며 확인하는 테스트. 이 보고서의 테스트.</dd><dt>단위 테스트 (Unit Test)</dt><dd>함수 하나를 따로 확인하는 테스트(npm test).</dd><dt>회귀 테스트 (Regression Test)</dt><dd>새 기능 때문에 예전 기능이 깨지지 않았는지 전체를 다시 돌리는 것(npm run test:e2e).</dd><dt>추적성 (Traceability)</dt><dd>요청 ↔ 테스트 ↔ 커밋을 서로 찾아갈 수 있게 연결해 두는 것. 머리말의 커밋·스위트 정보.</dd></dl></details>
+</div></body></html>

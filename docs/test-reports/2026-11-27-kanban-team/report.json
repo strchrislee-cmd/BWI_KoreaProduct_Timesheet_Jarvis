@@ -1,0 +1,135 @@
+{
+  "id": "kanban-team",
+  "title": "Daily Kanban 팀원 보기 + 사람별 색 필터",
+  "suite": "tests/e2e/batchT.e2e.cjs",
+  "request": "Daily Kanban에도 Team 체크를 추가하고, 체크하면 그 사람의 업무를 같은 Kanban에 표시(카드에 이름). Team에 색상 속성을 부여해 인원별 색상으로 필터링. Daily Log는 지금처럼 아래쪽으로.",
+  "criteria": [
+    "Daily Kanban 위에 팀원 체크(볼 수 있는 사람만). 체크한 사람의 카드가 내 카드와 같은 칸에 들어오고, 카드에 그 사람 이름.",
+    "팀원 카드는 읽기만(끌기·… 메뉴 없음), 내 카드는 예전처럼 끌어서 옮김.",
+    "사람마다 색을 줄 수 있고(나에게만 적용), 카드의 이름표와 왼쪽 줄이 그 색. 팀원 창(Daily Log)에도 같은 색.",
+    "색으로 보기: 색을 누르면 그 색 사람의 카드만, 같은 색 사람은 함께, 전체로 되돌림.",
+    "체크와 색은 새로 고쳐도 그대로, 모두 해제하면 내 카드만."
+  ],
+  "date": "2026-11-27",
+  "commit": "a75e391",
+  "env": {
+    "browser": "Chromium 157.0.8103.78",
+    "viewport": "1440×900, 시계 2026-11-27 10:10 고정, 데모 모드(가상 팀원)"
+  },
+  "checks": [
+    {
+      "n": 1,
+      "name": "팀원을 체크하면 그 사람 카드가 같은 칸에, 카드에 이름",
+      "expected": "체크 목록에 볼 수 있는 5명, Wait·Doing에 서지아·윤도현 카드(이름표), 내 카드도 이름표 '나'",
+      "actual": "목록 [한서윤, 오하린, 강민호, 서지아, 윤도현] · Wait [주간 회의@서지아, 시험 지원@서지아, 도면 검토@윤도현, 설계 회의@윤도현] · Doing [부품 리스트 정리@서지아, 3D 모델링@윤도현] · Backlog [내 견적 검토@나]",
+      "how": "kanban-team 체크박스 5개, 카드의 data-person 이 서지아/윤도현/나",
+      "pass": true,
+      "shot": 1
+    },
+    {
+      "n": 2,
+      "name": "팀원 카드는 읽기만, 내 카드는 팀원 카드 사이로 끌어 옮김",
+      "expected": "서지아 카드 draggable=false·메뉴 0, 내 카드 draggable=true·메뉴 1, 끌어 놓으면 내 카드만 Doing, 팀원 카드 그대로",
+      "actual": "서지아 false/0, 나 true/1, 내 카드 → doing, 팀원 카드 그대로 true",
+      "how": "draggable 속성, Options 버튼 수, 저장된 상태(내 카드 status 'doing', 다른 사람 카드 상태·순서 변화 없음)",
+      "pass": true,
+      "shot": null
+    },
+    {
+      "n": 3,
+      "name": "사람에게 색 주기: 카드 왼쪽 줄·이름표, 팀원 창에도 같은 색",
+      "expected": "서지아 = 빨간색 rgb(212, 76, 71): 카드 왼쪽 줄 같은 색, 이름표는 연한 빨강, Daily Log 팀원 창 점도 rgb(212, 76, 71)",
+      "actual": "왼쪽 줄 rgb(212, 76, 71), 이름표 color(srgb 0.929176 0.705176 0.696941), 팀원 창 rgb(212, 76, 71)",
+      "how": "computed border-left-color / 팀원 창 색 점 background-color 비교, 이름표가 흰색·회색이 아님",
+      "pass": true,
+      "shot": 2
+    },
+    {
+      "n": 4,
+      "name": "색으로 보기: 그 색 사람의 카드만, 같은 색은 함께",
+      "expected": "서지아 색만 → 서지아 카드만; 윤도현도 빨강 → 색 칩 '서지아 · 윤도현' 하나, 누르면 두 사람 카드만(내 카드 없음)",
+      "actual": "서지아만 [서지아] · 칩 [전체 | 나 | 서지아 · 윤도현] · 빨강만 [서지아, 윤도현]",
+      "how": "보이는 카드의 data-person 집합, Color filter 버튼 글자",
+      "pass": true,
+      "shot": 2
+    },
+    {
+      "n": 5,
+      "name": "새로 고쳐도 체크·색 그대로, 모두 해제하면 내 카드만",
+      "expected": "체크 [서지아, 윤도현], 서지아 줄 rgb(212, 76, 71); 해제 후 카드 1장(내 것), 이름표 0, 색 필터 없음",
+      "actual": "체크 [서지아, 윤도현], 줄 rgb(212, 76, 71); 해제 후 카드 1, 이름표 0, 색 필터 0",
+      "how": "checked 체크박스 이름, border-left-color, 해제 후 kanban-card 1 · card-person 0 · Color filter 0",
+      "pass": true,
+      "shot": 3
+    },
+    {
+      "n": 6,
+      "name": "볼 사람이 없으면(L1) 팀원 줄 없음",
+      "expected": "0개",
+      "actual": "0개",
+      "how": "kanban-team 수 === 0",
+      "pass": true,
+      "shot": null
+    },
+    {
+      "n": 7,
+      "name": "페이지 오류 없음",
+      "expected": "0건",
+      "actual": "0건",
+      "how": "pageerror 수 === 0",
+      "pass": true,
+      "shot": null
+    }
+  ],
+  "shots": [
+    {
+      "id": 1,
+      "file": "shot-01.jpg",
+      "width": 1440,
+      "height": 900,
+      "caption": "팀원 서지아·윤도현의 카드가 내 보드에 함께 (이름표)",
+      "marks": [
+        {
+          "n": 1,
+          "label": "팀원 체크"
+        },
+        {
+          "n": 1,
+          "label": "이름표"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "file": "shot-02.jpg",
+      "width": 1440,
+      "height": 900,
+      "caption": "빨강(서지아·윤도현)만 보기",
+      "marks": [
+        {
+          "n": 4,
+          "label": "색으로 보기"
+        },
+        {
+          "n": 3,
+          "label": "사람 색"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "file": "shot-03.jpg",
+      "width": 1440,
+      "height": 900,
+      "caption": "모두 해제: 내 보드만",
+      "marks": [
+        {
+          "n": 5,
+          "label": "모두 해제"
+        }
+      ]
+    }
+  ],
+  "passed": 7,
+  "total": 7
+}
