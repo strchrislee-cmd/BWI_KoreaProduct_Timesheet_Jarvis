@@ -184,6 +184,8 @@ export function DailyKanban() {
       ) : (
         <>
           <ErrorNote error={error ?? q.error ?? teamQ.error ?? dayQ.error} />
+          {/* stays at the top while scrolling down to Kanban Flow (like frozen panes) */}
+          <div className="sticky top-2 z-20 -mx-2 mb-3 rounded-card bg-white/92 px-2 pt-2 shadow-md backdrop-blur-md" data-testid="kanban-controls">
           {teamPeople.length > 0 && (
             <div className="mb-3 space-y-1.5 text-sm" data-testid="kanban-team">
               <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Team on this board">
@@ -241,7 +243,7 @@ export function DailyKanban() {
               )}
             </div>
           )}
-          <div className="mb-3 rounded-control bg-white/50 px-3 py-2" data-testid="kanban-replay">
+          <div className="mb-2 rounded-control bg-white/60 px-3 py-2" data-testid="kanban-replay">
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
               <span className="text-xs font-semibold text-muted">하루 되감기</span>
               <div className="min-w-48 flex-1">
@@ -281,6 +283,7 @@ export function DailyKanban() {
                 {pos !== null && ' · 노란 테두리 = 이 30분에 옮겨진 카드'}
               </p>
             )}
+          </div>
           </div>
           {!canEdit && <p className="mb-2 text-xs text-muted">{engineer.name}의 보드 (읽기 전용)</p>}
           <div className="flex gap-3 overflow-x-auto pb-2" data-testid="kanban-board">

@@ -183,6 +183,29 @@ const report = createReport({
     pass: people.join('|') === '나|윤도현' && dhRows.join('|') === '도면 검토|설계 회의|3D 모델링' && dhAt1100.join('|') === '설계 회의',
   })
 
+  // scrolled down to Kanban Flow, the team row and the slider stay pinned at the top (frozen panes)
+  await page.setViewportSize({ width: 1440, height: 640 })
+  await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight))
+  await page.waitForTimeout(300)
+  await replayAt(26)
+  const pinned = {
+    scrollY: await page.evaluate(() => Math.round(window.scrollY)),
+    bar: await page.getByTestId('kanban-controls').boundingBox(),
+    flow: await page.getByTestId('kanban-flow').boundingBox(),
+    time: await page.getByTestId('replay-time').innerText(),
+    outlined: await page.locator('[data-testid="kanban-flow"] [data-slot="26"]').first().evaluate((e) => getComputedStyle(e).outlineStyle),
+  }
+  const cPin = report.check({
+    name: '아래로 내려도 팀원 줄·되감기 슬라이더가 위에 고정 (틀고정처럼)',
+    expected: '페이지를 내린 상태에서 막대 위치 0~20px, Kanban Flow가 화면 안에 보이고, 슬라이더로 13:00 → Flow의 13:00 칸 굵은 테두리',
+    actual: `내린 거리 ${pinned.scrollY}px, 막대 y ${Math.round(pinned.bar.y)}px, Flow y ${Math.round(pinned.flow.y)}~${Math.round(pinned.flow.y + pinned.flow.height)}px, '${pinned.time}', 13:00 칸 테두리 ${pinned.outlined}`,
+    how: 'window.scrollY > 0 && kanban-controls.y ∈ [0, 20] && Flow 가 640px 화면 안 && replay-time 13:00 && 칸 outline solid',
+    pass: pinned.scrollY > 0 && pinned.bar.y >= 0 && pinned.bar.y <= 20 && pinned.flow.y < 640 && pinned.flow.y + pinned.flow.height > 0 && pinned.time.startsWith('13:00') && pinned.outlined === 'solid',
+  })
+  await page.mouse.move(700, 630)
+  await report.shot(page, { caption: '아래로 내려 Kanban Flow를 보면서 위에 고정된 슬라이더로 되감기', marks: [{ target: page.getByTestId('kanban-controls'), n: cPin, label: '위에 고정' }, { target: page.getByTestId('kanban-flow'), n: cPin, label: '보면서 되감기' }] })
+  await page.setViewportSize({ width: 1440, height: 900 })
+
   // a past day: the board at the end of that day, reading only
   await page.getByTestId('kanban-team').getByRole('button', { name: '모두 해제' }).click()
   await toKanban(YESTERDAY)
