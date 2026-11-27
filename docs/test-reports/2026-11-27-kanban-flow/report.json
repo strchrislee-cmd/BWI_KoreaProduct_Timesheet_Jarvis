@@ -10,7 +10,7 @@
     "지난 날짜는 그날 하루가 끝났을 때의 보드(읽기 전용)."
   ],
   "date": "2026-11-27",
-  "commit": "880560d",
+  "commit": "16552f5",
   "env": {
     "browser": "Chromium 157.0.8103.78",
     "viewport": "1440×900, 시계 2026-11-27 16:10 고정(어제 기록은 2026-11-26 16:00), 데모 모드"
@@ -54,6 +54,15 @@
     },
     {
       "n": 5,
+      "name": "아래로 내려도 팀원 줄·되감기 슬라이더가 위에 고정 (틀고정처럼)",
+      "expected": "페이지를 내린 상태에서 막대 위치 0~20px, Kanban Flow가 화면 안에 보이고, 슬라이더로 13:00 → Flow의 13:00 칸 굵은 테두리",
+      "actual": "내린 거리 234px, 막대 y 8px, Flow y 373~618px, '13:00–13:30', 13:00 칸 테두리 solid",
+      "how": "window.scrollY > 0 && kanban-controls.y ∈ [0, 20] && Flow 가 640px 화면 안 && replay-time 13:00 && 칸 outline solid",
+      "pass": true,
+      "shot": 4
+    },
+    {
+      "n": 6,
       "name": "지난 날짜: 그날 하루가 끝났을 때의 보드 (읽기 전용)",
       "expected": "어제: Doing '지난주 이슈', 오늘 카드 없음, '하루 끝', 안내에 읽기 전용, 메뉴 0개",
       "actual": "Doing [지난주 이슈], 전체 [지난주 이슈], '하루 끝', '2026-11-26 하루가 끝났을 때의 보드 · Daily Log 기준 · 읽기 전용', 메뉴 0",
@@ -62,7 +71,7 @@
       "shot": null
     },
     {
-      "n": 6,
+      "n": 7,
       "name": "페이지 오류 없음",
       "expected": "0건",
       "actual": "0건",
@@ -114,8 +123,25 @@
           "label": "Kanban Flow"
         }
       ]
+    },
+    {
+      "id": 4,
+      "file": "shot-04.jpg",
+      "width": 1440,
+      "height": 640,
+      "caption": "아래로 내려 Kanban Flow를 보면서 위에 고정된 슬라이더로 되감기",
+      "marks": [
+        {
+          "n": 5,
+          "label": "위에 고정"
+        },
+        {
+          "n": 5,
+          "label": "보면서 되감기"
+        }
+      ]
     }
   ],
-  "passed": 6,
-  "total": 6
+  "passed": 7,
+  "total": 7
 }
