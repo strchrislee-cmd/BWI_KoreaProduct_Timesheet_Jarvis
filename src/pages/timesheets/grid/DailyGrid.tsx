@@ -190,7 +190,13 @@ export function DailyGrid({
     return () => window.removeEventListener('mouseup', up)
   }, [])
 
+  // keep the selected cell in view once it moves; not when the grid first appears, or a log further
+  // down the page (Team) would scroll the page to itself
+  const firstFocus = useRef(focus)
+  const focusMoved = useRef(false)
   useEffect(() => {
+    if (!focusMoved.current && focus.i === firstFocus.current.i && focus.c === firstFocus.current.c) return
+    focusMoved.current = true
     cellRefs.current.get(`${focus.i}:${focus.c}`)?.scrollIntoView({ block: 'nearest', inline: 'nearest' })
   }, [focus.i, focus.c])
 

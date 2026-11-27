@@ -108,11 +108,17 @@ export function OrgChart() {
                 {p.team && !isAdmin && <Pill tone="green">{p.team}</Pill>}
                 {me && <span className="text-xs font-bold text-primary">나</span>}
                 <span className="ml-auto flex flex-wrap items-center gap-2">
-                  {!me && visible.has(p.id) && (
-                    <Link to={viewLink(p)} className="flex items-center gap-1 rounded-chip px-2 py-0.5 text-xs font-semibold text-primary hover:bg-white" aria-label={`View ${p.name}`}>
-                      <Eye size={14} /> 보기
-                    </Link>
-                  )}
+                  {!me && visible.has(p.id) &&
+                    (isAdmin ? (
+                      <Link to={viewLink(p)} className="flex items-center gap-1 rounded-chip px-2 py-0.5 text-xs font-semibold text-primary hover:bg-white" aria-label={`View ${p.name}`}>
+                        <Eye size={14} /> 보기
+                      </Link>
+                    ) : (
+                      // L1–L3 read them in the Daily Log Team window and the Daily Kanban team row
+                      <span className="flex items-center gap-1 px-2 py-0.5 text-xs text-muted" title="Daily Log의 팀원 창, 데일리 칸반의 팀원 줄에서 볼 수 있습니다">
+                        <Eye size={14} /> 볼 수 있음
+                      </span>
+                    ))}
                   {requestCell(p)}
                   {isAdmin && (
                     <>
@@ -193,7 +199,7 @@ export function OrgChart() {
             <li>L2: + 아래에 있는 L1</li>
             <li>L3: + 아래에 있는 L2와 그 아래 L1</li>
             <li>L1이 L2의 기록을 보려면 조직도에서 <strong>열람 요청</strong> → 그 L2가 1시간·하루·1주 중 골라 승인</li>
-            <li>보는 범위: 일일 기록 · 주간 결과 · 데일리 칸반 (읽기만)</li>
+            <li>보는 곳: Daily Log의 팀원 창 · 데일리 칸반의 팀원 줄 (읽기만)</li>
           </ul>
         </Card>
       </div>

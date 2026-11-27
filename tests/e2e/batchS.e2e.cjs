@@ -19,7 +19,7 @@ const report = createReport({
     '관리자만 상위자와 팀을 바꾼다. 상위자는 더 높은 등급이고 보고 라인이 돌아오지 않는 사람만 고를 수 있다.',
     'L2는 아래의 L1, L3는 아래의 L2와 L1만 볼 수 있다(같거나 높은 등급은 안 보임).',
     '팀원 창: 체크한 사람의 30분 기록이 내 기록 아래에 체크한 순서대로, 끌어서 순서 변경, 모두 해제 후 다시 체크하면 그 순서. 읽기 전용, 새로 고쳐도 유지.',
-    'L1은 L2에게 열람 요청 → 그 L2가 1시간·하루·1주 중 골라 승인(또는 거절) → 승인 기간 동안 일일 기록·주간 결과·칸반을 읽기만.',
+    'L1은 L2에게 열람 요청 → 그 L2가 1시간·하루·1주 중 골라 승인(또는 거절) → 승인 기간 동안 팀원 창(Daily Log)·칸반 팀원 줄에서 읽기만. 오른쪽 위 사람 고르기는 관리자만.',
     '휴대폰에서도 조직도가 화면 안에 들어온다.',
   ],
 })
@@ -147,6 +147,21 @@ const report = createReport({
     pass: order1.join('|') === '서지아|윤도현' && order2.join('|') === '윤도현|서지아' && none.length === 0 && order3.join('|') === '강민호|서지아' && order4.join('|') === '강민호|서지아',
   })
 
+  // coming back from the Daily Kanban, the page stays at the top (the logs below must not scroll it to themselves)
+  await page.getByRole('link', { name: 'Daily Kanban' }).click()
+  await page.getByTestId('kanban-board').waitFor()
+  await page.getByRole('link', { name: 'Daily Log' }).click()
+  await page.getByTestId('team-sheet').nth(1).locator('[data-cell="18:category"]').waitFor()
+  await page.waitForTimeout(600)
+  const scrolled = await page.evaluate(() => window.scrollY)
+  report.check({
+    name: '팀원 기록이 있어도 Daily Log로 돌아오면 맨 위 그대로',
+    expected: 'Daily Kanban → Daily Log 후 페이지 세로 스크롤 0',
+    actual: `${scrolled}px`,
+    how: 'window.scrollY === 0 (팀원 기록 표가 나타나며 페이지를 내리지 않음)',
+    pass: scrolled === 0,
+  })
+
   // the sheets are the same 30-min log, reading only
   const jiaSheet = page.locator('[data-testid="team-sheet"][data-person="서지아"]')
   const cell = jiaSheet.locator('[data-cell="20:task"]')
@@ -212,32 +227,30 @@ const report = createReport({
   await team().getByRole('checkbox', { name: '오하린', exact: true }).check()
   await page.waitForTimeout(800)
   const grantedSheet = await sheets()
-  await page.goto(BASE + `/timesheets/weekly?date=${DAY}`)
-  const picker = page.getByLabel('Engineer')
-  await picker.waitFor()
-  const pickable = await picker.locator('option').allInnerTexts()
-  await picker.selectOption({ label: '오하린 (OHR)' })
-  await page.waitForTimeout(600)
-  const weekly = await page.locator('main').innerText()
+  const logPicker = await page.getByLabel('Engineer').count()
+  // Daily Kanban: the L2 is in the team row; checked, her cards join the board, read-only
   await page.getByRole('link', { name: 'Daily Kanban' }).click()
   await page.getByTestId('kanban-board').waitFor()
-  await page.waitForTimeout(400)
-  const kanbanNote = await page.getByText('의 보드 (읽기 전용)').innerText()
-  await page.getByRole('link', { name: 'Group Timesheet' }).click()
+  await page.getByTestId('kanban-team').getByRole('checkbox', { name: '오하린', exact: true }).check()
+  await page.waitForTimeout(600)
+  const herCards = page.locator('[data-testid="kanban-card"][data-person="오하린"]')
+  const kanban = { n: await herCards.count(), drag: await herCards.first().getAttribute('draggable'), menu: await herCards.first().getByRole('button', { name: /^Options for/ }).count() }
+  const pickers = [logPicker, await page.getByLabel('Engineer').count()]
+  await page.getByRole('link', { name: 'Weekly Result' }).click()
   await page.waitForTimeout(500)
-  const groupPicker = await page.getByLabel('Engineer').count()
+  pickers.push(await page.getByLabel('Engineer').count())
   const c9 = report.check({
-    name: '승인된 동안: 팀원 창·주간 결과·칸반에서 그 L2를 읽기만 (다른 탭은 내 자료)',
-    expected: "팀원 창 '오하린', 그 기록 표시, 고르기 [Demo User, 오하린], 주간 결과에 '시험 계획서', 칸반 '오하린의 보드 (읽기 전용)', 그룹 타임시트엔 고르기 없음",
-    actual: `팀원 창 [${granted.join(', ')}], 기록 [${grantedSheet.join(', ')}], 고르기 [${pickable.join(', ')}], 주간 '시험 계획서' ${weekly.includes('시험 계획서')}, 칸반 '${kanbanNote}', 그룹 고르기 ${groupPicker}개`,
-    how: '팀원 창 이름, team-sheet, Engineer 옵션, 주간 결과 본문, 칸반 안내, Group Timesheet 의 Engineer 0개',
+    name: '승인된 동안: 팀원 창과 칸반 팀원 줄에서 그 L2를 읽기만 (오른쪽 위 사람 고르기는 관리자만)',
+    expected: "팀원 창 '오하린', 그 기록 표시, 칸반에 오하린 카드(끌기·메뉴 없음), Daily Log·칸반·주간 결과 어디에도 사람 고르기 없음",
+    actual: `팀원 창 [${granted.join(', ')}], 기록 [${grantedSheet.join(', ')}], 칸반 카드 ${kanban.n}장 draggable=${kanban.drag} 메뉴 ${kanban.menu}, 사람 고르기 ${pickers.join('/')}개`,
+    how: "팀원 창 이름, team-sheet, data-person='오하린' 카드 수·draggable·Options 버튼, Engineer 선택 상자 수(세 탭 모두 0)",
     pass:
       granted.join('|') === '오하린' &&
       grantedSheet.join('|') === '오하린' &&
-      pickable.join('|') === 'Demo User (DU)|오하린 (OHR)' &&
-      weekly.includes('시험 계획서') &&
-      kanbanNote.includes('오하린의 보드 (읽기 전용)') &&
-      groupPicker === 0,
+      kanban.n > 0 &&
+      kanban.drag === 'false' &&
+      kanban.menu === 0 &&
+      pickers.every((n) => n === 0),
   })
 
   // the approval ends → back to own time only

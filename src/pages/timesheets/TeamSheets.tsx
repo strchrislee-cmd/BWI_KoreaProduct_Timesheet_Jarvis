@@ -2,7 +2,7 @@ import { GripVertical, X } from 'lucide-react'
 import { useMemo, useRef } from 'react'
 import { Link, useLocation } from 'react-router'
 import { Card, ErrorNote, Loading, Pill, cx } from '../../components/ui'
-import { useStore } from '../../data/StoreContext'
+import { useStore, useUser } from '../../data/StoreContext'
 import { roleLabel } from '../../domain/roles'
 import { SLOTS_PER_DAY, SLOT_HOURS, timeToSlot } from '../../domain/time'
 import type { Profile } from '../../domain/types'
@@ -119,6 +119,7 @@ const noop = () => {}
 
 function PersonSheet({ person, sheet, onHide }: { person: Profile; sheet: SheetBase; onHide: () => void }) {
   const { store } = useStore()
+  const user = useUser()
   const { search } = useLocation()
   const { date } = sheet
   const q = useAsync(() => Promise.all([store.listSlots(person.id, date, date), store.getWorkDay(person.id, date)]), [store, person.id, date])
@@ -162,9 +163,12 @@ function PersonSheet({ person, sheet, onHide }: { person: Profile; sheet: SheetB
       }
       action={
         <span className="flex items-center gap-1">
-          <Link to={{ pathname: '/timesheets', search: `?${open}` }} className="rounded-chip px-2 py-1 text-xs font-semibold text-primary hover:bg-white">
-            크게 보기
-          </Link>
+          {user.role === 'admin' && (
+            // admins can open anyone's Daily Log (Timesheets person picker)
+            <Link to={{ pathname: '/timesheets', search: `?${open}` }} className="rounded-chip px-2 py-1 text-xs font-semibold text-primary hover:bg-white">
+              크게 보기
+            </Link>
+          )}
           <button type="button" className="rounded-control p-1 text-muted hover:bg-black/5" aria-label={`Hide ${person.name}`} title="이 사람 숨기기" onClick={onHide}>
             <X size={16} />
           </button>

@@ -15,7 +15,7 @@ import { useT, type TextKey } from '../../lib/i18n'
 interface TimesheetsValue {
   date: string
   setDate: (d: string) => void
-  /** The engineer being viewed (yourself unless you picked someone you may see). */
+  /** The engineer being viewed (yourself unless an admin picked someone). */
   engineer: Profile
   profiles: Profile[]
   /** whose time you may read (Org Chart rules; admins: everyone) */
@@ -54,18 +54,15 @@ const TABS: { to: string; label: TextKey; end?: boolean }[] = [
   { to: '/timesheets/org', label: 'Org Chart' },
 ]
 
-/** tabs where L1–L3 may look at someone they can see (reading only); other tabs show their own data */
-const PEOPLE_TABS = ['/timesheets', '/timesheets/kanban', '/timesheets/weekly']
-
 export function TimesheetsLayout() {
   const tr = useT()
   const { store } = useStore()
   const user = useUser()
   const [params, setParams] = useSearchParams()
-  const { search, pathname } = useLocation()
+  const { search } = useLocation()
   const date = params.get('date') ?? todayLocal()
-  // admins pick anyone on every tab; L1–L3 pick the people they may see on the reading tabs
-  const peopleTab = user.role === 'admin' || PEOPLE_TABS.includes(pathname.replace(/\/$/, ''))
+  // only admins pick someone here; L1–L3 read the people below them in the Team window / Kanban team row
+  const canPickEngineer = user.role === 'admin'
 
   const master = useAsync(
     () =>
@@ -89,8 +86,7 @@ export function TimesheetsLayout() {
     const [projects, aliases, latestImport, profiles, workTypes, requests] = master.data
     const me = profiles.find((p) => p.id === user.id) ?? user
     const visible = visibleIds(me, profiles, requests.list, new Date())
-    const picked = params.get('eng')
-    const engineerId = (peopleTab && picked && visible.has(picked) && picked) || user.id
+    const engineerId = (canPickEngineer && params.get('eng')) || user.id
     return {
       date,
       setDate: (d) => setParams((p) => (p.set('date', d), p)),
@@ -106,8 +102,7 @@ export function TimesheetsLayout() {
       latestImport,
       reloadMaster: master.reload,
     }
-  }, [master.data, master.reload, date, params, setParams, user, peopleTab])
-  const pickable = value ? value.profiles.filter((p) => value.visible.has(p.id)) : []
+  }, [master.data, master.reload, date, params, setParams, user, canPickEngineer])
 
   const { week } = isoWeek(date)
 
@@ -156,14 +151,14 @@ export function TimesheetsLayout() {
             </NavLink>
           ))}
         </nav>
-        {value && peopleTab && (user.role === 'admin' || pickable.length > 1) && (
+        {canPickEngineer && value && (
           <select
             aria-label="Engineer"
             className="field !h-9 !rounded-control !py-0 text-sm max-md:!w-full md:ml-auto md:!w-auto"
             value={value.engineer.id}
             onChange={(e) => setParams((p) => (p.set('eng', e.target.value), p))}
           >
-            {pickable.map((p) => (
+            {value.profiles.map((p) => (
               <option key={p.id} value={p.id}>
                 {p.name} {p.engineer_code && `(${p.engineer_code})`}
               </option>
