@@ -22,18 +22,23 @@ const report = createReport({
   ],
 })
 
-// headless Chromium has no notifications: a stub that records what would be shown (permission granted)
+// headless Chromium has no notifications: a stub that records what would be shown; permission starts
+// unasked and is granted when asked (kept in localStorage across page loads)
 const fakeNotification = () => {
   window.__notes = []
+  window.__asked = 0
   class FakeNotification {
     static get permission() {
-      return 'granted'
+      return localStorage.getItem('__notification_permission') || 'default'
     }
     static async requestPermission() {
+      window.__asked++
+      localStorage.setItem('__notification_permission', 'granted')
       return 'granted'
     }
     constructor(title, opts) {
       window.__notes.push({ title, body: opts?.body })
+      window.__lastNote = this
     }
     close() {}
   }
@@ -86,18 +91,29 @@ const fakeNotification = () => {
   // ── Log Enable ──
   const toggle = page.getByRole('checkbox', { name: 'Log Enable' })
   const offHint = await page.getByTestId('kanban-log').innerText()
+  const permBefore = await page.evaluate(() => Notification.permission)
   await toggle.check()
   await page.waitForTimeout(300)
   const onHint = await page.getByTestId('kanban-log').innerText()
+  const perm = { before: permBefore, asked: await page.evaluate(() => window.__asked), after: await page.evaluate(() => Notification.permission) }
   await page.getByRole('button', { name: '지금 해 보기' }).click()
   await popup.waitFor()
   const tryIt = { title: await popup.innerText(), doing: await popup.getByTestId('doing-card').innerText() }
   const c1 = report.check({
-    name: 'Daily Kanban에 Log Enable · 켜면 안내와 "지금 해 보기"',
-    expected: "끈 상태 안내 '켜면 …' → 켜면 '정각·30분마다 …' + 지금 해 보기 → 08:30–09:00 팝업, Doing 카드 '도면검토'",
-    actual: `끈 상태 '${offHint.replace(/\s+/g, ' ')}' → 켠 상태 '${onHint.replace(/\s+/g, ' ')}' · 팝업 '${tryIt.title.split('\n').slice(0, 2).join(' / ')}' · Doing '${tryIt.doing.replace(/\s+/g, ' ')}'`,
-    how: 'kanban-log 글자, 지금 해 보기 → dialog "Log the Doing card" 와 doing-card',
-    pass: offHint.includes('켜면') && onHint.includes('정각·30분마다') && onHint.includes('지금 해 보기') && tryIt.title.includes('08:30–09:00') && tryIt.doing.includes('도면검토'),
+    name: 'Daily Kanban에 Log Enable · 켜면 브라우저 알림 권한을 묻고, 안내와 "지금 해 보기"',
+    expected: "끈 상태 안내 '켜면 …' → 켤 때 브라우저 알림 권한을 한 번 물음(아직 묻지 않음 → 허용) → 켜면 '정각·30분마다 … 브라우저 알림으로도' + 지금 해 보기 → 08:30–09:00 팝업, Doing 카드 '도면검토'",
+    actual: `끈 상태 '${offHint.replace(/\s+/g, ' ')}' → 권한 ${perm.before} → 물음 ${perm.asked}번 → ${perm.after} · 켠 상태 '${onHint.replace(/\s+/g, ' ')}' · 팝업 '${tryIt.title.split('\n').slice(0, 2).join(' / ')}' · Doing '${tryIt.doing.replace(/\s+/g, ' ')}'`,
+    how: 'Notification.permission / requestPermission 호출 수, kanban-log 글자, 지금 해 보기 → dialog "Log the Doing card" 와 doing-card',
+    pass:
+      offHint.includes('켜면') &&
+      perm.before === 'default' &&
+      perm.asked === 1 &&
+      perm.after === 'granted' &&
+      onHint.includes('정각·30분마다') &&
+      onHint.includes('브라우저 알림') &&
+      onHint.includes('지금 해 보기') &&
+      tryIt.title.includes('08:30–09:00') &&
+      tryIt.doing.includes('도면검토'),
   })
   await page.mouse.move(700, 10)
   await report.shot(page, { caption: 'Log Enable을 켜고 "지금 해 보기": 방금 끝난 30분을 Doing 카드로 기록할지 묻는 팝업', marks: [{ target: page.getByTestId('kanban-log'), n: c1, label: 'Log Enable' }, { target: popup, n: c1, label: '팝업' }] })
@@ -197,16 +213,23 @@ const fakeNotification = () => {
   const grid = { r19: await cell(19, 'task').innerText(), r20: await cell(20, 'task').innerText() }
   await page.mouse.move(700, 10)
   await report.shot(page, { caption: '11:00, Daily Log 화면에서도 같은 팝업 (Doing: 견적서 작성). 위 칸에 기록된 09:30·10:00', marks: [{ target: popup, n: c4 + 1, label: '어디서나' }, { target: cell(20, 'task'), n: c4 + 1, label: '수정으로 기록' }] })
+  // working in another app: pressing the browser notification brings the tab forward on the Daily Kanban, popup still open
+  await page.evaluate(() => window.__lastNote.onclick())
+  await page.getByTestId('kanban-board').waitFor()
+  const clicked = { url: new URL(page.url()).pathname, popup: await popup.count(), note: (await notes()).slice(-1)[0] }
   await popup.getByRole('button', { name: '건너뛰기' }).click()
   await popup.waitFor({ state: 'detached' })
   const after1100 = await slotsOf()
   report.check({
-    name: '앱 어디서나 (Daily Log 화면에서도) · 건너뛰기는 저장하지 않음',
-    expected: "/timesheets 에서 '10:30–11:00' 팝업, Doing '견적서 작성' · Daily Log 칸 19 도면검토, 20 견적서 작성 · 건너뛰기 후 21 비어 있음",
-    actual: `${at1100.url} '${at1100.title.split('\n')[1]}' · Doing '${at1100.doing.replace(/\s+/g, ' ')}' · 칸 19 '${grid.r19}', 20 '${grid.r20}' · 건너뛴 뒤 [${after1100}]`,
-    how: 'Daily Log 페이지에서 clock.runFor → dialog, grid 칸 글자, 저장된 칸',
+    name: '앱 어디서나 (Daily Log 화면에서도) · 브라우저 알림을 누르면 Daily Kanban으로 · 건너뛰기는 저장하지 않음',
+    expected: "/timesheets 에서 '10:30–11:00' 팝업, Doing '견적서 작성' · Daily Log 칸 19 도면검토, 20 견적서 작성 · 브라우저 알림 '10:30–11:00 … (Doing 업무로 기록하기)'을 누르면 /timesheets/kanban, 팝업 그대로 · 건너뛰기 후 21 비어 있음",
+    actual: `${at1100.url} '${at1100.title.split('\n')[1]}' · Doing '${at1100.doing.replace(/\s+/g, ' ')}' · 칸 19 '${grid.r19}', 20 '${grid.r20}' · 알림 '${clicked.note?.body}' 누른 뒤 ${clicked.url}, 팝업 ${clicked.popup}개 · 건너뛴 뒤 [${after1100}]`,
+    how: 'Daily Log 페이지에서 clock.runFor → dialog, grid 칸 글자, 마지막 알림의 onclick → 주소·dialog 수, 저장된 칸',
     pass:
       at1100.url === '/timesheets' &&
+      clicked.note?.body.includes('10:30–11:00') &&
+      clicked.url === '/timesheets/kanban' &&
+      clicked.popup === 1 &&
       at1100.title.includes('10:30–11:00') &&
       at1100.doing.includes('견적서 작성') &&
       grid.r19.includes('도면검토') &&

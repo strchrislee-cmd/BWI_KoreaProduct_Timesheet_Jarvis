@@ -49,7 +49,7 @@ export function ReminderScheduler() {
           })
           n.onclick = () => {
             window.focus()
-            navigate(`/timesheets?date=${date}`)
+            navigate(kanbanLog ? `/timesheets/kanban?date=${date}` : `/timesheets?date=${date}`)
             n.close()
           }
         }

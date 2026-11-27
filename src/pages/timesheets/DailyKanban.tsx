@@ -68,6 +68,16 @@ export function DailyKanban() {
   )
   const shownIds = prefs.kanbanTeam.filter((id) => teamPeople.some((p) => p.id === id))
   const setTeam = (ids: string[]) => void update((p) => ({ ...p, kanbanTeam: ids }))
+  // Log Enable also asks the browser for notifications (like Settings → 알림), so the popup reaches you in another app
+  const [notifyNote, setNotifyNote] = useState('')
+  async function setKanbanLog(on: boolean) {
+    setNotifyNote('')
+    if (on && typeof Notification !== 'undefined' && Notification.permission !== 'granted') {
+      const p = await Notification.requestPermission()
+      if (p !== 'granted') setNotifyNote('브라우저 알림이 차단되어 있어 앱 안의 팝업만 뜹니다. 주소창의 사이트 설정에서 알림을 허용하면 다른 일을 하다가도 알림을 받습니다.')
+    }
+    await update((p) => ({ ...p, kanbanLog: on }))
+  }
   const teamQ = useAsync(() => Promise.all(shownIds.map((id) => store.listKanban(id))).then((r) => r.flat()), [store, shownIds.join('|')])
   const withTeam = shownIds.length > 0
   const people = [engineer.id, ...shownIds]
@@ -210,12 +220,17 @@ export function DailyKanban() {
           {canEdit && (
             <div className="mb-2 flex flex-wrap items-center gap-2 px-1 text-sm" data-testid="kanban-log">
               <label className="flex items-center gap-1.5 font-semibold" title="정각·30분마다 Doing 카드를 Daily Log에 기록할지 묻습니다 (앱 어느 화면에서나)">
-                <input type="checkbox" aria-label="Log Enable" checked={prefs.kanbanLog} onChange={(e) => void update((p) => ({ ...p, kanbanLog: e.target.checked }))} />
+                <input type="checkbox" aria-label="Log Enable" checked={prefs.kanbanLog} onChange={(e) => void setKanbanLog(e.target.checked)} />
                 Log Enable
               </label>
               <span className="text-xs text-muted">
-                {prefs.kanbanLog ? '정각·30분마다 방금 끝난 30분을 Doing 업무로 기록할지 묻습니다 (앱 어느 화면에서나)' : '켜면 정각·30분마다 Doing 업무를 Daily Log에 기록할지 묻습니다'}
+                {prefs.kanbanLog ? '정각·30분마다 방금 끝난 30분을 Doing 업무로 기록할지 묻습니다 (앱 어느 화면에서나 · 브라우저 알림으로도)' : '켜면 정각·30분마다 Doing 업무를 Daily Log에 기록할지 묻습니다'}
               </span>
+              {notifyNote && (
+                <span className="w-full text-xs text-amber-900" data-testid="kanban-log-blocked">
+                  {notifyNote}
+                </span>
+              )}
               {prefs.kanbanLog && (
                 <button type="button" className="rounded-chip px-2 py-0.5 text-xs font-semibold text-primary hover:bg-white" onClick={() => window.dispatchEvent(new Event(SHOW_REMINDER_TOAST))}>
                   지금 해 보기
