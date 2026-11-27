@@ -1,4 +1,4 @@
-import type { KanbanCard, KanbanStatus, KanbanTask, MoveReason } from '../domain/kanban'
+import type { KanbanCard, KanbanMove, KanbanStatus, KanbanTask, MoveReason } from '../domain/kanban'
 import type { AccessRequest } from '../domain/org'
 import type { AiCleanupResult, AiUsage, CorrectionProposal } from '../domain/aiCleanup'
 import type {
@@ -94,6 +94,8 @@ export interface DataStore {
   /** to another column (recorded as a move) or to another place in the same column */
   moveKanbanCard(card: KanbanCard, to: KanbanStatus, sortOrder: number, reason: MoveReason): Promise<void>
   deleteKanbanCard(id: string): Promise<void>
+  /** column changes of a person's cards since `since` (ISO time), oldest first */
+  listKanbanMoves(userId: string, since: string): Promise<KanbanMove[]>
 
   // Org chart (0013): an L1 asks an L2 to see their time; that L2 approves for 1 h / 1 day / 1 week
   /** requests you made or received (admins: all), newest first */

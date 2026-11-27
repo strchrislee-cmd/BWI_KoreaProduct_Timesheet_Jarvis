@@ -266,7 +266,12 @@ export class LocalStore implements DataStore {
       for (const p of team) {
         const day = s.slots.filter((x) => x.user_id === p.id && x.work_date === date)
         const plan = planKanbanSync([], day, Math.max(...day.map((x) => x.slot_index)))
-        plan.create.forEach((c, i) => s.kanbanCards.push({ ...c.task, id: uid(), user_id: p.id, status: c.status, sort_order: i + 1, created_at: now, updated_at: now, done_at: null }))
+        plan.create.forEach((c, i) => {
+          const id = uid()
+          s.kanbanCards.push({ ...c.task, id, user_id: p.id, status: c.status, sort_order: i + 1, created_at: now, updated_at: now, done_at: null })
+          // like a card made by the Daily Log: its first move is its creation
+          s.kanbanMoves.push({ id: s.kanbanMoves.length + 1, card_id: id, user_id: p.id, from_status: null, to_status: c.status, reason: 'log', moved_at: now })
+        })
       }
       // a teammate already asked the demo user (answer it on the Org Chart while the demo level is L2)
       s.accessRequests.push({ id: uid(), requester_id: `${DEMO_TEAM}3`, owner_id: DEMO_USER_ID, status: 'pending', created_at: now, decided_at: null, expires_at: null })
@@ -624,6 +629,10 @@ export class LocalStore implements DataStore {
     return used ? 'hidden' : 'deleted'
   }
 
+  async listKanbanMoves(userId: string, since: string) {
+    if (!this.canRead(userId)) return []
+    return this.state.kanbanMoves.filter((m) => m.user_id === userId && m.moved_at >= since).map((m) => ({ ...m }))
+  }
   async listKanban(userId: string) {
     if (!this.canRead(userId)) return []
     return this.state.kanbanCards.filter((c) => c.user_id === userId).map((c) => ({ ...c }))

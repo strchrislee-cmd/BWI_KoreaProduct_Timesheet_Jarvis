@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { boardColumns, planKanbanSync, taskKey, nextSortOrder, type KanbanCard } from '../src/domain/kanban'
+import { boardColumns, onDayBoard, planKanbanSync, replayDay, taskKey, nextSortOrder, type KanbanCard, type KanbanMove } from '../src/domain/kanban'
 import { personColor, personColorKey } from '../src/pages/timesheets/colors'
 import { readPrefs } from '../src/data/preferences'
 import type { TimeSlot } from '../src/domain/types'
@@ -80,6 +80,40 @@ describe('Daily Kanban from the Daily Log', () => {
     expect(order.map((id) => personColor(id, prefs, order))).not.toContain('#787774')
     expect(readPrefs({ kanbanTeam: ['a', 'a', 1, 'b'] }).kanbanTeam).toEqual(['a', 'b'])
     expect(readPrefs({}).kanbanTeam).toEqual([])
+  })
+
+  it('replaying a day: Doing follows the Daily Log half hour by half hour; moves by hand count when made', () => {
+    const day = new Date('2026-11-27T00:00:00')
+    const at = (hhmm: string) => new Date(day.getTime() + (Number(hhmm.slice(0, 2)) * 60 + Number(hhmm.slice(3))) * 60_000).toISOString()
+    const move = (card_id: string, from: KanbanCard['status'] | null, to: KanbanCard['status'], reason: 'log' | 'manual', time: string): KanbanMove => ({ id: 1, card_id, user_id: 'u', from_status: from, to_status: to, reason, moved_at: at(time) })
+    const cards = [
+      card('old', 'wait', { label: '회의', description: '지난주 회의' }),
+      card('B', 'doing', { label: '설계', description: '도면' }),
+      card('C', 'done', { label: '품질', description: '8D' }),
+      card('D', 'backlog', { description: '다음 할 일' }),
+    ]
+    const moves = [move('B', 'wait', 'doing', 'log', '09:05'), move('C', 'wait', 'done', 'manual', '15:10')]
+    const daySlots = [
+      slot(18, { label: '설계', description: '도면' }),
+      slot(19, { label: '설계', description: '도면' }),
+      slot(20, { label: '품질', description: '8D' }),
+      slot(24, { kind: 'nonwork', label: '점심' }),
+      slot(26, { label: '설계', description: '도면' }),
+      slot(28, { label: '지원', description: '지운 카드' }),
+    ]
+    const r = replayDay(cards, moves, daySlots, day, 'u')
+    const statusAt = (i: number, id: string) => r.at[i].find((x) => x.card.id === id)?.status
+    expect([statusAt(17, 'B'), statusAt(18, 'B'), statusAt(18, 'C')]).toEqual(['wait', 'doing', 'wait']) // the day starts before B's first move
+    expect(r.at[18].find((x) => x.card.id === 'B')?.moved).toBe(true)
+    expect(r.at[19].find((x) => x.card.id === 'B')?.moved).toBe(false)
+    expect([statusAt(20, 'C'), statusAt(20, 'B'), statusAt(24, 'C')]).toEqual(['doing', 'wait', 'doing']) // lunch keeps Doing
+    expect([statusAt(26, 'B'), statusAt(26, 'C')]).toEqual(['doing', 'wait'])
+    expect(statusAt(30, 'C')).toBe('done') // moved to Done by hand at 15:10
+    const gone = r.at[28].find((x) => x.card.id.startsWith('day:'))
+    expect([gone?.card.description, gone?.status]).toEqual(['지운 카드', 'doing']) // its card was deleted, the day still shows it
+    expect([...r.touched].sort()).toEqual(['B', 'C', gone!.card.id].sort())
+    // the day's board: that day's cards and the to-do piles, not last week's waiting card
+    expect(cards.filter((c) => onDayBoard(c, r.touched)).map((c) => c.id)).toEqual(['B', 'C', 'D'])
   })
 
   it('new cards go to the end of their column', () => {

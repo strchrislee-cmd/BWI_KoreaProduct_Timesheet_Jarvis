@@ -88,6 +88,93 @@ export function planKanbanSync(cards: KanbanCard[], daySlots: TimeSlot[], nowSlo
   return plan
 }
 
+/** one recorded column change (kanban_moves) */
+export interface KanbanMove {
+  id: number
+  card_id: string
+  user_id: string
+  from_status: KanbanStatus | null
+  to_status: KanbanStatus
+  reason: MoveReason
+  moved_at: string
+}
+
+/** a card as it stood at the end of a half hour; `moved` = it changed column in that half hour */
+export interface ReplayCard {
+  card: KanbanCard
+  status: KanbanStatus
+  moved: boolean
+}
+export interface DayReplay {
+  /** the board at the end of each half hour 0..47 of the day */
+  at: ReplayCard[][]
+  /** the cards that belong to the day: logged in its Daily Log or moved by hand during it */
+  touched: Set<string>
+}
+
+const HALF_HOUR = 30 * 60_000
+
+/**
+ * One person's board through a day, half hour by half hour, following the Daily Log (the task logged
+ * in a half hour is Doing then, the one Doing before it waits), so a day logged later still replays at
+ * the right times. Moves made by hand (DoneCheck, Done, …) count in the half hour they were made.
+ * The day starts from each card's column before its first move since `dayStart`.
+ */
+export function replayDay(cards: KanbanCard[], moves: KanbanMove[], daySlots: TimeSlot[], dayStart: Date, userId: string): DayReplay {
+  const start = dayStart.getTime()
+  const end = start + 48 * HALF_HOUR
+  const sorted = [...moves].sort((a, b) => a.moved_at.localeCompare(b.moved_at))
+  const state = new Map<string, { card: KanbanCard; status: KanbanStatus | null }>()
+  for (const c of cards) {
+    const first = sorted.find((m) => m.card_id === c.id && Date.parse(m.moved_at) >= start)
+    state.set(c.id, { card: c, status: first ? first.from_status : c.status })
+  }
+  const byKey = new Map(cards.map((c) => [taskKey(c), c.id]))
+  const manual = new Map<number, KanbanMove[]>()
+  for (const m of sorted) {
+    const t = Date.parse(m.moved_at)
+    if (m.reason !== 'manual' || t < start || t >= end) continue
+    const i = Math.floor((t - start) / HALF_HOUR)
+    manual.set(i, [...(manual.get(i) ?? []), m])
+  }
+  const logged = new Map(daySlots.filter(isTaskSlot).map((s) => [s.slot_index, s]))
+  const touched = new Set<string>()
+  const at: ReplayCard[][] = []
+  let before = new Map([...state].map(([id, v]) => [id, v.status]))
+  for (let i = 0; i < 48; i++) {
+    const s = logged.get(i)
+    if (s) {
+      const task = slotTask(s)
+      const key = taskKey(task)
+      let id = byKey.get(key)
+      if (!id) {
+        // a task whose card was deleted since: it is still part of that day
+        id = `day:${key}`
+        byKey.set(key, id)
+        state.set(id, { card: { ...task, id, user_id: userId, status: 'wait', sort_order: 1e6 + i, created_at: '', updated_at: '', done_at: null }, status: null })
+      }
+      for (const v of state.values()) if (v.status === 'doing') v.status = 'wait'
+      state.get(id)!.status = 'doing'
+      touched.add(id)
+    }
+    for (const m of manual.get(i) ?? []) {
+      const v = state.get(m.card_id)
+      if (!v) continue
+      v.status = m.to_status
+      touched.add(m.card_id)
+    }
+    const snap: ReplayCard[] = []
+    for (const [id, v] of state) if (v.status) snap.push({ card: v.card, status: v.status, moved: before.get(id) !== v.status })
+    at.push(snap)
+    before = new Map([...state].map(([id, v]) => [id, v.status]))
+  }
+  return { at, touched }
+}
+
+/** The Daily Kanban of a day shows that day's cards and the to-do piles (Backlog, ToDo), not every card ever. */
+export const onDayBoard = (c: { id: string; status: KanbanStatus }, touched: Set<string> | undefined) =>
+  c.status === 'backlog' || c.status === 'todo' || !!touched?.has(c.id)
+
 /**
  * Columns of a board that can hold several people's cards: in each column the people come in `people`
  * order (the board's owner first), each person's cards by their place. `show` filters (e.g. by colour).

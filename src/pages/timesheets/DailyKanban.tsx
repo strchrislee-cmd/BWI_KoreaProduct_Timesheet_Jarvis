@@ -3,11 +3,11 @@ import { useEffect, useMemo, useState, type DragEvent } from 'react'
 import { Button, Card, ErrorNote, Loading, cx } from '../../components/ui'
 import { useStore, useUser } from '../../data/StoreContext'
 import { syncKanban } from '../../data/kanbanSync'
-import { KANBAN_LABEL, KANBAN_STATUSES, boardColumns, nextSortOrder, type KanbanCard, type KanbanStatus } from '../../domain/kanban'
+import { KANBAN_LABEL, KANBAN_STATUSES, boardColumns, isTaskSlot, nextSortOrder, onDayBoard, replayDay, type KanbanCard, type KanbanStatus } from '../../domain/kanban'
 import { orgRows } from '../../domain/org'
 import { isSelectable } from '../../domain/projects'
 import { EMPTY_TASK_LABEL } from '../../domain/quickTasks'
-import { currentSlot, todayLocal } from '../../domain/time'
+import { currentSlot, slotToTime, timeToSlot, todayLocal } from '../../domain/time'
 import { WORK_TYPE_GRAY, selectableWorkTypes, withPersonalColors } from '../../domain/workTypes'
 import { useAsync } from '../../lib/hooks'
 import { useT } from '../../lib/i18n'
@@ -16,6 +16,7 @@ import { PersonColorDot, usePersonOrder } from './PersonColor'
 import { displayName } from './projectUi'
 import { useTimesheets } from './TimesheetsLayout'
 import { useColorPrefs } from './useColorPrefs'
+import { KanbanFlow } from './KanbanFlow'
 
 /** what a column is for (tooltip on its title) */
 const COLUMN_HINT: Record<KanbanStatus, string> = {
@@ -41,7 +42,7 @@ export function DailyKanban() {
   const tr = useT()
   const { store } = useStore()
   const user = useUser()
-  const { engineer, projects, workTypes, profiles, visible } = useTimesheets()
+  const { date, engineer, projects, workTypes, profiles, visible } = useTimesheets()
   const { prefs, update } = useColorPrefs()
   const canEdit = engineer.id === user.id
   const q = useAsync(() => store.listKanban(engineer.id), [store, engineer.id])
@@ -74,8 +75,39 @@ export function DailyKanban() {
   const colorsInUse = [...new Set(people.map(colorOf))]
   const [colorFilter, setColorFilter] = useState<string[]>([])
   const filter = withTeam ? colorFilter.filter((h) => colorsInUse.includes(h)) : []
-  const columns = boardColumns([...cards, ...(withTeam ? (teamQ.data ?? []) : [])], people, (c) => !filter.length || filter.includes(colorOf(c.user_id)))
-  const own = (c: KanbanCard) => canEdit && c.user_id === engineer.id
+
+  // The day (the date at the top): its Daily Log and the moves made by hand replay the board half hour
+  // by half hour, and only that day's cards show (plus Backlog and ToDo), not every card ever.
+  const allCards = useMemo(() => [...cards, ...(withTeam ? (teamQ.data ?? []) : [])], [cards, withTeam, teamQ.data])
+  const dayStart = useMemo(() => new Date(`${date}T00:00:00`), [date])
+  const dayQ = useAsync(
+    () => Promise.all(people.map(async (id) => ({ id, slots: await store.listSlots(id, date, date), moves: await store.listKanbanMoves(id, dayStart.toISOString()) }))),
+    [store, date, dayStart, people.join('|'), cards],
+  )
+  const replays = useMemo(
+    () => new Map((dayQ.data ?? []).map((d) => [d.id, replayDay(allCards.filter((c) => c.user_id === d.id), d.moves, d.slots, dayStart, d.id)])),
+    [dayQ.data, allCards, dayStart],
+  )
+  const logged = (dayQ.data ?? []).flatMap((d) => d.slots.filter(isTaskSlot).map((s) => s.slot_index))
+  const first = Math.min(timeToSlot(engineer.work_start), ...logged)
+  const last = Math.max(timeToSlot(engineer.work_end) - 1, ...logged)
+  const range = Array.from({ length: last - first + 1 }, (_, k) => first + k)
+  const isToday = date === todayLocal(new Date())
+  /** the half hour being replayed; null = the board now (today) or at the end of that day */
+  const [pos, setPos] = useState<number | null>(null)
+  useEffect(() => setPos(null), [date])
+  const [showAll, setShowAll] = useState(false)
+  const live = pos === null && isToday
+  const shown: KanbanCard[] = live
+    ? allCards
+    : people.flatMap((id) => (replays.get(id)?.at[pos ?? 47] ?? []).map((r) => ({ ...r.card, status: r.status })))
+  const movedNow = new Set(pos === null ? [] : people.flatMap((id) => (replays.get(id)?.at[pos] ?? []).filter((r) => r.moved).map((r) => r.card.id)))
+  const columns = boardColumns(
+    shown.filter((c) => showAll || onDayBoard(c, replays.get(c.user_id)?.touched)),
+    people,
+    (c) => !filter.length || filter.includes(colorOf(c.user_id)),
+  )
+  const own = (c: KanbanCard) => live && canEdit && c.user_id === engineer.id
 
   // your own board catches up with today's log when it opens (entries from the phone or the reminder)
   useEffect(() => {
@@ -138,7 +170,7 @@ export function DailyKanban() {
     if (card) place(card, status, index)
   }
 
-  if (q.loading && !q.data) return <Loading />
+  if ((q.loading && !q.data) || (!dayQ.data && !dayQ.error)) return <Loading />
 
   return (
     <Card
@@ -151,7 +183,7 @@ export function DailyKanban() {
         </p>
       ) : (
         <>
-          <ErrorNote error={error ?? q.error ?? teamQ.error} />
+          <ErrorNote error={error ?? q.error ?? teamQ.error ?? dayQ.error} />
           {teamPeople.length > 0 && (
             <div className="mb-3 space-y-1.5 text-sm" data-testid="kanban-team">
               <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Team on this board">
@@ -209,6 +241,47 @@ export function DailyKanban() {
               )}
             </div>
           )}
+          <div className="mb-3 rounded-control bg-white/50 px-3 py-2" data-testid="kanban-replay">
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+              <span className="text-xs font-semibold text-muted">하루 되감기</span>
+              <div className="min-w-48 flex-1">
+                <input
+                  type="range"
+                  aria-label="Replay time"
+                  className="w-full accent-[#1f4d3a]"
+                  min={0}
+                  max={range.length}
+                  step={1}
+                  value={pos === null ? range.length : Math.max(0, range.indexOf(pos))}
+                  onChange={(e) => {
+                    const k = Number(e.target.value)
+                    setPos(k >= range.length ? null : range[k])
+                  }}
+                />
+                <div className="flex justify-between text-[10px] text-muted" aria-hidden>
+                  <span>{slotToTime(first)}</span>
+                  <span>{isToday ? '지금' : '하루 끝'}</span>
+                </div>
+              </div>
+              <span className="w-28 font-mono text-sm font-semibold" data-testid="replay-time">
+                {pos === null ? (isToday ? '지금' : '하루 끝') : `${slotToTime(pos)}–${slotToTime(pos + 1)}`}
+              </span>
+              {pos !== null && (
+                <button type="button" className="rounded-chip px-2 py-0.5 text-xs font-semibold text-primary hover:bg-white" onClick={() => setPos(null)}>
+                  {isToday ? '지금으로' : '하루 끝으로'}
+                </button>
+              )}
+              <label className="flex items-center gap-1 text-xs text-muted" title="이날 움직이지 않은 지난 카드(Wait·Done 등)도 함께 보기">
+                <input type="checkbox" aria-label="Show earlier cards" checked={showAll} onChange={(e) => setShowAll(e.target.checked)} /> 지난 카드도 보기
+              </label>
+            </div>
+            {!live && (
+              <p className="mt-1 text-xs text-muted" data-testid="replay-note">
+                {pos === null ? `${date} 하루가 끝났을 때의 보드` : `${date} ${slotToTime(pos)} 시점의 보드`} · Daily Log 기준 · 읽기 전용
+                {pos !== null && ' · 노란 테두리 = 이 30분에 옮겨진 카드'}
+              </p>
+            )}
+          </div>
           {!canEdit && <p className="mb-2 text-xs text-muted">{engineer.name}의 보드 (읽기 전용)</p>}
           <div className="flex gap-3 overflow-x-auto pb-2" data-testid="kanban-board">
             {KANBAN_STATUSES.map((status) => {
@@ -245,6 +318,7 @@ export function DailyKanban() {
                           data-card={c.id}
                           data-testid="kanban-card"
                           data-person={withTeam ? nameOf(c.user_id) : undefined}
+                          data-moved={movedNow.has(c.id) || undefined}
                           title={own(c) || c.user_id === engineer.id ? undefined : `${nameOf(c.user_id)}의 카드 (읽기 전용)`}
                           draggable={own(c)}
                           onDragStart={(e) => {
@@ -276,6 +350,7 @@ export function DailyKanban() {
                             drag && over?.status === status && over.index === i && 'shadow-[inset_0_2px_0_#1f4d3a]',
                             drag && over?.status === status && over.index === i + 1 && i === list.length - 1 && 'shadow-[inset_0_-2px_0_#1f4d3a]',
                             status === 'doing' && 'ring-1 ring-primary/40',
+                            movedNow.has(c.id) && 'ring-2 ring-amber-400',
                           )}
                           style={withTeam ? { borderLeftColor: colorOf(c.user_id) } : undefined}
                         >
@@ -345,7 +420,7 @@ export function DailyKanban() {
                       )
                     })}
                   </ul>
-                  {status === 'backlog' && canEdit && (
+                  {status === 'backlog' && canEdit && live && (
                     <div className="mt-2">
                       {adding ? (
                         <AddCardForm
@@ -370,6 +445,7 @@ export function DailyKanban() {
               )
             })}
           </div>
+          <KanbanFlow people={people.map((id) => ({ id, name: nameOf(id) || engineer.name, color: colorOf(id) }))} replays={replays} slots={range} pos={pos} onPick={setPos} />
         </>
       )}
     </Card>

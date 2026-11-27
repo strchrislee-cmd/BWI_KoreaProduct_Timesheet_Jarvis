@@ -1,4 +1,4 @@
-import type { KanbanCard, KanbanStatus, KanbanTask, MoveReason } from '../domain/kanban'
+import type { KanbanCard, KanbanMove, KanbanStatus, KanbanTask, MoveReason } from '../domain/kanban'
 import type { AccessRequest } from '../domain/org'
 import { readItems, type AiCleanupResult, type AiUsage, type CorrectionProposal } from '../domain/aiCleanup'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
@@ -254,6 +254,11 @@ export class SupabaseStore implements DataStore {
   }
   async deleteKanbanCard(id: string) {
     must(await this.sb.from('kanban_cards').delete().eq('id', id))
+  }
+  async listKanbanMoves(userId: string, since: string) {
+    return must<KanbanMove[]>(
+      await this.sb.from('kanban_moves').select('id, card_id, user_id, from_status, to_status, reason, moved_at').eq('user_id', userId).gte('moved_at', since).order('moved_at'),
+    )
   }
 
   async listAccessRequests() {
