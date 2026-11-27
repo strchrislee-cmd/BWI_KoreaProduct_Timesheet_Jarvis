@@ -17,7 +17,7 @@ const report = createReport({
   criteria: [
     '선택한 날짜의 카드만(그날 Daily Log에 기록됐거나 손으로 옮긴 카드) + Backlog·ToDo. 지난 카드는 "지난 카드도 보기"로만.',
     '하루 되감기: 슬라이더를 30분씩 옮기면 그 시점의 보드(Daily Log 기준: 그 칸의 업무가 Doing, 이전 업무는 Wait), 손으로 옮긴 카드는 옮긴 시각에. 그 30분에 옮겨진 카드는 노란 테두리, 되감기 중에는 읽기 전용.',
-    'Kanban Flow: 나와 체크한 팀원마다 그날 움직인 카드가 한 줄씩, 30분마다 칸(Doing 진한 색, Wait 연한 색, Done 회색). 칸을 누르면 그 시간으로 되감기.',
+    'Kanban Flow: Doing만. 나와 체크한 팀원마다 한 줄, 시간에 따라 Doing이던 업무를 이름 붙은 블록으로(같은 업무는 같은 색). 누르면 그 시간으로 되감기.',
     '지난 날짜는 그날 하루가 끝났을 때의 보드(읽기 전용).',
   ],
 })
@@ -128,41 +128,30 @@ const report = createReport({
   await page.mouse.move(700, 880)
   await report.shot(page, { caption: '15:00으로 되감기: 15:10에 손으로 옮긴 8D 보고가 Done (노란 테두리)', marks: [{ target: column('done'), n: c2, label: '15:00 시점' }] })
 
-  // ── Kanban Flow: rows per card, columns per half hour; a cell replays that time ──
+  // ── Kanban Flow: only what was Doing, one row per person, a block per task; pressing replays ──
   await page.getByRole('button', { name: '지금으로' }).click()
   await page.waitForTimeout(300)
   const flow = page.getByTestId('kanban-flow')
-  const rowStatus = (task, slot) => flow.locator(`[data-testid="flow-row"][data-task="${task}"] [data-slot="${slot}"]`).getAttribute('data-status')
-  const f = {
-    rows: await flow.getByTestId('flow-row').evaluateAll((els) => els.map((e) => e.dataset.task)),
-    d18: await rowStatus('도면검토', 18),
-    d20: await rowStatus('도면검토', 20),
-    d26: await rowStatus('도면검토', 26),
-    e20: await rowStatus('8D 보고', 20),
-    e30: await rowStatus('8D 보고', 30),
-    e17: await rowStatus('8D 보고', 17),
-  }
-  await flow.locator('[data-testid="flow-row"][data-task="8D 보고"] [data-slot="30"]').click()
+  const flowBlocks = (person) =>
+    flow.locator(`[data-testid="flow-person"][data-person="${person}"] [data-testid="flow-block"]`).evaluateAll((els) => els.map((e) => `${e.dataset.task}@${e.dataset.start}+${e.dataset.len}`))
+  const mine = await flowBlocks('나')
+  const otherInfo = await flow.locator('[data-status]').count()
+  // inside its 4th half hour (11:30): a block's exact middle is on a boundary
+  const block8d = flow.locator('[data-testid="flow-block"][data-task="8D 보고"]')
+  const bb = await block8d.boundingBox()
+  await block8d.click({ position: { x: (bb.width * 3.5) / 6, y: bb.height / 2 } })
   await page.waitForTimeout(300)
   const jumped = await page.getByTestId('replay-time').innerText()
   const c3 = report.check({
-    name: 'Kanban Flow: 카드마다 한 줄, 30분마다 칸 · 칸을 누르면 그 시간으로',
-    expected: "줄: 도면검토, 8D 보고 (어제 카드 없음) · 도면검토 09:00 doing, 10:00 wait, 13:00 doing · 8D 10:00 doing, 15:00 done, 08:30 없음 · 15:00 칸 누르면 '15:00–15:30'",
-    actual: `줄 [${f.rows}] · 도면검토 ${f.d18}/${f.d20}/${f.d26} · 8D ${f.e20}/${f.e30}/'${f.e17}' · 누른 뒤 '${jumped}'`,
-    how: 'flow-row 의 data-task, 칸의 data-status, 누른 뒤 replay-time',
-    pass:
-      f.rows.join('|') === '도면검토|8D 보고' &&
-      f.d18 === 'doing' &&
-      f.d20 === 'wait' &&
-      f.d26 === 'doing' &&
-      f.e20 === 'doing' &&
-      f.e30 === 'done' &&
-      f.e17 === '' &&
-      jumped.startsWith('15:00'),
+    name: 'Kanban Flow: Doing만, 사람마다 한 줄에 업무 블록 · 누르면 그 시간으로',
+    expected: "나: 도면검토 09:00(2칸) → 8D 보고 10:00(6칸, 점심 포함) → 도면검토 13:00(끝까지 7칸), Wait·Done 같은 다른 칸 정보 없음, 8D 블록의 4번째 칸을 누르면 '11:30–12:00'",
+    actual: `나 [${mine}] · 다른 칸 표시 ${otherInfo}개 · 누른 뒤 '${jumped}'`,
+    how: 'flow-block 의 data-task·data-start·data-len, data-status 요소 0개, 누른 뒤 replay-time',
+    pass: mine.join('|') === '도면검토@18+2|8D 보고@20+6|도면검토@26+7' && otherInfo === 0 && jumped.startsWith('11:30'),
   })
   await flow.scrollIntoViewIfNeeded()
   await page.mouse.move(700, 10)
-  await report.shot(page, { caption: 'Kanban Flow: 30분마다 카드가 있던 칸 (진한 색 Doing, 연한 색 Wait, 회색 Done), 굵은 테두리 = 되감은 시각', marks: [{ target: flow, n: c3, label: 'Kanban Flow' }] })
+  await report.shot(page, { caption: 'Kanban Flow: 시간에 따라 Doing이던 업무만 (같은 업무는 같은 색), 굵은 테두리 = 되감은 시각', marks: [{ target: flow, n: c3, label: 'Doing Flow' }] })
 
   // teammates: their rows join the flow (demo team logged today)
   await page.goto(BASE + `/timesheets/org?date=${DAY}`)
@@ -172,19 +161,19 @@ const report = createReport({
   await page.getByTestId('kanban-team').getByRole('checkbox', { name: '윤도현', exact: true }).check()
   await page.waitForTimeout(700)
   const people = await page.getByTestId('flow-person').evaluateAll((els) => els.map((e) => e.dataset.person))
-  const dhRows = await page.locator('[data-testid="flow-person"][data-person="윤도현"] [data-testid="flow-row"]').evaluateAll((els) => els.map((e) => e.dataset.task))
+  const dhBlocks = (await flowBlocks('윤도현')).map((b) => b.split('+')[0])
   await replayAt(22)
-  const dhAt1100 = await page.locator('[data-column="doing"] [data-person="윤도현"]').evaluateAll((els) => els.map((e) => e.querySelector('span')?.textContent?.trim()))
+  const dhAt1100 = await page.locator('[data-column="doing"] [data-people="윤도현"]').evaluateAll((els) => els.map((e) => e.querySelector('span')?.textContent?.trim()))
   const c4 = report.check({
-    name: '체크한 팀원도 Flow에 사람별로, 되감기에도 함께',
-    expected: "Flow 사람 [나, 윤도현], 윤도현 줄: 도면 검토 · 설계 회의 · 3D 모델링, 11:00 되감기 Doing에 윤도현 '설계 회의'",
-    actual: `사람 [${people}] · 윤도현 줄 [${dhRows}] · 11:00 윤도현 Doing [${dhAt1100}]`,
-    how: 'flow-person / flow-row, 되감은 보드의 윤도현 카드',
-    pass: people.join('|') === '나|윤도현' && dhRows.join('|') === '도면 검토|설계 회의|3D 모델링' && dhAt1100.join('|') === '설계 회의',
+    name: '체크한 팀원도 Flow에 한 줄씩, 되감기에도 함께',
+    expected: "Flow 사람 [나, 윤도현], 윤도현: 도면 검토 09:00 → 설계 회의 11:00 → 3D 모델링 13:00, 11:00 되감기 Doing에 윤도현 '설계 회의'",
+    actual: `사람 [${people}] · 윤도현 [${dhBlocks}] · 11:00 윤도현 Doing [${dhAt1100}]`,
+    how: 'flow-person / flow-block, 되감은 보드의 윤도현 블록',
+    pass: people.join('|') === '나|윤도현' && dhBlocks.join('|') === '도면 검토@18|설계 회의@22|3D 모델링@26' && dhAt1100.join('|') === '설계 회의',
   })
 
   // scrolled down to Kanban Flow, the team row and the slider stay pinned at the top (frozen panes)
-  await page.setViewportSize({ width: 1440, height: 640 })
+  await page.setViewportSize({ width: 1440, height: 480 })
   await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight))
   await page.waitForTimeout(300)
   await replayAt(26)
@@ -193,16 +182,16 @@ const report = createReport({
     bar: await page.getByTestId('kanban-controls').boundingBox(),
     flow: await page.getByTestId('kanban-flow').boundingBox(),
     time: await page.getByTestId('replay-time').innerText(),
-    outlined: await page.locator('[data-testid="kanban-flow"] [data-slot="26"]').first().evaluate((e) => getComputedStyle(e).outlineStyle),
+    nowMark: await page.getByTestId('flow-now').count(),
   }
   const cPin = report.check({
     name: '아래로 내려도 팀원 줄·되감기 슬라이더가 위에 고정 (틀고정처럼)',
-    expected: '페이지를 내린 상태에서 막대 위치 0~20px, Kanban Flow가 화면 안에 보이고, 슬라이더로 13:00 → Flow의 13:00 칸 굵은 테두리',
-    actual: `내린 거리 ${pinned.scrollY}px, 막대 y ${Math.round(pinned.bar.y)}px, Flow y ${Math.round(pinned.flow.y)}~${Math.round(pinned.flow.y + pinned.flow.height)}px, '${pinned.time}', 13:00 칸 테두리 ${pinned.outlined}`,
-    how: 'window.scrollY > 0 && kanban-controls.y ∈ [0, 20] && Flow 가 640px 화면 안 && replay-time 13:00 && 칸 outline solid',
-    pass: pinned.scrollY > 0 && pinned.bar.y >= 0 && pinned.bar.y <= 20 && pinned.flow.y < 640 && pinned.flow.y + pinned.flow.height > 0 && pinned.time.startsWith('13:00') && pinned.outlined === 'solid',
+    expected: '페이지를 내린 상태에서 막대 위치 0~20px, Kanban Flow가 화면 안에 보이고, 슬라이더로 13:00 → Flow에 13:00 시각 표시(굵은 테두리)',
+    actual: `내린 거리 ${pinned.scrollY}px, 막대 y ${Math.round(pinned.bar.y)}px, Flow y ${Math.round(pinned.flow.y)}~${Math.round(pinned.flow.y + pinned.flow.height)}px, '${pinned.time}', Flow의 시각 표시 ${pinned.nowMark}개`,
+    how: 'window.scrollY > 0 && kanban-controls.y ∈ [0, 20] && Flow 가 480px 화면 안 && replay-time 13:00 && flow-now 표시',
+    pass: pinned.scrollY > 0 && pinned.bar.y >= 0 && pinned.bar.y <= 20 && pinned.flow.y < 480 && pinned.flow.y + pinned.flow.height > 0 && pinned.time.startsWith('13:00') && pinned.nowMark > 0,
   })
-  await page.mouse.move(700, 630)
+  await page.mouse.move(700, 470)
   await report.shot(page, { caption: '아래로 내려 Kanban Flow를 보면서 위에 고정된 슬라이더로 되감기', marks: [{ target: page.getByTestId('kanban-controls'), n: cPin, label: '위에 고정' }, { target: page.getByTestId('kanban-flow'), n: cPin, label: '보면서 되감기' }] })
   await page.setViewportSize({ width: 1440, height: 900 })
 

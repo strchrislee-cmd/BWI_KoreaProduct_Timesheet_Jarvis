@@ -3,7 +3,9 @@ import { useEffect, useMemo, useState, type DragEvent } from 'react'
 import { Button, Card, ErrorNote, Loading, cx } from '../../components/ui'
 import { useStore, useUser } from '../../data/StoreContext'
 import { syncKanban } from '../../data/kanbanSync'
-import { KANBAN_LABEL, KANBAN_STATUSES, boardColumns, isTaskSlot, nextSortOrder, onDayBoard, replayDay, type KanbanCard, type KanbanStatus } from '../../domain/kanban'
+import { KANBAN_LABEL, KANBAN_STATUSES, boardColumns, isTaskSlot, nextSortOrder, onDayBoard, replayDay, teamBlocks, type KanbanCard, type KanbanStatus } from '../../domain/kanban'
+import { KANBAN_CHANGED } from '../../components/DoingLogToast'
+import { SHOW_REMINDER_TOAST, SLOTS_CHANGED } from '../../components/ReminderToast'
 import { orgRows } from '../../domain/org'
 import { isSelectable } from '../../domain/projects'
 import { EMPTY_TASK_LABEL } from '../../domain/quickTasks'
@@ -102,12 +104,27 @@ export function DailyKanban() {
     ? allCards
     : people.flatMap((id) => (replays.get(id)?.at[pos ?? 47] ?? []).map((r) => ({ ...r.card, status: r.status })))
   const movedNow = new Set(pos === null ? [] : people.flatMap((id) => (replays.get(id)?.at[pos] ?? []).filter((r) => r.moved).map((r) => r.card.id)))
-  const columns = boardColumns(
+  // teammates show only while Doing; the same task Doing for several people is one block with their avatars
+  const shownPeople = people.filter((id) => !filter.length || filter.includes(colorOf(id)))
+  const blocks = teamBlocks(
     shown.filter((c) => showAll || onDayBoard(c, replays.get(c.user_id)?.touched)),
-    people,
-    (c) => !filter.length || filter.includes(colorOf(c.user_id)),
+    engineer.id,
+    shownPeople,
   )
+  const columns = boardColumns(blocks, people)
   const own = (c: KanbanCard) => live && canEdit && c.user_id === engineer.id
+  const initial = (id: string) => (nameOf(id) || '?').trim().charAt(0).toUpperCase()
+
+  // the Log Enable popup (any page) logs and moves cards: show it here at once
+  useEffect(() => {
+    const reload = () => q.reload()
+    window.addEventListener(KANBAN_CHANGED, reload)
+    window.addEventListener(SLOTS_CHANGED, reload)
+    return () => {
+      window.removeEventListener(KANBAN_CHANGED, reload)
+      window.removeEventListener(SLOTS_CHANGED, reload)
+    }
+  }, [q.reload])
 
   // your own board catches up with today's log when it opens (entries from the phone or the reminder)
   useEffect(() => {
@@ -186,6 +203,22 @@ export function DailyKanban() {
           <ErrorNote error={error ?? q.error ?? teamQ.error ?? dayQ.error} />
           {/* stays at the top while scrolling down to Kanban Flow (like frozen panes) */}
           <div className="sticky top-2 z-20 -mx-2 mb-3 rounded-card bg-white/92 px-2 pt-2 shadow-md backdrop-blur-md" data-testid="kanban-controls">
+          {canEdit && (
+            <div className="mb-2 flex flex-wrap items-center gap-2 px-1 text-sm" data-testid="kanban-log">
+              <label className="flex items-center gap-1.5 font-semibold" title="정각·30분마다 Doing 카드를 Daily Log에 기록할지 묻습니다 (앱 어느 화면에서나)">
+                <input type="checkbox" aria-label="Log Enable" checked={prefs.kanbanLog} onChange={(e) => void update((p) => ({ ...p, kanbanLog: e.target.checked }))} />
+                Log Enable
+              </label>
+              <span className="text-xs text-muted">
+                {prefs.kanbanLog ? '정각·30분마다 방금 끝난 30분을 Doing 업무로 기록할지 묻습니다 (앱 어느 화면에서나)' : '켜면 정각·30분마다 Doing 업무를 Daily Log에 기록할지 묻습니다'}
+              </span>
+              {prefs.kanbanLog && (
+                <button type="button" className="rounded-chip px-2 py-0.5 text-xs font-semibold text-primary hover:bg-white" onClick={() => window.dispatchEvent(new Event(SHOW_REMINDER_TOAST))}>
+                  지금 해 보기
+                </button>
+              )}
+            </div>
+          )}
           {teamPeople.length > 0 && (
             <div className="mb-3 space-y-1.5 text-sm" data-testid="kanban-team">
               <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Team on this board">
@@ -314,15 +347,17 @@ export function DailyKanban() {
                   <ul className="flex flex-1 flex-col gap-1.5">
                     {list.map((c, i) => {
                       const p = projectOf(c)
+                      const moved = c.cardIds.some((id) => movedNow.has(id))
                       const w = c.work_type_id ? typeById.get(c.work_type_id) : undefined
                       return (
                         <li
                           key={c.id}
                           data-card={c.id}
                           data-testid="kanban-card"
-                          data-person={withTeam ? nameOf(c.user_id) : undefined}
-                          data-moved={movedNow.has(c.id) || undefined}
-                          title={own(c) || c.user_id === engineer.id ? undefined : `${nameOf(c.user_id)}의 카드 (읽기 전용)`}
+                          data-person={withTeam ? nameOf(c.people[0]) : undefined}
+                          data-people={withTeam ? c.people.map(nameOf).join(',') : undefined}
+                          data-moved={moved || undefined}
+                          title={own(c) || c.user_id === engineer.id ? undefined : `${c.people.map(nameOf).join(', ')}의 Doing (읽기 전용)`}
                           draggable={own(c)}
                           onDragStart={(e) => {
                             e.dataTransfer.setData('text/plain', c.id)
@@ -348,20 +383,30 @@ export function DailyKanban() {
                           className={cx(
                             'group relative rounded-control bg-white/90 px-2.5 py-2 text-sm shadow-sm',
                             own(c) && 'cursor-grab active:cursor-grabbing',
-                            withTeam && 'border-l-[3px]',
                             drag?.id === c.id && 'opacity-40',
                             drag && over?.status === status && over.index === i && 'shadow-[inset_0_2px_0_#1f4d3a]',
                             drag && over?.status === status && over.index === i + 1 && i === list.length - 1 && 'shadow-[inset_0_-2px_0_#1f4d3a]',
                             status === 'doing' && 'ring-1 ring-primary/40',
-                            movedNow.has(c.id) && 'ring-2 ring-amber-400',
+                            moved && 'ring-2 ring-amber-400',
                           )}
-                          style={withTeam ? { borderLeftColor: colorOf(c.user_id) } : undefined}
                         >
                           <div className={cx('flex items-start gap-1.5', own(c) && 'pr-5')}>
                             <span className="min-w-0 flex-1 font-semibold [overflow-wrap:anywhere] [word-break:keep-all]">{c.description.trim() || EMPTY_TASK_LABEL}</span>
                             {withTeam && (
-                              <span data-testid="card-person" className="shrink-0 rounded-chip px-1.5 py-0.5 text-[11px] font-semibold" style={{ backgroundColor: chipBg(colorOf(c.user_id)) }}>
-                                {nameOf(c.user_id)}
+                              // like collaborators on a Figma frame: whose block this is / who is Doing it
+                              <span className="flex shrink-0 -space-x-1.5" data-testid="avatars">
+                                {c.people.map((id) => (
+                                  <span
+                                    key={id}
+                                    data-testid="avatar"
+                                    data-person={nameOf(id)}
+                                    title={nameOf(id)}
+                                    className="flex h-6 w-6 items-center justify-center rounded-full text-[11px] font-bold text-white shadow ring-2 ring-white"
+                                    style={{ backgroundColor: colorOf(id) }}
+                                  >
+                                    {initial(id)}
+                                  </span>
+                                ))}
                               </span>
                             )}
                           </div>
@@ -448,7 +493,7 @@ export function DailyKanban() {
               )
             })}
           </div>
-          <KanbanFlow people={people.map((id) => ({ id, name: nameOf(id) || engineer.name, color: colorOf(id) }))} replays={replays} slots={range} pos={pos} onPick={setPos} />
+          <KanbanFlow people={shownPeople.map((id) => ({ id, name: nameOf(id) || engineer.name }))} replays={replays} slots={range} pos={pos} onPick={setPos} />
         </>
       )}
     </Card>

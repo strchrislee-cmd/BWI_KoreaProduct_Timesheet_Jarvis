@@ -118,7 +118,8 @@ const HALF_HOUR = 30 * 60_000
  * One person's board through a day, half hour by half hour, following the Daily Log (the task logged
  * in a half hour is Doing then, the one Doing before it waits), so a day logged later still replays at
  * the right times. Moves made by hand (DoneCheck, Done, …) count in the half hour they were made.
- * The day starts from each card's column before its first move since `dayStart`.
+ * The day starts from each card's column before its first move since `dayStart`, with nothing in Doing:
+ * a card left Doing from an earlier day waits until it is logged or moved again that day.
  */
 export function replayDay(cards: KanbanCard[], moves: KanbanMove[], daySlots: TimeSlot[], dayStart: Date, userId: string): DayReplay {
   const start = dayStart.getTime()
@@ -127,7 +128,8 @@ export function replayDay(cards: KanbanCard[], moves: KanbanMove[], daySlots: Ti
   const state = new Map<string, { card: KanbanCard; status: KanbanStatus | null }>()
   for (const c of cards) {
     const first = sorted.find((m) => m.card_id === c.id && Date.parse(m.moved_at) >= start)
-    state.set(c.id, { card: c, status: first ? first.from_status : c.status })
+    const start0 = first ? first.from_status : c.status
+    state.set(c.id, { card: c, status: start0 === 'doing' ? 'wait' : start0 })
   }
   const byKey = new Map(cards.map((c) => [taskKey(c), c.id]))
   const manual = new Map<number, KanbanMove[]>()
@@ -179,14 +181,52 @@ export const onDayBoard = (c: { id: string; status: KanbanStatus }, touched: Set
  * Columns of a board that can hold several people's cards: in each column the people come in `people`
  * order (the board's owner first), each person's cards by their place. `show` filters (e.g. by colour).
  */
-export function boardColumns(cards: KanbanCard[], people: string[], show: (c: KanbanCard) => boolean = () => true): Map<KanbanStatus, KanbanCard[]> {
+export function boardColumns<C extends KanbanCard>(cards: C[], people: string[], show: (c: C) => boolean = () => true): Map<KanbanStatus, C[]> {
   const rank = new Map(people.map((id, i) => [id, i]))
-  const m = new Map<KanbanStatus, KanbanCard[]>(KANBAN_STATUSES.map((s) => [s, []]))
+  const m = new Map<KanbanStatus, C[]>(KANBAN_STATUSES.map((s) => [s, []]))
   const sorted = cards
     .filter(show)
     .sort((a, b) => (rank.get(a.user_id) ?? 1e9) - (rank.get(b.user_id) ?? 1e9) || a.sort_order - b.sort_order || a.created_at.localeCompare(b.created_at))
   for (const c of sorted) m.get(c.status)!.push(c)
   return m
+}
+
+/** a block on the board: one of the owner's cards, or a task teammates are Doing */
+export interface BoardBlock extends KanbanCard {
+  /** the people this block stands for (the owner, and/or the teammates Doing the same task), in `people` order */
+  people: string[]
+  /** the cards merged into it */
+  cardIds: string[]
+}
+
+/**
+ * The board with teammates: the owner's cards in every column; teammates' cards only while Doing, and
+ * one block per task — several people Doing the same task (same Project · Type · Task) share a block.
+ * People not in `people` (e.g. filtered out by colour) are left out.
+ */
+export function teamBlocks(cards: KanbanCard[], owner: string, people: string[]): BoardBlock[] {
+  const rank = new Map(people.map((id, i) => [id, i]))
+  const out: BoardBlock[] = []
+  const doing = new Map<string, BoardBlock>()
+  if (rank.has(owner))
+    for (const c of cards.filter((x) => x.user_id === owner)) {
+      const b: BoardBlock = { ...c, people: [owner], cardIds: [c.id] }
+      out.push(b)
+      if (c.status === 'doing') doing.set(taskKey(c), b)
+    }
+  const theirs = cards.filter((x) => x.user_id !== owner && x.status === 'doing' && rank.has(x.user_id)).sort((a, b) => rank.get(a.user_id)! - rank.get(b.user_id)!)
+  for (const c of theirs) {
+    const b = doing.get(taskKey(c))
+    if (b) {
+      b.people.push(c.user_id)
+      b.cardIds.push(c.id)
+      continue
+    }
+    const nb: BoardBlock = { ...c, people: [c.user_id], cardIds: [c.id] }
+    out.push(nb)
+    doing.set(taskKey(c), nb)
+  }
+  return out
 }
 
 /** Next sort position at the end of a column. */

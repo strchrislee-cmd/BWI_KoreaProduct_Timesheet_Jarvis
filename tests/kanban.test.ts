@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { boardColumns, onDayBoard, planKanbanSync, replayDay, taskKey, nextSortOrder, type KanbanCard, type KanbanMove } from '../src/domain/kanban'
+import { boardColumns, onDayBoard, planKanbanSync, replayDay, taskKey, teamBlocks, nextSortOrder, type KanbanCard, type KanbanMove } from '../src/domain/kanban'
 import { personColor, personColorKey } from '../src/pages/timesheets/colors'
 import { readPrefs } from '../src/data/preferences'
 import type { TimeSlot } from '../src/domain/types'
@@ -91,6 +91,7 @@ describe('Daily Kanban from the Daily Log', () => {
       card('B', 'doing', { label: '설계', description: '도면' }),
       card('C', 'done', { label: '품질', description: '8D' }),
       card('D', 'backlog', { description: '다음 할 일' }),
+      card('Y', 'doing', { description: '어제 하던 일' }),
     ]
     const moves = [move('B', 'wait', 'doing', 'log', '09:05'), move('C', 'wait', 'done', 'manual', '15:10')]
     const daySlots = [
@@ -104,6 +105,7 @@ describe('Daily Kanban from the Daily Log', () => {
     const r = replayDay(cards, moves, daySlots, day, 'u')
     const statusAt = (i: number, id: string) => r.at[i].find((x) => x.card.id === id)?.status
     expect([statusAt(17, 'B'), statusAt(18, 'B'), statusAt(18, 'C')]).toEqual(['wait', 'doing', 'wait']) // the day starts before B's first move
+    expect(statusAt(0, 'Y')).toBe('wait') // left Doing from yesterday: the day starts with nothing in Doing
     expect(r.at[18].find((x) => x.card.id === 'B')?.moved).toBe(true)
     expect(r.at[19].find((x) => x.card.id === 'B')?.moved).toBe(false)
     expect([statusAt(20, 'C'), statusAt(20, 'B'), statusAt(24, 'C')]).toEqual(['doing', 'wait', 'doing']) // lunch keeps Doing
@@ -114,6 +116,24 @@ describe('Daily Kanban from the Daily Log', () => {
     expect([...r.touched].sort()).toEqual(['B', 'C', gone!.card.id].sort())
     // the day's board: that day's cards and the to-do piles, not last week's waiting card
     expect(cards.filter((c) => onDayBoard(c, r.touched)).map((c) => c.id)).toEqual(['B', 'C', 'D'])
+  })
+
+  it('team board: my cards everywhere, teammates only while Doing, one block per task with everyone Doing it', () => {
+    const mine = { ...card('m1', 'doing', { label: '회의', description: '주간 회의' }), user_id: 'me' }
+    const myWait = { ...card('m2', 'wait', { description: '도면' }), user_id: 'me' }
+    const dhSame = { ...card('d1', 'doing', { label: '회의', description: '주간 회의' }), user_id: 'dh' }
+    const jiaOther = { ...card('j1', 'doing', { description: '시험 지원' }), user_id: 'jia' }
+    const kangSame = { ...card('k1', 'doing', { description: '시험 지원' }), user_id: 'kang' }
+    const jiaWait = { ...card('j2', 'wait', { description: '데이터' }), user_id: 'jia' }
+    const blocks = teamBlocks([mine, myWait, dhSame, jiaOther, kangSame, jiaWait], 'me', ['me', 'jia', 'dh', 'kang'])
+    expect(blocks.map((b) => [b.id, b.status, b.people.join('+')])).toEqual([
+      ['m1', 'doing', 'me+dh'],
+      ['m2', 'wait', 'me'],
+      ['j1', 'doing', 'jia+kang'],
+    ])
+    // filtered out by colour: not shown, nor counted on a shared block
+    expect(teamBlocks([mine, dhSame], 'me', ['me']).map((b) => b.people.join('+'))).toEqual(['me'])
+    expect(teamBlocks([mine, dhSame], 'me', ['dh']).map((b) => [b.id, b.people.join('+')])).toEqual([['d1', 'dh']])
   })
 
   it('new cards go to the end of their column', () => {

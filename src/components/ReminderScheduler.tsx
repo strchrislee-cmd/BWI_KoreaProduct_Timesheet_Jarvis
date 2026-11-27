@@ -5,18 +5,22 @@ import { useStore, useUser } from '../data/StoreContext'
 import { msUntilNextBoundary, reminderFor } from '../domain/reminders'
 import { SLOT_MINUTES, timeToSlot, todayLocal } from '../domain/time'
 import { ReminderToast, SHOW_REMINDER_TOAST } from './ReminderToast'
+import { DoingLogToast } from './DoingLogToast'
 
 /**
  * Every :00 / :30, asks to log the half hour that just ended (weekdays, inside the day's working
  * hours, not lunch, not already logged): an input toast in the app (ReminderToast) and, when
  * allowed, a browser notification that brings the tab forward.
  * Works while a TeamEmbedded tab is open (it may be minimised or in the background).
+ * With Daily Kanban → Log Enable on, the toast asks to log the card in Doing instead (DoingLogToast).
  */
 export function ReminderScheduler() {
   const { store } = useStore()
   const user = useUser()
   const navigate = useNavigate()
-  const enabled = readPrefs(user.preferences).notifications
+  const prefs = readPrefs(user.preferences)
+  const kanbanLog = prefs.kanbanLog
+  const enabled = prefs.notifications || kanbanLog
   const [toast, setToast] = useState<{ date: string; slot: number } | null>(null)
 
   useEffect(() => {
@@ -39,7 +43,10 @@ export function ReminderScheduler() {
         })
         if (r && !cancelled) setToast({ date, slot: r.slot }) // a newer reminder replaces an unanswered one
         if (r && !cancelled && typeof Notification !== 'undefined' && Notification.permission === 'granted') {
-          const n = new Notification('TeamEmbedded · 30분 기록', { body: r.text, tag: 'timecrumbs-reminder' })
+          const n = new Notification(kanbanLog ? 'TeamEmbedded · Daily Kanban 기록' : 'TeamEmbedded · 30분 기록', {
+            body: kanbanLog ? `${r.text} (Doing 업무로 기록하기)` : r.text,
+            tag: 'timecrumbs-reminder',
+          })
           n.onclick = () => {
             window.focus()
             navigate(`/timesheets?date=${date}`)
@@ -68,7 +75,13 @@ export function ReminderScheduler() {
       window.clearTimeout(timer)
       window.removeEventListener(SHOW_REMINDER_TOAST, showNow)
     }
-  }, [enabled, store, user.id, user.work_start, user.work_end, user.lunch_start, user.lunch_end, navigate])
+  }, [enabled, kanbanLog, store, user.id, user.work_start, user.work_end, user.lunch_start, user.lunch_end, navigate])
 
-  return toast && <ReminderToast key={`${toast.date}:${toast.slot}`} date={toast.date} slot={toast.slot} onClose={() => setToast(null)} />
+  if (!toast) return null
+  const key = `${toast.date}:${toast.slot}`
+  return kanbanLog ? (
+    <DoingLogToast key={key} date={toast.date} slot={toast.slot} onClose={() => setToast(null)} />
+  ) : (
+    <ReminderToast key={key} date={toast.date} slot={toast.slot} onClose={() => setToast(null)} />
+  )
 }

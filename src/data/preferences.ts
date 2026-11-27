@@ -57,6 +57,8 @@ export interface Prefs extends ColorPrefs {
   teamView: string[]
   /** Daily Kanban: the people whose cards show on your board too, in check order */
   kanbanTeam: string[]
+  /** Daily Kanban → Log Enable: every :00 / :30 ask to log the Doing card for the half hour just ended */
+  kanbanLog: boolean
 }
 
 export interface LayoutPrefs {
@@ -132,5 +134,6 @@ export function readPrefs(preferences: Profile['preferences']): Prefs {
     quickSlots: readQuickSlots(p.quickSlots),
     teamView: ids(p.teamView),
     kanbanTeam: ids(p.kanbanTeam),
+    kanbanLog: p.kanbanLog === true,
   }
 }
