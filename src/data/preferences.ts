@@ -55,6 +55,8 @@ export interface Prefs extends ColorPrefs {
   quickSlots: QuickSlots
   /** Team window: the people whose 30-min logs show under your own, in this order (check order) */
   teamView: string[]
+  /** Daily Kanban: the people whose cards show on your board too, in check order */
+  kanbanTeam: string[]
 }
 
 export interface LayoutPrefs {
@@ -76,6 +78,9 @@ export const ROW_HEIGHTS = [
   { label: '보통', value: 36 },
   { label: '넓게', value: 44 },
 ]
+
+/** a list of ids, read defensively (no duplicates) */
+const ids = (v: unknown): string[] => (Array.isArray(v) ? [...new Set(v.filter((x): x is string => typeof x === 'string'))] : [])
 
 const num = (v: unknown, lo: number, hi: number, fallback: number) =>
   typeof v === 'number' && Number.isFinite(v) ? Math.max(lo, Math.min(hi, Math.round(v))) : fallback
@@ -125,6 +130,7 @@ export function readPrefs(preferences: Profile['preferences']): Prefs {
     },
     todayView: p.todayView === 'graph' ? 'graph' : 'list',
     quickSlots: readQuickSlots(p.quickSlots),
-    teamView: Array.isArray(p.teamView) ? [...new Set(p.teamView.filter((x): x is string => typeof x === 'string'))] : [],
+    teamView: ids(p.teamView),
+    kanbanTeam: ids(p.kanbanTeam),
   }
 }

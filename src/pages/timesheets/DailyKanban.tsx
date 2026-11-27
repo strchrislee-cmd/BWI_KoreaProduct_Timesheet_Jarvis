@@ -3,14 +3,16 @@ import { useEffect, useMemo, useState, type DragEvent } from 'react'
 import { Button, Card, ErrorNote, Loading, cx } from '../../components/ui'
 import { useStore, useUser } from '../../data/StoreContext'
 import { syncKanban } from '../../data/kanbanSync'
-import { KANBAN_LABEL, KANBAN_STATUSES, nextSortOrder, type KanbanCard, type KanbanStatus } from '../../domain/kanban'
+import { KANBAN_LABEL, KANBAN_STATUSES, boardColumns, nextSortOrder, type KanbanCard, type KanbanStatus } from '../../domain/kanban'
+import { orgRows } from '../../domain/org'
 import { isSelectable } from '../../domain/projects'
 import { EMPTY_TASK_LABEL } from '../../domain/quickTasks'
 import { currentSlot, todayLocal } from '../../domain/time'
 import { WORK_TYPE_GRAY, selectableWorkTypes, withPersonalColors } from '../../domain/workTypes'
 import { useAsync } from '../../lib/hooks'
 import { useT } from '../../lib/i18n'
-import { categoryColor, chipBg } from './colors'
+import { categoryColor, chipBg, personColor } from './colors'
+import { PersonColorDot, usePersonOrder } from './PersonColor'
 import { displayName } from './projectUi'
 import { useTimesheets } from './TimesheetsLayout'
 import { useColorPrefs } from './useColorPrefs'
@@ -32,13 +34,15 @@ const missingTable = (e: Error | null | undefined) => !!e && /kanban_(cards|move
  * Daily Kanban: one card per task (Project · Type · Task) in Backlog · ToDo · Wait · Doing · DoneCheck ·
  * Done. Follows the Daily Log (the task logged now is Doing, the one before it Wait); cards are
  * dragged between columns or moved with … . One board per person, kept across days.
+ * Team: check people you may read to see their cards on the same board (read-only, with their name in
+ * the colour you gave them); the colour chips show only the cards of the people with that colour.
  */
 export function DailyKanban() {
   const tr = useT()
   const { store } = useStore()
   const user = useUser()
-  const { engineer, projects, workTypes } = useTimesheets()
-  const { prefs } = useColorPrefs()
+  const { engineer, projects, workTypes, profiles, visible } = useTimesheets()
+  const { prefs, update } = useColorPrefs()
   const canEdit = engineer.id === user.id
   const q = useAsync(() => store.listKanban(engineer.id), [store, engineer.id])
   const [error, setError] = useState<Error | null>(null)
@@ -51,11 +55,27 @@ export function DailyKanban() {
   const types = useMemo(() => withPersonalColors(workTypes, prefs.categoryColors), [workTypes, prefs.categoryColors])
   const typeById = useMemo(() => new Map(types.map((w) => [w.id, w])), [types])
   const cards = useMemo(() => q.data ?? [], [q.data])
-  const columns = useMemo(() => {
-    const m = new Map<KanbanStatus, KanbanCard[]>(KANBAN_STATUSES.map((s) => [s, []]))
-    for (const c of [...cards].sort((a, b) => a.sort_order - b.sort_order || a.created_at.localeCompare(b.created_at))) m.get(c.status)!.push(c)
-    return m
-  }, [cards])
+  /** the board owner's cards only: places are counted among these */
+  const mine = useMemo(() => boardColumns(cards, [engineer.id]), [cards, engineer.id])
+
+  // Team: the people you may read (Org Chart order); the checked ones' cards join this board
+  const teamPeople = useMemo(
+    () => orgRows(profiles).map((r) => r.person).filter((p) => p.id !== user.id && p.id !== engineer.id && visible.has(p.id)),
+    [profiles, visible, user.id, engineer.id],
+  )
+  const shownIds = prefs.kanbanTeam.filter((id) => teamPeople.some((p) => p.id === id))
+  const setTeam = (ids: string[]) => void update((p) => ({ ...p, kanbanTeam: ids }))
+  const teamQ = useAsync(() => Promise.all(shownIds.map((id) => store.listKanban(id))).then((r) => r.flat()), [store, shownIds.join('|')])
+  const withTeam = shownIds.length > 0
+  const people = [engineer.id, ...shownIds]
+  const nameOf = (id: string) => (id === user.id ? '나' : (profiles.find((p) => p.id === id)?.name ?? ''))
+  const personOrder = usePersonOrder()
+  const colorOf = (id: string) => personColor(id, prefs, personOrder).toUpperCase()
+  const colorsInUse = [...new Set(people.map(colorOf))]
+  const [colorFilter, setColorFilter] = useState<string[]>([])
+  const filter = withTeam ? colorFilter.filter((h) => colorsInUse.includes(h)) : []
+  const columns = boardColumns([...cards, ...(withTeam ? (teamQ.data ?? []) : [])], people, (c) => !filter.length || filter.includes(colorOf(c.user_id)))
+  const own = (c: KanbanCard) => canEdit && c.user_id === engineer.id
 
   // your own board catches up with today's log when it opens (entries from the phone or the reminder)
   useEffect(() => {
@@ -85,7 +105,7 @@ export function DailyKanban() {
 
   /** Put a card at `index` of a column (a move to another column is recorded in its journey). */
   function place(card: KanbanCard, to: KanbanStatus, index: number) {
-    const list = (columns.get(to) ?? []).filter((c) => c.id !== card.id)
+    const list = (mine.get(to) ?? []).filter((c) => c.id !== card.id)
     const at = Math.max(0, Math.min(index, list.length))
     const ordered = [...list.slice(0, at), card, ...list.slice(at)]
     void run(async () => {
@@ -102,10 +122,17 @@ export function DailyKanban() {
     return p ? displayName(p) : c.label ? `⚠ ${c.label}` : ''
   }
 
+  /** a drop place among the shown cards (teammates' too) → the place among the owner's own cards */
+  function ownIndex(status: KanbanStatus, shownIndex: number) {
+    const next = (columns.get(status) ?? []).slice(shownIndex).find(own)
+    const list = mine.get(status) ?? []
+    return next ? list.findIndex((c) => c.id === next.id) : list.length
+  }
+
   function onDrop(e: DragEvent, status: KanbanStatus) {
     e.preventDefault()
     const card = cards.find((c) => c.id === (drag?.id ?? e.dataTransfer.getData('text/plain')))
-    const index = over?.status === status ? over.index : (columns.get(status)?.length ?? 0)
+    const index = over?.status === status ? ownIndex(status, over.index) : (mine.get(status)?.length ?? 0)
     setDrag(null)
     setOver(null)
     if (card) place(card, status, index)
@@ -124,7 +151,64 @@ export function DailyKanban() {
         </p>
       ) : (
         <>
-          <ErrorNote error={error ?? q.error} />
+          <ErrorNote error={error ?? q.error ?? teamQ.error} />
+          {teamPeople.length > 0 && (
+            <div className="mb-3 space-y-1.5 text-sm" data-testid="kanban-team">
+              <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Team on this board">
+                <span className="mr-1 text-xs font-semibold text-muted">{tr('Team')}</span>
+                <span className="flex items-center gap-1.5 rounded-chip bg-white px-2 py-1 shadow-sm">
+                  <PersonColorDot person={engineer} size={10} />
+                  {nameOf(engineer.id)}
+                </span>
+                {teamPeople.map((p) => {
+                  const on = shownIds.includes(p.id)
+                  return (
+                    <label key={p.id} className={cx('flex cursor-pointer items-center gap-1.5 rounded-chip px-2 py-1', on ? 'bg-white shadow-sm' : 'bg-white/40 text-muted hover:bg-white/70')}>
+                      <input type="checkbox" checked={on} aria-label={p.name} onChange={() => setTeam(on ? shownIds.filter((x) => x !== p.id) : [...shownIds, p.id])} />
+                      <PersonColorDot person={p} size={10} />
+                      <span className="te-clip" title={p.name}>
+                        {p.name}
+                      </span>
+                    </label>
+                  )
+                })}
+                {withTeam && (
+                  <button type="button" className="ml-1 text-xs font-semibold text-primary hover:underline" onClick={() => setTeam([])}>
+                    모두 해제
+                  </button>
+                )}
+              </div>
+              {withTeam && (
+                <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Color filter">
+                  <span className="mr-1 text-xs font-semibold text-muted">색으로 보기</span>
+                  {[null, ...colorsInUse].map((hex) => {
+                    const names = hex ? people.filter((id) => colorOf(id) === hex).map(nameOf) : []
+                    const on = hex ? filter.includes(hex) : !filter.length
+                    return (
+                      <button
+                        key={hex ?? 'all'}
+                        type="button"
+                        aria-pressed={on}
+                        aria-label={hex ? `Show ${names.join(', ')}` : 'Show everyone'}
+                        title={hex ? `${names.join(', ')}의 카드만` : '모두'}
+                        className={cx('flex items-center gap-1.5 rounded-chip px-2 py-1 text-xs font-semibold', on ? 'bg-primary text-white' : 'bg-white/60 hover:bg-white')}
+                        onClick={() => setColorFilter(!hex ? [] : on ? filter.filter((h) => h !== hex) : [...filter, hex])}
+                      >
+                        {hex ? (
+                          <>
+                            <span className="h-2.5 w-2.5 shrink-0 rounded-full ring-1 ring-white" style={{ backgroundColor: hex }} />
+                            <span className="te-clip">{names.join(' · ')}</span>
+                          </>
+                        ) : (
+                          '전체'
+                        )}
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          )}
           {!canEdit && <p className="mb-2 text-xs text-muted">{engineer.name}의 보드 (읽기 전용)</p>}
           <div className="flex gap-3 overflow-x-auto pb-2" data-testid="kanban-board">
             {KANBAN_STATUSES.map((status) => {
@@ -160,7 +244,9 @@ export function DailyKanban() {
                           key={c.id}
                           data-card={c.id}
                           data-testid="kanban-card"
-                          draggable={canEdit}
+                          data-person={withTeam ? nameOf(c.user_id) : undefined}
+                          title={own(c) || c.user_id === engineer.id ? undefined : `${nameOf(c.user_id)}의 카드 (읽기 전용)`}
+                          draggable={own(c)}
                           onDragStart={(e) => {
                             e.dataTransfer.setData('text/plain', c.id)
                             e.dataTransfer.effectAllowed = 'move'
@@ -184,14 +270,23 @@ export function DailyKanban() {
                           }}
                           className={cx(
                             'group relative rounded-control bg-white/90 px-2.5 py-2 text-sm shadow-sm',
-                            canEdit && 'cursor-grab active:cursor-grabbing',
+                            own(c) && 'cursor-grab active:cursor-grabbing',
+                            withTeam && 'border-l-[3px]',
                             drag?.id === c.id && 'opacity-40',
                             drag && over?.status === status && over.index === i && 'shadow-[inset_0_2px_0_#1f4d3a]',
                             drag && over?.status === status && over.index === i + 1 && i === list.length - 1 && 'shadow-[inset_0_-2px_0_#1f4d3a]',
                             status === 'doing' && 'ring-1 ring-primary/40',
                           )}
+                          style={withTeam ? { borderLeftColor: colorOf(c.user_id) } : undefined}
                         >
-                          <div className="pr-5 font-semibold [overflow-wrap:anywhere] [word-break:keep-all]">{c.description.trim() || EMPTY_TASK_LABEL}</div>
+                          <div className={cx('flex items-start gap-1.5', own(c) && 'pr-5')}>
+                            <span className="min-w-0 flex-1 font-semibold [overflow-wrap:anywhere] [word-break:keep-all]">{c.description.trim() || EMPTY_TASK_LABEL}</span>
+                            {withTeam && (
+                              <span data-testid="card-person" className="shrink-0 rounded-chip px-1.5 py-0.5 text-[11px] font-semibold" style={{ backgroundColor: chipBg(colorOf(c.user_id)) }}>
+                                {nameOf(c.user_id)}
+                              </span>
+                            )}
+                          </div>
                           <div className="mt-1 flex flex-wrap gap-1">
                             {projectName(c) && (
                               <span className="te-clip rounded-chip px-1.5 py-0.5 text-[11px] font-semibold" style={{ backgroundColor: chipBg(categoryColor('work', p, prefs)) }} title={projectName(c)}>
@@ -205,7 +300,7 @@ export function DailyKanban() {
                             )}
                           </div>
                           {status === 'done' && c.done_at && <div className="mt-1 text-[11px] text-muted">완료 {new Date(c.done_at).toLocaleDateString()}</div>}
-                          {canEdit && (
+                          {own(c) && (
                             <button
                               type="button"
                               aria-label={`Options for ${c.description.trim() || EMPTY_TASK_LABEL}`}

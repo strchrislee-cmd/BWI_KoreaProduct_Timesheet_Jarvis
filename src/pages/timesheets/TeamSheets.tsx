@@ -13,6 +13,7 @@ import { DailyGrid, type GridColors, type GridOptionsApi } from './grid/DailyGri
 import type { GridContext } from './grid/gridModel'
 import type { GridPrefs } from '../../data/preferences'
 import { MobileDayLog } from './mobile/MobileDayLog'
+import { PersonColorDot } from './PersonColor'
 
 /**
  * Team window: the people you may read, with a checkbox each. Checked people are listed first in the
@@ -27,6 +28,7 @@ export function TeamPicker({ people, checked, onChange }: { people: { person: Pr
 
   const row = (p: Profile) => (
     <>
+      <PersonColorDot person={p} size={10} />
       <span className="min-w-0 flex-1">
         <span className="te-clip font-semibold" title={p.name}>
           {p.name}
@@ -151,6 +153,7 @@ function PersonSheet({ person, sheet, onHide }: { person: Profile; sheet: SheetB
     <Card
       title={
         <span className="flex flex-wrap items-center gap-2" data-testid="team-sheet-title">
+          <PersonColorDot person={person} />
           {person.name}
           <Pill tone="grey">{roleLabel(person.role)}</Pill>
           {person.team && <Pill tone="green">{person.team}</Pill>}

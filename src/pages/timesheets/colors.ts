@@ -91,6 +91,21 @@ export function categoryColor(kind: SlotKind, project: GroupProject | undefined,
   return (key && prefs.categoryColors[key]) || defaultCategoryColor(kind, project)
 }
 
+/**
+ * A person's colour (Team, Daily Kanban): the one you gave them, else a named colour by their place in
+ * `order` (the Org Chart, so neighbours differ), or from their id when they are not in it. Never gray:
+ * that reads as "no colour".
+ */
+export const personColorKey = (id: string) => `person:${id}`
+export function personColor(id: string, prefs: ColorPrefs, order: string[] = []): string {
+  const own = prefs.categoryColors[personColorKey(id)]
+  if (own) return own
+  const named = NAMED_COLORS.slice(1)
+  let i = order.indexOf(id)
+  if (i < 0) for (const ch of id) i = ((i < 0 ? 0 : i) * 31 + ch.charCodeAt(0)) >>> 0
+  return named[i % named.length].hex
+}
+
 export function templateColor(t: TaskTemplate, project: GroupProject | undefined, prefs: ColorPrefs): string {
   return t.color ?? categoryColor(t.kind, project, prefs)
 }

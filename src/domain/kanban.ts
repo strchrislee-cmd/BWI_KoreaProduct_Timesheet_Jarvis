@@ -88,5 +88,19 @@ export function planKanbanSync(cards: KanbanCard[], daySlots: TimeSlot[], nowSlo
   return plan
 }
 
+/**
+ * Columns of a board that can hold several people's cards: in each column the people come in `people`
+ * order (the board's owner first), each person's cards by their place. `show` filters (e.g. by colour).
+ */
+export function boardColumns(cards: KanbanCard[], people: string[], show: (c: KanbanCard) => boolean = () => true): Map<KanbanStatus, KanbanCard[]> {
+  const rank = new Map(people.map((id, i) => [id, i]))
+  const m = new Map<KanbanStatus, KanbanCard[]>(KANBAN_STATUSES.map((s) => [s, []]))
+  const sorted = cards
+    .filter(show)
+    .sort((a, b) => (rank.get(a.user_id) ?? 1e9) - (rank.get(b.user_id) ?? 1e9) || a.sort_order - b.sort_order || a.created_at.localeCompare(b.created_at))
+  for (const c of sorted) m.get(c.status)!.push(c)
+  return m
+}
+
 /** Next sort position at the end of a column. */
 export const nextSortOrder = (cards: KanbanCard[], status: KanbanStatus) => Math.max(0, ...cards.filter((c) => c.status === status).map((c) => c.sort_order)) + 1
