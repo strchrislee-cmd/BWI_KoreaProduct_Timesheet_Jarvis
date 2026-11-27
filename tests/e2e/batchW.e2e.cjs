@@ -213,6 +213,23 @@ const fakeNotification = () => {
     pass: off.popups === 0 && off.reminders === 0 && off.notes === 0 && off.saved === false,
   })
 
+  // (bug) the card that waited because of 수정 is not one of the day's cards once its log is gone
+  await page.goto(BASE + `/timesheets?date=${DAY}`)
+  await cell(18, 'category').click()
+  await cell(19, 'details').click({ modifiers: ['Shift'] })
+  await page.keyboard.press('Delete')
+  await page.waitForTimeout(600)
+  const afterDelete = await slotsOf()
+  await toKanban()
+  const ghost = { wait: await titles('wait'), doing: await titles('doing') }
+  report.check({
+    name: '(버그) 수정 때 Wait로 밀려난 카드는 그날 기록이 없으면 오늘 보드에 남지 않음',
+    expected: "Daily Log에서 09:00·09:30 도면검토를 지우면 → 남은 기록 [20 견적 검토], 오늘 보드 Wait 비어 있음, Doing '견적 검토'",
+    actual: `남은 기록 [${afterDelete}] · Wait [${ghost.wait}] · Doing [${ghost.doing}]`,
+    how: "Daily Log 18~19행 지우기 → 저장된 칸, 보드 칸별 제목 (밀려난 카드의 이동은 'log', 고른 카드만 손 이동)",
+    pass: afterDelete.join('|') === '20:견적 검토' && ghost.wait.length === 0 && ghost.doing.join('|') === '견적 검토',
+  })
+
   report.check({ name: '페이지 오류 없음', expected: '0건', actual: `${errors.length}건${errors.length ? ': ' + errors.join(' | ') : ''}`, how: 'pageerror 수 === 0', pass: errors.length === 0 })
   report.save()
   await browser.close()

@@ -38,7 +38,11 @@ export function DoingLogToast({ date, slot, onClose }: { date: string; slot: num
   }
   const detail = (c: KanbanCard) => [project(c), c.work_type_id ? typeName.get(c.work_type_id) : ''].filter(Boolean).join(' · ')
 
-  /** log the half hour with this card; a card that was not Doing moves there (the Doing one waits) */
+  /**
+   * log the half hour with this card; a card that was not Doing moves there (the Doing one waits).
+   * Only the chosen card counts as moved by hand: the one that waits just follows the log, so it does
+   * not become one of the day's cards (Daily Kanban shows a day's logged or hand-moved cards).
+   */
   async function record(card: KanbanCard) {
     setBusy(true)
     try {
@@ -57,7 +61,7 @@ export function DoingLogToast({ date, slot, onClose }: { date: string; slot: num
         },
       ])
       if (card.status !== 'doing') {
-        for (const c of cards) if (c.status === 'doing') await store.moveKanbanCard(c, 'wait', nextSortOrder(cards, 'wait'), 'manual')
+        for (const c of cards) if (c.status === 'doing') await store.moveKanbanCard(c, 'wait', nextSortOrder(cards, 'wait'), 'log')
         await store.moveKanbanCard(card, 'doing', nextSortOrder(cards, 'doing'), 'manual')
       }
       window.dispatchEvent(new CustomEvent(SLOTS_CHANGED, { detail: { date } }))
