@@ -60,7 +60,7 @@ export function KanbanFlow({
   const empty = rows.every((r) => !r.runs.length)
 
   return (
-    <section className="mt-5 border-t border-black/10 pt-4" aria-label="Kanban Flow" data-testid="kanban-flow">
+    <section className="mb-4 border-b border-black/10 pb-4" aria-label="Kanban Flow" data-testid="kanban-flow">
       <header className="mb-2 flex flex-wrap items-baseline gap-x-3 gap-y-1">
         <h3 className="font-display text-base font-bold">Kanban Flow</h3>
         <span className="text-xs text-muted">사람마다 시간에 따라 Doing이던 업무 (Daily Log 기준) · 같은 업무는 같은 색 · 누르면 그 시간으로 되감기</span>

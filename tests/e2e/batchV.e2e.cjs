@@ -1,6 +1,6 @@
 // 2026-11-27 (15): the Daily Kanban of a day. Only that day's cards show (plus Backlog / ToDo); a slider
 // replays the board half hour by half hour from the Daily Log (moves by hand at the time they were made);
-// Kanban Flow below shows, per person, every card's column in each half hour.
+// Kanban Flow (above the board, under the slider) shows, per person, what was Doing over the day.
 // REPORT=1 writes docs/test-reports/<date>-kanban-flow/ (see report.cjs).
 const { chromium } = require('playwright')
 const { createReport } = require('./report.cjs')
@@ -17,7 +17,7 @@ const report = createReport({
   criteria: [
     '선택한 날짜의 카드만(그날 Daily Log에 기록됐거나 손으로 옮긴 카드) + Backlog·ToDo. 지난 카드는 "지난 카드도 보기"로만.',
     '하루 되감기: 슬라이더를 30분씩 옮기면 그 시점의 보드(Daily Log 기준: 그 칸의 업무가 Doing, 이전 업무는 Wait), 손으로 옮긴 카드는 옮긴 시각에. 그 30분에 옮겨진 카드는 노란 테두리, 되감기 중에는 읽기 전용.',
-    'Kanban Flow: Doing만. 나와 체크한 팀원마다 한 줄, 시간에 따라 Doing이던 업무를 이름 붙은 블록으로(같은 업무는 같은 색). 누르면 그 시간으로 되감기.',
+    'Kanban Flow(되감기 막대 바로 아래, 보드 위): Doing만. 나와 체크한 팀원마다 한 줄, 시간에 따라 Doing이던 업무를 이름 붙은 블록으로(같은 업무는 같은 색). 누르면 그 시간으로 되감기.',
     '지난 날짜는 그날 하루가 끝났을 때의 보드(읽기 전용).',
   ],
 })
@@ -172,7 +172,14 @@ const report = createReport({
     pass: people.join('|') === '나|윤도현' && dhBlocks.join('|') === '도면 검토@18|설계 회의@22|3D 모델링@26' && dhAt1100.join('|') === '설계 회의',
   })
 
-  // scrolled down to Kanban Flow, the team row and the slider stay pinned at the top (frozen panes)
+  // Kanban Flow sits right under the slider, above the board; scrolled down, the bar stays pinned (frozen panes)
+  await page.evaluate(() => window.scrollTo(0, 0))
+  await page.waitForTimeout(200)
+  const order = {
+    bar: await page.getByTestId('kanban-controls').boundingBox(),
+    flow: await page.getByTestId('kanban-flow').boundingBox(),
+    board: await page.getByTestId('kanban-board').boundingBox(),
+  }
   await page.setViewportSize({ width: 1440, height: 480 })
   await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight))
   await page.waitForTimeout(300)
@@ -180,19 +187,30 @@ const report = createReport({
   const pinned = {
     scrollY: await page.evaluate(() => Math.round(window.scrollY)),
     bar: await page.getByTestId('kanban-controls').boundingBox(),
-    flow: await page.getByTestId('kanban-flow').boundingBox(),
+    board: await page.getByTestId('kanban-board').boundingBox(),
     time: await page.getByTestId('replay-time').innerText(),
     nowMark: await page.getByTestId('flow-now').count(),
   }
+  const y = (b) => Math.round(b.y)
   const cPin = report.check({
-    name: '아래로 내려도 팀원 줄·되감기 슬라이더가 위에 고정 (틀고정처럼)',
-    expected: '페이지를 내린 상태에서 막대 위치 0~20px, Kanban Flow가 화면 안에 보이고, 슬라이더로 13:00 → Flow에 13:00 시각 표시(굵은 테두리)',
-    actual: `내린 거리 ${pinned.scrollY}px, 막대 y ${Math.round(pinned.bar.y)}px, Flow y ${Math.round(pinned.flow.y)}~${Math.round(pinned.flow.y + pinned.flow.height)}px, '${pinned.time}', Flow의 시각 표시 ${pinned.nowMark}개`,
-    how: 'window.scrollY > 0 && kanban-controls.y ∈ [0, 20] && Flow 가 480px 화면 안 && replay-time 13:00 && flow-now 표시',
-    pass: pinned.scrollY > 0 && pinned.bar.y >= 0 && pinned.bar.y <= 20 && pinned.flow.y < 480 && pinned.flow.y + pinned.flow.height > 0 && pinned.time.startsWith('13:00') && pinned.nowMark > 0,
+    name: '위에서부터 되감기 막대 → Kanban Flow → 보드, 내려도 막대는 위에 고정',
+    expected: '막대 < Flow < 보드 순서, Flow가 첫 화면(900px) 안에 다 보임 · 480px 화면에서 끝까지 내린 상태로 막대 위치 0~20px, 보드가 화면 안, 슬라이더로 13:00 → Flow에 13:00 시각 표시',
+    actual: `막대 y ${y(order.bar)} · Flow y ${y(order.flow)}~${y(order.flow) + Math.round(order.flow.height)} · 보드 y ${y(order.board)} · 내린 거리 ${pinned.scrollY}px, 막대 y ${y(pinned.bar)}px, 보드 y ${y(pinned.board)}px, '${pinned.time}', Flow의 시각 표시 ${pinned.nowMark}개`,
+    how: 'kanban-controls / kanban-flow / kanban-board 의 y 순서, Flow 아래 끝 ≤ 900 · window.scrollY > 0 && kanban-controls.y ∈ [0, 20] && 보드가 480px 화면 안 && replay-time 13:00 && flow-now 표시',
+    pass:
+      order.bar.y < order.flow.y &&
+      order.flow.y + order.flow.height <= order.board.y &&
+      order.flow.y + order.flow.height <= 900 &&
+      pinned.scrollY > 0 &&
+      pinned.bar.y >= 0 &&
+      pinned.bar.y <= 20 &&
+      pinned.board.y < 480 &&
+      pinned.board.y + pinned.board.height > 0 &&
+      pinned.time.startsWith('13:00') &&
+      pinned.nowMark > 0,
   })
   await page.mouse.move(700, 470)
-  await report.shot(page, { caption: '아래로 내려 Kanban Flow를 보면서 위에 고정된 슬라이더로 되감기', marks: [{ target: page.getByTestId('kanban-controls'), n: cPin, label: '위에 고정' }, { target: page.getByTestId('kanban-flow'), n: cPin, label: '보면서 되감기' }] })
+  await report.shot(page, { caption: '아래로 내려 보드를 보면서도 위에 고정된 막대로 되감기', marks: [{ target: page.getByTestId('kanban-controls'), n: cPin, label: '위에 고정' }, { target: page.getByTestId('kanban-board'), n: cPin, label: '보드' }] })
   await page.setViewportSize({ width: 1440, height: 900 })
 
   // a past day: the board at the end of that day, reading only

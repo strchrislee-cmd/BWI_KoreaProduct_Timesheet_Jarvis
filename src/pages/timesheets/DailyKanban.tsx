@@ -318,6 +318,7 @@ export function DailyKanban() {
             )}
           </div>
           </div>
+          <KanbanFlow people={shownPeople.map((id) => ({ id, name: nameOf(id) || engineer.name }))} replays={replays} slots={range} pos={pos} until={isToday ? currentSlot(new Date()).slot : null} onPick={setPos} />
           {!canEdit && <p className="mb-2 text-xs text-muted">{engineer.name}의 보드 (읽기 전용)</p>}
           <div className="flex gap-3 overflow-x-auto pb-2" data-testid="kanban-board">
             {KANBAN_STATUSES.map((status) => {
@@ -493,7 +494,6 @@ export function DailyKanban() {
               )
             })}
           </div>
-          <KanbanFlow people={shownPeople.map((id) => ({ id, name: nameOf(id) || engineer.name }))} replays={replays} slots={range} pos={pos} until={isToday ? currentSlot(new Date()).slot : null} onPick={setPos} />
         </>
       )}
     </Card>
